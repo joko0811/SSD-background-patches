@@ -1,3 +1,9 @@
+# Project
+.vscode/
+weights/
+coco2014/
+coco2014
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
