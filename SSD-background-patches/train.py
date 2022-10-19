@@ -1,14 +1,14 @@
 import torch
 import numpy as np
 
-from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets.coco import CocoDetection
 
-from pytorchyolo import detect, models
+from pytorchyolo import models
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 
-from util import pil2cv
+from util.img import pil2cv
+from util.detection import nms
 
 
 def test():
@@ -36,10 +36,12 @@ def test():
 
     # Get detections
     with torch.no_grad():
+        # yolo_out=[center_x,center_y,w,h,confidence_score,class_scores...]
         yolo_out = model(input_img)
-        class_num = yolo_out.shape[2]-5
-        class_score = yolo_out[2]
-        print(class_score)
+
+        # yolo_out=[left_x,top_y,right_x,bottom_y,class_scores...]
+        yolo_out = nms(yolo_out)
+        print(yolo_out)
 
 
 if __name__ == "__main__":
