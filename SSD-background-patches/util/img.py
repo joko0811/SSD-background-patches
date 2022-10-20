@@ -2,9 +2,9 @@ import numpy as np
 import cv2
 
 
-def pil2cv(image):
+def pil2cv(pil_image):
     ''' PIL型 -> OpenCV型 '''
-    new_image = np.array(image, dtype=np.uint8)
+    new_image = np.array(pil_image, dtype=np.uint8)
     if new_image.ndim == 2:  # モノクロ
         pass
     elif new_image.shape[2] == 3:  # カラー

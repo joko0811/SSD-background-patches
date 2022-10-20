@@ -86,7 +86,7 @@ def tps(target_class_index, class_scores_list, iou_scores, target_box, predict_b
       target_box:
         攻撃対象ボックスx1y1x2y2
       predict_boxes:
-        全検出x1y1x2y2のリスト
+        全ての検出x1y1x2y2
     """
     tps_score = 0.
 
@@ -109,6 +109,17 @@ def tps(target_class_index, class_scores_list, iou_scores, target_box, predict_b
 
 def fpc(target_class_index, class_scores_list, iou_scores, target_boxes, predict_boxes) -> float:
     """False Positive Class Loss
+    Args:
+      target_class_index:
+        攻撃対象クラスのclass_scores_listに対するインデックス
+      class_scores_list:
+        If there are c class scores and j detections, denoted by a list of j*c
+      iou_scores_list:
+        IOU score between detection and true bounding box, calculated for each j detections
+      target_boxes:
+        全ての攻撃対象ボックスx1y1x2y2
+      predict_boxes:
+        全ての検出x1y1x2y2
     """
     fpc_score = 0.
 
