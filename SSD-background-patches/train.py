@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import cv2
 
 from torchvision import transforms
 from torchvision.datasets.coco import CocoDetection
@@ -7,6 +8,7 @@ from torchvision.datasets.coco import CocoDetection
 from pytorchyolo import models
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 
+import loss
 from util.img import pil2cv
 from util.detection import nms
 
@@ -23,7 +25,7 @@ def perturbation_in_background_patches():
     return
 
 
-def pertrbation_normalization():
+def perturbation_normalization():
     return
 
 
@@ -56,24 +58,56 @@ def detect(img):
         return yolo_out
 
 
-def background_patch_generation():
+def background_patch_generation(orig_img):
+    """algorithm_1 in paper
+
+    """
+
+    epoch = 0  # T in paper
+    t = 0  # t in paper (iterator)
+
+    adv_img = orig_img.detach()  # return
+
+    grand_truth = detect(orig_img)
+    grand_truth = nms(grand_truth)
+
+    psnr_threshold = 0
+
+    while t < epoch:
+        gradient = (loss.tpc()+loss.tps()+loss.fpc())
+        # TODO: calc grad
+
+        if t == 0:
+            background_patch = initial_background_patches()
+        else:
+            yolo_out = detect(orig_img)
+            yolo_out = nms(yolo_out)
+            background_patch = expanded_background_patches(yolo_out)
+
+        perturbated_image = perturbation_in_background_patches(
+            gradient, background_patch)
+        perturbated_image = perturbation_normalization(perturbated_image)
+
+        adv_img = update_i_with_pixel_clipping(adv_img, perturbated_image)
+        if cv2.psnr() < psnr_threshold:
+            break
+
+        t += 1
+
+    return adv_img
+
+
+def main():
     train_path = "./coco2014/images/train2014/"
     train_annfile_path = "./coco2014/annotations/instances_train2014.json"
-
-    epoch = 0  # t in paper
-    patch_num = 3  # n_b in paper
-
     coco_train = CocoDetection(root=train_path,
                                annFile=train_annfile_path)
     img, target = coco_train[0]
     img = pil2cv(img)
 
-    yolo_out = detect(img)
-    yolo_out = nms(yolo_out)
-
-
-def main():
-    background_patch_generation()
+    patch_num = 3  # n_b in paper
+    for _ in range(patch_num):
+        background_patch_generation(img)
 
 
 if __name__ == "__main__":
