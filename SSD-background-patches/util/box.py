@@ -27,7 +27,7 @@ def lrtb2xywh(box):
 
 
 def is_overlap(boxA, boxB) -> bool:
-    # box = lrtb(x1y1x2y2)
+    # box = lrtb (x1y1x2y2)
     ax1, ay1, ax2, ay2 = boxA
     bx1, by1, bx2, by2 = boxB
     if boxA == boxB:
@@ -40,6 +40,11 @@ def is_overlap(boxA, boxB) -> bool:
         return True
     else:
         return False
+
+
+def get_max_edge(box):
+    # box = lrtb (x1y1x2y2)
+    return max([abs(box[0]-box[2]), abs(box[1]-box[3])])
 
 
 def kmeans(boxes, k, dist=np.median):
