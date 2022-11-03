@@ -27,6 +27,9 @@ def lrtb2xywh(box):
 
 
 def is_overlap(boxA, boxB) -> bool:
+    """return True if
+    箱どうしが重なっているか判定する
+    """
     # box = lrtb (x1y1x2y2)
     ax1, ay1, ax2, ay2 = boxA
     bx1, by1, bx2, by2 = boxB
@@ -47,65 +50,32 @@ def get_max_edge(box):
     return max([abs(box[0]-box[2]), abs(box[1]-box[3])])
 
 
-def kmeans(boxes, k, dist=np.median):
-    """Calculates k-means clustering with the Intersection over Union (IoU) metric.
-    Args:
-        boxes:
-            numpy array of shape (r, 2), where r is the number of rows
-        k:
-            number of clusters
-        dist:
-            distance function
-    Returns:
-        numpy array of shape (k, 2)
+def find_nearest_box(box_listA, box_listB):
+    """box_listAの各要素に対して最も近いbox_listBのインデックスを返す
+    箱の中心座標を用いる
     """
-    rows = boxes.shape[0]
+    # box = lrtb (x1y1x2y2)
+    box_listA = box_listA.copy()
+    box_listB = box_listB.copy()
 
-    distances = np.empty((rows, k))
-    last_clusters = np.zeros((rows,))
+    box_listA = [lrtb2xywh(ba) for ba in box_listA]
+    box_listB = [lrtb2xywh(bb) for bb in box_listB]
 
-    np.random.seed()
+    for boxA in box_listA:
+        min_idx = np.argmin([np.linalg.norm(boxA[:2]-bb[:2])
+                            for bb in box_listB])
+        nearest_idx = np.append(nearest_idx, min_idx)
 
-    # the Forgy method will fail if the whole array contains the same rows
-    clusters = boxes[np.random.choice(rows, k, replace=False)]
-
-    while True:
-        for row in range(rows):
-            distances[row] = 1 - iou(boxes[row], clusters)
-
-        nearest_clusters = np.argmin(distances, axis=1)
-
-        if (last_clusters == nearest_clusters).all():
-            break
-
-        for cluster in range(k):
-            clusters[cluster] = dist(
-                boxes[nearest_clusters == cluster], axis=0)
-
-        last_clusters = nearest_clusters
-
-    return clusters
+    return nearest_idx
 
 
-def iou(box, clusters):
-    """Calculates the Intersection over Union (IoU) between a box and k clusters.
-    Args:
-        box:
-            tuple or array, shifted to the origin (i. e. width and height)
-        clusters:
-            numpy array of shape (k, 2) where k is the number of clusters
-    Returns:
-        numpy array of shape (k, 0) where k is the number of clusters
-    """
-    x = np.minimum(clusters[:, 0], box[0])
-    y = np.minimum(clusters[:, 1], box[1])
-    if np.count_nonzero(x == 0) > 0 or np.count_nonzero(y == 0) > 0:
-        raise ValueError("Box has no area")
+def iou(boxA, boxB):
+    # box = lrtb (x1y1x2y2)
+    ax1, ay1, ax2, ay2 = boxA
+    bx1, by1, bx2, by2 = boxB
+    intersect = (min(ax2, bx2)-max(ax1, bx1))*(min(ay2, by2)-max(ay1, by1))
+    a_area = (ax2-ax1)*(ay2-ay1)
+    b_area = (bx2-bx1)*(by2-by1)
 
-    intersection = x * y
-    box_area = box[0] * box[1]
-    cluster_area = clusters[:, 0] * clusters[:, 1]
-
-    iou_ = intersection / (box_area + cluster_area - intersection)
-
-    return iou_
+    iou = intersect/(a_area+b_area-intersect)
+    return iou
