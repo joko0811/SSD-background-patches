@@ -53,6 +53,9 @@ def get_max_edge(box):
 def find_nearest_box(box_listA, box_listB):
     """box_listAの各要素に対して最も近いbox_listBのインデックスを返す
     箱の中心座標を用いる
+    Returns:
+        nearest_idx:
+            box_listAの要素数に等しい
     """
     # box = lrtb (x1y1x2y2)
     box_listA = box_listA.copy()
