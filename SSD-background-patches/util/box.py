@@ -1,29 +1,36 @@
 import numpy as np
 
 
-def xywh2x1y1(box):
+def xywh2xyxy(boxes):
     """xywh to lrtb(x1y1x2y2)
     """
-    center_x, center_y, width, height = box
+    x = boxes[..., 0]
+    y = boxes[..., 1]
+    w = boxes[..., 2]
+    h = boxes[..., 3]
 
-    left = center_x-(width/2)
-    right = center_x+(width/2)
-    top = center_y-(height/2)
-    bottom = center_y+(height/2)
-    return [left, right, top, bottom]
+    x1 = x-(w/2)
+    y1 = y-(h/2)
+    x2 = x+(w/2)
+    y2 = y+(h/2)
+
+    return np.concatenate([x1, y1, x2, y2], 1)
 
 
-def lrtb2xywh(box):
+def xyxy2xywh(boxes):
     """lrtb(x1y1x2y2) to xywh
     """
 
-    left, right, top, bottom = box
+    x1 = boxes[..., 0]
+    y1 = boxes[..., 1]
+    x2 = boxes[..., 2]
+    y2 = boxes[..., 3]
 
-    x = (left+right)/2
-    y = (top+bottom)/2
-    w = abs(right-left)
-    h = abs(bottom-top)
-    return [x, y, w, h]
+    x = (x1+x2)/2
+    y = (y1+y2)/2
+    w = abs(x2-x1)
+    h = abs(y2-y1)
+    return np.concatenate([x, y, w, h], 1)
 
 
 def is_overlap(boxA, boxB) -> bool:
@@ -52,7 +59,9 @@ def get_max_edge(box):
 
 def find_nearest_box(box_listA, box_listB):
     """box_listAの各要素に対して最も近いbox_listBのインデックスを返す
+
     箱の中心座標を用いる
+
     Returns:
         nearest_idx:
             box_listAの要素数に等しい
@@ -61,8 +70,8 @@ def find_nearest_box(box_listA, box_listB):
     box_listA = box_listA.copy()
     box_listB = box_listB.copy()
 
-    box_listA = [lrtb2xywh(ba) for ba in box_listA]
-    box_listB = [lrtb2xywh(bb) for bb in box_listB]
+    box_listA = [xyxy2xywh(ba) for ba in box_listA]
+    box_listB = [xyxy2xywh(bb) for bb in box_listB]
 
     for boxA in box_listA:
         min_idx = np.argmin([np.linalg.norm(boxA[:2]-bb[:2])
