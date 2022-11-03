@@ -117,11 +117,20 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     return output
 
 
-class detections:
-    def __init__(self, img):
-        yolo_out = detect(img)
-        self.detections = nms(yolo_out)
-        self.boxes = self.detections[:, :4]  # x1y1x2y2
-        self.conf = self.detections[:, 4]
-        self.class_label = np.argmax(self.detections, axis=1)
-        self.class_scores = self.detections[:, 4:]
+class detections_base:
+    # yolo_out=[x,y,w,h,confidence_score,class_scores...]
+    # nms_out=[x1,y1,x2,y2,confidence_score,class_scores...]
+    def __init__(self, data):
+        self.data = data
+        self.boxes = self.data[:, :4]
+        self.conf = self.data[:, 4]
+        self.class_label = np.argmax(self.data, axis=1)
+        self.class_scores = self.data[:, 5:]
+        self.total_det = len(self.data)
+
+
+class detections_loss(detections_base):
+    def set_loss_info(self, nearest_gt_idx, z, r):
+        self.nearest_gt_idx = nearest_gt_idx
+        self.z = z
+        self.r = r

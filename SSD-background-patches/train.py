@@ -1,66 +1,16 @@
 import torch
-import numpy as np
 import cv2
 
-from torchvision import transforms
 from torchvision.datasets.coco import CocoDetection
 
-from pytorchyolo import models
-from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
-
-import loss
 from util.img import pil2cv
-from util.detection import nms
-
-
-def initial_background_patches():
-    return
-
-
-def expanded_background_patches():
-    return
-
-
-def perturbation_in_background_patches():
-    return
-
-
-def perturbation_normalization():
-    return
-
-
-def update_i_with_pixel_clipping():
-    return
-
-
-def detect(img):
-
-    # image setup
-    input_img = transforms.Compose([
-        DEFAULT_TRANSFORMS,
-        Resize(416)])(
-            (img, np.zeros((1, 5))))[0].unsqueeze(0)
-    if torch.cuda.is_available():
-        input_img = input_img.to("cuda")
-
-    model = models.load_model(
-        "weights/yolov3.cfg",
-        "weights/yolov3.weights")
-
-    model.eval()  # Set model to evaluation mode
-
-    # Get detections
-    with torch.no_grad():
-        # yolo_out=[center_x,center_y,w,h,confidence_score,class_scores...]
-        yolo_out = model(input_img)
-
-        # yolo_out=[left_x,top_y,right_x,bottom_y,class_scores...]
-        return yolo_out
+from util import box
+from model import yolo
+import proposed_func as pf
 
 
 def background_patch_generation(orig_img):
     """algorithm_1 in paper
-
     """
 
     epoch = 0  # T in paper
@@ -68,31 +18,67 @@ def background_patch_generation(orig_img):
 
     adv_img = orig_img.detach()  # return
 
-    grand_truth = detect(orig_img)
-    grand_truth = nms(grand_truth)
+    ground_truthes = yolo.detect(orig_img)
+    ground_truthes = yolo.nms(ground_truthes)
+    ground_truthes = yolo.ditections_base(ground_truthes)
 
     psnr_threshold = 0
 
+    if torch.cuda.is_available():
+        dtype = torch.float
+        device = torch.device(
+            "cuda:0" if torch.cuda.is_available() else "cpu")
+        gpu_img = torch.tensor(
+            orig_img, device=device, dtype=dtype, requires_grad=True)
+
     while t < epoch:
-        gradient = (loss.tpc()+loss.tps()+loss.fpc())
-        # TODO: calc grad
+        gpu_img.grad.zero_()
+
+        detections = yolo.detection(gpu_img)
+        detections = yolo.detections_loss(detections)
+
+        # 検出と一番近いGround Truth
+        gt_nearest_idx = box.find_nearest_box(
+            detections.boxes, ground_truthes.boxes)
+        # 検出と一番近い背景パッチ
+        bp_nearest_idx = box.find_nearest_box(
+            detections.boxes, background_patch_boxes)
+
+        # 論文の変数zを算出する
+        gt_box_nearest_dt = [ground_truthes.boxes[i] for i in gt_nearest_idx]
+        dt_gt_iou_scores = box.iou(detections.boxes, gt_box_nearest_dt)
+        z = pf.calc_z(
+            detections.class_scores[gt_nearest_idx, ground_truthes.class_label], dt_gt_iou_scores)
+
+        # 論文の変数rを算出する
+        bp_box_nearest_dt = [background_patch_boxes[i] for i in bp_nearest_idx]
+        dt_bp_iou_scores = box.iou(detections.boxes, bp_box_nearest_dt)
+        r = pf.calc_r(dt_bp_iou_scores, detections.boxes, ground_truthes.boxes)
+
+        # 損失計算用の情報を積む
+        detections.set_loss_info(gt_nearest_idx, z, r)
+
+        loss = loss.total_loss(detections, ground_truthes)
+
+        loss.backword()
+
+        grad_img = gpu_img.grad()
 
         if t == 0:
-            background_patch = initial_background_patches()
+            background_patch_boxes = pf.initial_background_patches()
         else:
-            yolo_out = detect(orig_img)
-            yolo_out = nms(yolo_out)
-            background_patch = expanded_background_patches(yolo_out)
+            background_patch_boxes = pf.expanded_background_patches()
 
-        perturbated_image = perturbation_in_background_patches(
-            gradient, background_patch)
-        perturbated_image = perturbation_normalization(perturbated_image)
+        perturbated_image = pf.perturbation_in_background_patches(
+            grad_img, background_patch_boxes)
+        perturbated_image = pf.perturbation_normalization(perturbated_image)
 
-        adv_img = update_i_with_pixel_clipping(adv_img, perturbated_image)
+        adv_img = pf.update_i_with_pixel_clipping(adv_img, perturbated_image)
+
         if cv2.psnr() < psnr_threshold:
             break
 
-        t += 1
+        t += 1  # iterator increment
 
     return adv_img
 
