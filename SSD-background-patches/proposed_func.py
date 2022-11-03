@@ -50,6 +50,11 @@ def calc_r(iou_scores, ditection_boxes, ground_truth_boxes):
 
 
 def initial_background_patches(ground_truthes, gradient_image):
+    initialize_size = 0.2
+    aspect_rate = [1, 0.67, 0.75, 1.5, 1.33]
+    largest_dist_late=0.2
+    # スライディングウインドウを用いた探索
+    # 背景パッチとオブジェクト間の距離はオブジェクトボックスの最大辺の0.2倍
     group_label = object_grouping()
     return
 
