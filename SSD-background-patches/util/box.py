@@ -1,4 +1,4 @@
-import numpy as np
+import torch
 
 
 def xywh2xyxy(boxes):
@@ -14,7 +14,7 @@ def xywh2xyxy(boxes):
     x2 = x+(w/2)
     y2 = y+(h/2)
 
-    return np.concatenate([x1, y1, x2, y2], 1)
+    return torch.cat([x1, y1, x2, y2], dim=1)
 
 
 def xyxy2xywh(boxes):
@@ -30,7 +30,7 @@ def xyxy2xywh(boxes):
     y = (y1+y2)/2
     w = abs(x2-x1)
     h = abs(y2-y1)
-    return np.concatenate([x, y, w, h], 1)
+    return torch.cat([x, y, w, h], dim=1)
 
 
 def is_overlap(boxA, boxB) -> bool:
@@ -60,23 +60,17 @@ def get_max_edge(box):
 def find_nearest_box(box_listA, box_listB):
     """box_listAの各要素に対して最も近いbox_listBのインデックスを返す
 
-    箱の中心座標を用いる
+    box=[xywh]
 
     Returns:
         nearest_idx:
             box_listAの要素数に等しい
     """
-    # box = lrtb (x1y1x2y2)
-    box_listA = box_listA.copy()
-    box_listB = box_listB.copy()
-
-    box_listA = [xyxy2xywh(ba) for ba in box_listA]
-    box_listB = [xyxy2xywh(bb) for bb in box_listB]
 
     for boxA in box_listA:
-        min_idx = np.argmin([np.linalg.norm(boxA[:2]-bb[:2])
-                            for bb in box_listB])
-        nearest_idx = np.append(nearest_idx, min_idx)
+        min_idx = torch.argmin([torch.linalg.norm(boxA[:2]-bb[:2])
+                                for bb in box_listB])
+        nearest_idx = torch.cat([nearest_idx, min_idx])
 
     return nearest_idx
 
