@@ -18,7 +18,6 @@ def image_setup(img):
 
 
 def detect(img):
-    img_input = image_setup(img)
     model = models.load_model(
         "weights/yolov3.cfg",
         "weights/yolov3.weights")
@@ -28,7 +27,7 @@ def detect(img):
     # Get detections
     with torch.no_grad():
         # yolo_out=[center_x,center_y,w,h,confidence_score,class_scores...]
-        yolo_out = model(img_input)
+        yolo_out = model(img)
 
         # yolo_out=[left_x,top_y,right_x,bottom_y,class_scores...]
         return yolo_out
@@ -51,7 +50,7 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
 
     t = time.time()
-    output = [torch.zeros((0, 6), device="cpu")] * prediction.shape[0]
+    output = [torch.zeros((0, 10+nc), device="cpu")] * prediction.shape[0]
 
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
@@ -68,22 +67,20 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
         # Box (center x, center y, width, height) to (left, top, right, bottom)
         box = utils.xywh2xyxy(x[:, :4])
 
-        # Detections matrix nx6 (xyxy, conf, cls)
+        # Detections matrix nx6 (xyxy, cls_conf, cls_idx) (old)
+        # Detections matrix nx6 (xywh,xyxy,cls_score,cls_idx,cls_scores)
         if multi_label:
             i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
             class_extract_x = torch.cat(
-                (box[i], x[i, j + 5, None], j[:, None].float()), 1)
-            # class_extract_x=[[x,y,x2,y2,class_score,class_index],...]
+                (x[i, :4], box[i], x[i, j + 5, None], j[:, None].float(), x[i, 5:]), 1)
         else:  # best class only
             conf, j = x[:, 5:].max(1, keepdim=True)
-            class_extract_x = torch.cat((box, conf, j.float()), 1)[
+            class_extract_x = torch.cat((x[:, :4], box, conf, j.float(), x[:, 5:]), 1)[
                 conf.view(-1) > conf_thres]
 
         # Filter by class
         if classes is not None:
-            x = x[(x[:, 5:6] == torch.tensor(
-                classes, device=class_extract_x.device)).any(1)]
-            class_extract_x = class_extract_x[(class_extract_x[:, 5:6] == torch.tensor(
+            class_extract_x = class_extract_x[(class_extract_x[:, 9:10] == torch.tensor(
                 classes, device=class_extract_x.device)).any(1)]
 
         # Check shape
@@ -92,22 +89,18 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
             continue
         elif n > max_nms:  # excess boxes
             # sort by confidence
-            class_extract_x = class_extract_x[class_extract_x[:, 4].argsort(descending=True)[
+            class_extract_x = class_extract_x[class_extract_x[:, 8].argsort(descending=True)[
                 :max_nms]]
 
         # Batched NMS
-        c = class_extract_x[:, 5:6] * max_wh  # classes
-        # boclass_extract_xes (offset by class), scores
-        boxes, scores = class_extract_x[:, :4] + c, class_extract_x[:, 4]
+        c = class_extract_x[:, 9:10] * max_wh  # classes
+        # boxes (offset by class), scores
+        boxes, scores = class_extract_x[:, 4:8] + c, class_extract_x[:, 8]
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
 
-        x = x[i]
-        class_extract_x = class_extract_x[i]
-
-        output[xi] = torch.cat(
-            (class_extract_x[:, :4], x[:, 5:]), 1).detach().cpu()
+        output[xi] = class_extract_x[i].detach().cpu()
 
         if (time.time() - t) > time_limit:
             print(
@@ -117,19 +110,34 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     return output
 
 
-class detections_base:
+class detections_nms_out:
     # yolo_out=[x,y,w,h,confidence_score,class_scores...]
-    # nms_out=[x1,y1,x2,y2,confidence_score,class_scores...]
+    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
+    # Detections matrix nx6 (xywh,xyxy,cls_score,cls_idx,cls_scores)
     def __init__(self, data):
         self.data = data
-        self.boxes = self.data[:, :4]
-        self.conf = self.data[:, 4]
-        self.class_label = np.argmax(self.data, axis=1)
-        self.class_scores = self.data[:, 5:]
+        self.xywh = self.data[:, :4]
+        self.xyxy = self.data[:, 4:8]
+        self.confidences = self.data[:, 8]
+        self.class_labels = self.data[:, 9]
+        self.class_scores = self.data[:, 10:]
         self.total_det = len(self.data)
 
 
-class detections_loss(detections_base):
+class detections_yolo_out:
+    # yolo_out=[x,y,w,h,confidence_score,class_scores...]
+    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
+    def __init__(self, data):
+        self.data = data
+        self.xywh = self.data[:, :4]
+        self.xyxy = utils.xywh2xyxy(self.xywh)
+        self.conf = self.data[:, 4]
+        self.class_scores = self.data[:, 5:]
+        self.class_label = self.class_scores.argmax(dim=1)
+        self.total_det = len(self.data)
+
+
+class detections_loss(detections_yolo_out):
     def set_loss_info(self, nearest_gt_idx, z, r):
         self.nearest_gt_idx = nearest_gt_idx
         self.z = z
