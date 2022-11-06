@@ -34,7 +34,7 @@ def background_patch_generation(orig_img):
         optimizer.zero_grad()
 
         detections = yolo.detect(gpu_img)
-        detections = yolo.detections_loss(detections)
+        detections = yolo.detections_loss(detections[0])
 
         # 検出と一番近いGround Truth
         gt_nearest_idx = box.find_nearest_box(
