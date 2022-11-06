@@ -40,16 +40,7 @@ def is_overlap(boxA, boxB) -> bool:
     # box = lrtb (x1y1x2y2)
     ax1, ay1, ax2, ay2 = boxA
     bx1, by1, bx2, by2 = boxB
-    if boxA == boxB:
-        return True
-    elif (
-        (ax1 <= bx1 and ax2 > bx1) or (ax1 >= bx1 and bx2 > ax1)
-    ) and (
-        (ay1 <= by1 and ay2 > by1) or (ay1 >= by1 and by2 > ay1)
-    ):
-        return True
-    else:
-        return False
+    return (max(ax1, bx1) <= min(ax2, bx2)) and (max(ay1, by1) <= min(ay2, by2))
 
 
 def get_max_edge(box):
@@ -67,19 +58,28 @@ def find_nearest_box(box_listA, box_listB):
             box_listAの要素数に等しい
     """
 
-    for boxA in box_listA:
-        min_idx = torch.argmin([torch.linalg.norm(boxA[:2]-bb[:2])
-                                for bb in box_listB])
-        nearest_idx = torch.cat([nearest_idx, min_idx])
+    nearest_idx = torch.zeros((box_listA.shape[0]), device=box_listA.device)
+    for i, boxA in enumerate(box_listA):
+        norm = torch.linalg.norm(box_listB[:, :2]-boxA[:2], dim=1)
+        min_idx = torch.argmin(norm)
+        nearest_idx[i] = min_idx
 
-    return nearest_idx
+    return nearest_idx.to(torch.int64)
 
 
 def iou(boxA, boxB):
     # box = lrtb (x1y1x2y2)
-    ax1, ay1, ax2, ay2 = boxA
-    bx1, by1, bx2, by2 = boxB
-    intersect = (min(ax2, bx2)-max(ax1, bx1))*(min(ay2, by2)-max(ay1, by1))
+    ax1 = boxA[:, 0]
+    ay1 = boxA[:, 1]
+    ax2 = boxA[:, 2]
+    ay2 = boxA[:, 3]
+    bx1 = boxB[:, 0]
+    by1 = boxB[:, 1]
+    bx2 = boxB[:, 2]
+    by2 = boxB[:, 3]
+
+    intersect = (torch.min(ax2, bx2)-torch.max(ax1, bx1)) * \
+        (torch.min(ay2, by2)-torch.max(ay1, by1))
     a_area = (ax2-ax1)*(ay2-ay1)
     b_area = (bx2-bx1)*(by2-by1)
 
