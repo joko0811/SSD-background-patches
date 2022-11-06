@@ -50,7 +50,11 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
 
     t = time.time()
-    output = [torch.zeros((0, 10+nc), device="cpu")] * prediction.shape[0]
+
+    if torch.cuda.is_available():
+        output = [torch.zeros((0, 10+nc), device="cuda")] * prediction.shape[0]
+    else:
+        output = [torch.zeros((0, 10+nc), device="cpu")] * prediction.shape[0]
 
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
@@ -100,7 +104,7 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
 
-        output[xi] = class_extract_x[i].detach().cpu()
+        output[xi] = class_extract_x[i]
 
         if (time.time() - t) > time_limit:
             print(
@@ -119,7 +123,7 @@ class detections_nms_out:
         self.xywh = self.data[:, :4]
         self.xyxy = self.data[:, 4:8]
         self.confidences = self.data[:, 8]
-        self.class_labels = self.data[:, 9]
+        self.class_labels = self.data[:, 9].to(torch.int64)
         self.class_scores = self.data[:, 10:]
         self.total_det = len(self.data)
 
@@ -133,7 +137,7 @@ class detections_yolo_out:
         self.xyxy = utils.xywh2xyxy(self.xywh)
         self.conf = self.data[:, 4]
         self.class_scores = self.data[:, 5:]
-        self.class_label = self.class_scores.argmax(dim=1)
+        self.class_label = self.class_scores.argmax(dim=1).to(torch.int64)
         self.total_det = len(self.data)
 
 
