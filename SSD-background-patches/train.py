@@ -1,6 +1,7 @@
-import torch
 import cv2
 
+import torch
+import torch.optim as optim
 from torchvision.datasets.coco import CocoDetection
 
 from util.img import pil2cv
@@ -18,42 +19,40 @@ def background_patch_generation(orig_img):
 
     adv_img = orig_img.detach()  # return
 
-    ground_truthes = yolo.detect(orig_img)
-    ground_truthes = yolo.nms(ground_truthes)
-    ground_truthes = yolo.ditections_base(ground_truthes)
-
     psnr_threshold = 0
 
     if torch.cuda.is_available():
-        dtype = torch.float
-        device = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu")
-        gpu_img = torch.tensor(
-            orig_img, device=device, dtype=dtype, requires_grad=True)
+        gpu_img = gpu_img.to(
+            device='cuda:0', dtype=torch.float, requires_grad=True)
+    optimizer = optim.Adam([gpu_img])
+
+    ground_truthes = yolo.detect(gpu_img)
+    ground_truthes = yolo.nms(ground_truthes)
+    ground_truthes = yolo.detections_nms_out(ground_truthes[0])
 
     while t < epoch:
-        gpu_img.grad.zero_()
+        optimizer.zero_grad()
 
-        detections = yolo.detection(gpu_img)
+        detections = yolo.detect(gpu_img)
         detections = yolo.detections_loss(detections)
 
         # 検出と一番近いGround Truth
         gt_nearest_idx = box.find_nearest_box(
-            detections.boxes, ground_truthes.boxes)
+            detections.xywh, ground_truthes.xywh)
         # 検出と一番近い背景パッチ
         bp_nearest_idx = box.find_nearest_box(
-            detections.boxes, background_patch_boxes)
+            detections.xywh, background_patch_boxes)
 
         # 論文の変数zを算出する
-        gt_box_nearest_dt = [ground_truthes.boxes[i] for i in gt_nearest_idx]
-        dt_gt_iou_scores = box.iou(detections.boxes, gt_box_nearest_dt)
+        gt_box_nearest_dt = [ground_truthes.xyxy[i] for i in gt_nearest_idx]
+        dt_gt_iou_scores = box.iou(detections.xyxy, gt_box_nearest_dt)
         z = pf.calc_z(
-            detections.class_scores[gt_nearest_idx, ground_truthes.class_label], dt_gt_iou_scores)
+            detections.class_scores[gt_nearest_idx, ground_truthes.class_labels], dt_gt_iou_scores)
 
         # 論文の変数rを算出する
         bp_box_nearest_dt = [background_patch_boxes[i] for i in bp_nearest_idx]
-        dt_bp_iou_scores = box.iou(detections.boxes, bp_box_nearest_dt)
-        r = pf.calc_r(dt_bp_iou_scores, detections.boxes, ground_truthes.boxes)
+        dt_bp_iou_scores = box.iou(detections.xyxy, bp_box_nearest_dt)
+        r = pf.calc_r(dt_bp_iou_scores, detections.xyxy, ground_truthes.xyxy)
 
         # 損失計算用の情報を積む
         detections.set_loss_info(gt_nearest_idx, z, r)
@@ -91,9 +90,7 @@ def main():
     img, target = coco_train[0]
     img = pil2cv(img)
 
-    patch_num = 3  # n_b in paper
-    for _ in range(patch_num):
-        background_patch_generation(img)
+    background_patch_generation(img)
 
 
 if __name__ == "__main__":
