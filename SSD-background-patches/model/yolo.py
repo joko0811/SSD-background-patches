@@ -33,6 +33,15 @@ def detect(img):
         return yolo_out
 
 
+def detect_with_grad(img):
+    model = models.load_model(
+        "weights/yolov3.cfg",
+        "weights/yolov3.weights")
+    model.eval()  # Set model to evaluation mode
+    yolo_out = model(img)
+    return yolo_out
+
+
 def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     """Performs Non-Maximum Suppression (NMS) on inference results
     Returns:
