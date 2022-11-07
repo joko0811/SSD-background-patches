@@ -79,7 +79,7 @@ def test_loss(orig_img):
         detections = yolo.detect_with_grad(gpu_img)
         detections = yolo.detections_loss(detections[0])
 
-        # 検出と一番近いground truth
+        # 検出と一番近いground truthのインデックス
         gt_nearest_idx = util.box.find_nearest_box(
             detections.xywh, ground_truthes.xywh)
         gt_box_nearest_dt = ground_truthes.xyxy[gt_nearest_idx]
