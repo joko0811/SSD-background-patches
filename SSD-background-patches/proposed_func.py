@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from util.clustering import object_grouping
-from util.box import is_overlap
+from util import box
 
 
 def calc_z(class_scores, iou_scores):
@@ -23,7 +23,7 @@ def calc_z(class_scores, iou_scores):
     return z.long()
 
 
-def calc_r(iou_scores, ditection_boxes, ground_truth_boxes):
+def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     """calc r param
     rの要素数はクラス数と等しい
     Args:
@@ -38,12 +38,9 @@ def calc_r(iou_scores, ditection_boxes, ground_truth_boxes):
 
     iou_flag = iou_scores > iou_score_threshold
 
-    for (iou_score, detection_box) in zip(iou_scores, ditection_boxes):
-        for ground_truth_box in ground_truth_boxes:
-            # 一つでも重なったらr=0
-            if is_overlap(detection_box, ground_truth_box):
-                r = np.append(r, 0)
-                continue
+    overlap_flag = torch.tensor([box.is_overlap_list(dt, ground_truth_boxes).all()
+                              for dt in detection_boxes],device=detection_boxes.device)
+    r = torch.logical_and(iou_flag, overlap_flag)
     return r
 
 
