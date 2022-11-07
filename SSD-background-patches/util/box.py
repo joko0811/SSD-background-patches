@@ -43,6 +43,20 @@ def is_overlap(boxA, boxB) -> bool:
     return (max(ax1, bx1) <= min(ax2, bx2)) and (max(ay1, by1) <= min(ay2, by2))
 
 
+def is_overlap_list(boxA, box_listB):
+    """return True if
+    箱どうしが重なっているか判定する
+    """
+    # box = lrtb (x1y1x2y2)
+    ax1, ay1, ax2, ay2 = boxA
+    bx1 = box_listB[:, 0]
+    by1 = box_listB[:, 1]
+    bx2 = box_listB[:, 2]
+    by2 = box_listB[:, 3]
+
+    return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2)))
+
+
 def get_max_edge(box):
     # box = lrtb (x1y1x2y2)
     return max([abs(box[0]-box[2]), abs(box[1]-box[3])])
