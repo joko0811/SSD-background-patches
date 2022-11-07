@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from util.clustering import object_grouping
-from util import box
+import box
 
 
 def calc_z(class_scores, iou_scores):
@@ -35,11 +35,9 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
         ground truthのボックス全て
     """
     iou_score_threshold = 0.1
-
     iou_flag = iou_scores > iou_score_threshold
-
-    overlap_flag = torch.tensor([box.is_overlap_list(dt, ground_truth_boxes).all()
-                              for dt in detection_boxes],device=detection_boxes.device)
+    overlap_flag = torch.tensor([box.condition.is_overlap_list(dt, ground_truth_boxes).all()
+                                 for dt in detection_boxes], device=detection_boxes.device)
     r = torch.logical_and(iou_flag, overlap_flag)
     return r
 

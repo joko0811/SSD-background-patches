@@ -1,6 +1,30 @@
 import torch
 
 
+def is_overlap(boxA, boxB) -> bool:
+    """return True if
+    箱どうしが重なっているか判定する
+    """
+    # box = lrtb (x1y1x2y2)
+    ax1, ay1, ax2, ay2 = boxA
+    bx1, by1, bx2, by2 = boxB
+    return (max(ax1, bx1) <= min(ax2, bx2)) and (max(ay1, by1) <= min(ay2, by2))
+
+
+def is_overlap_list(boxA, box_listB):
+    """return True if
+    箱どうしが重なっているか判定する
+    """
+    # box = lrtb (x1y1x2y2)
+    ax1, ay1, ax2, ay2 = boxA
+    bx1 = box_listB[:, 0]
+    by1 = box_listB[:, 1]
+    bx2 = box_listB[:, 2]
+    by2 = box_listB[:, 3]
+
+    return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2)))
+
+
 def xywh2xyxy(boxes):
     """xywh to lrtb(x1y1x2y2)
     """
@@ -31,54 +55,6 @@ def xyxy2xywh(boxes):
     w = abs(x2-x1)
     h = abs(y2-y1)
     return torch.cat([x, y, w, h], dim=1)
-
-
-def is_overlap(boxA, boxB) -> bool:
-    """return True if
-    箱どうしが重なっているか判定する
-    """
-    # box = lrtb (x1y1x2y2)
-    ax1, ay1, ax2, ay2 = boxA
-    bx1, by1, bx2, by2 = boxB
-    return (max(ax1, bx1) <= min(ax2, bx2)) and (max(ay1, by1) <= min(ay2, by2))
-
-
-def is_overlap_list(boxA, box_listB):
-    """return True if
-    箱どうしが重なっているか判定する
-    """
-    # box = lrtb (x1y1x2y2)
-    ax1, ay1, ax2, ay2 = boxA
-    bx1 = box_listB[:, 0]
-    by1 = box_listB[:, 1]
-    bx2 = box_listB[:, 2]
-    by2 = box_listB[:, 3]
-
-    return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2)))
-
-
-def get_max_edge(box):
-    # box = lrtb (x1y1x2y2)
-    return max([abs(box[0]-box[2]), abs(box[1]-box[3])])
-
-
-def find_nearest_box(box_listA, box_listB):
-    """box_listAの各要素に対して最も近いbox_listBのインデックスを返す
-
-    box=[xywh]
-
-    Returns:
-        nearest_idx:
-            box_listAの要素数に等しい
-    """
-
-    nearest_idx = torch.zeros((box_listA.shape[0]), device=box_listA.device)
-    for i, boxA in enumerate(box_listA):
-        norm = torch.linalg.norm(box_listB[:, :2]-boxA[:2], dim=1)
-        min_idx = torch.argmin(norm)
-        nearest_idx[i] = min_idx
-
-    return nearest_idx.to(torch.int64)
 
 
 def iou(boxA, boxB):

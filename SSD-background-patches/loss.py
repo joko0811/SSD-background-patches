@@ -1,10 +1,6 @@
 import torch
-import math
-import numpy as np
 
 from model.yolo import detections_nms_out, detections_loss
-
-import util
 
 
 def tpc(detections: detections_loss, ground_truthes: detections_nms_out):

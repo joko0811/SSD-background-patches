@@ -9,6 +9,7 @@ from torchvision import transforms
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 
 import util
+from box import condition, seek
 from model import yolo
 from dataset import coco
 from loss import total_loss
@@ -81,11 +82,12 @@ def test_loss(orig_img):
         detections = yolo.detections_loss(detections[0])
 
         # 検出と一番近いground truthのインデックス
-        gt_nearest_idx = util.box.find_nearest_box(
+        gt_nearest_idx = seek.find_nearest_box(
             detections.xywh, ground_truthes.xywh)
         gt_box_nearest_dt = ground_truthes.xyxy[gt_nearest_idx]
         # detectionと、各detectionに一番近いground truthのiouスコアを算出
-        dt_gt_iou_scores = util.box.iou(detections.xyxy, gt_box_nearest_dt)
+        dt_gt_iou_scores = condition.iou(
+            detections.xyxy, gt_box_nearest_dt)
         # dtのスコアから、gt_nearest_idxで指定されるground truthの属するクラスのみを抽出
         dt_scores_for_nearest_gt_label = detections.class_scores.gather(
             1, ground_truthes.class_labels[gt_nearest_idx, None]).squeeze()
@@ -93,11 +95,12 @@ def test_loss(orig_img):
         z = pf.calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
 
         # 検出と一番近い背景パッチ
-        bp_nearest_idx = util.box.find_nearest_box(
+        bp_nearest_idx = seek.find_nearest_box(
             detections.xywh, background_patch_box)
         # detectionと、各detectionに一番近いground truthのiouスコアを算出
         bp_box_nearest_dt = background_patch_box[bp_nearest_idx]
-        dt_bp_iou_scores = util.box.iou(detections.xyxy, bp_box_nearest_dt)
+        dt_bp_iou_scores = condition.iou(
+            detections.xyxy, bp_box_nearest_dt)
         # 論文で提案された変数rを計算
         r = pf.calc_r(dt_bp_iou_scores, detections.xyxy, ground_truthes.xyxy)
 
