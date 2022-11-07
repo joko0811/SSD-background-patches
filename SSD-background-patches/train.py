@@ -14,44 +14,50 @@ def background_patch_generation(orig_img):
     """algorithm_1 in paper
     """
 
-    epoch = 0  # T in paper
+    epoch = 1  # T in paper
     t = 0  # t in paper (iterator)
-
-    adv_img = orig_img.detach()  # return
-
     psnr_threshold = 0
 
     if torch.cuda.is_available():
-        gpu_img = gpu_img.to(
-            device='cuda:0', dtype=torch.float, requires_grad=True)
+        gpu_img = orig_img.to(
+            device='cuda:0', dtype=torch.float)
+
+    with torch.no_grad():
+        # 素の画像を物体検出器にかけた時の出力をground truthとする
+        ground_truthes = yolo.detect(gpu_img)
+        ground_truthes = yolo.nms(ground_truthes)
+        ground_truthes = yolo.detections_nms_out(ground_truthes[0])
+
+    n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
+    background_patch_box = torch.zeros(
+        [ground_truthes.total_det*n_b, 4], device=gpu_img.device)
+
     optimizer = optim.Adam([gpu_img])
 
-    ground_truthes = yolo.detect(gpu_img)
-    ground_truthes = yolo.nms(ground_truthes)
-    ground_truthes = yolo.detections_nms_out(ground_truthes[0])
-
     while t < epoch:
-        optimizer.zero_grad()
-
-        detections = yolo.detect(gpu_img)
+        # t回目のパッチ適用画像から物体検出する
+        detections = yolo.detect_with_grad(gpu_img)
         detections = yolo.detections_loss(detections[0])
 
-        # 検出と一番近いGround Truth
+        # 検出と一番近いground truth
         gt_nearest_idx = box.find_nearest_box(
             detections.xywh, ground_truthes.xywh)
+        gt_box_nearest_dt = ground_truthes.xyxy[gt_nearest_idx]
+        # detectionと、各detectionに一番近いground truthのiouスコアを算出
+        dt_gt_iou_scores = box.iou(detections.xyxy, gt_box_nearest_dt)
+        # dtのスコアから、gt_nearest_idxで指定されるground truthの属するクラスのみを抽出
+        dt_scores_for_nearest_gt_label = detections.class_scores.gather(
+            1, ground_truthes.class_labels[gt_nearest_idx, None]).squeeze()
+        # 論文で提案された変数zを計算
+        z = pf.calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
+
         # 検出と一番近い背景パッチ
         bp_nearest_idx = box.find_nearest_box(
-            detections.xywh, background_patch_boxes)
-
-        # 論文の変数zを算出する
-        gt_box_nearest_dt = [ground_truthes.xyxy[i] for i in gt_nearest_idx]
-        dt_gt_iou_scores = box.iou(detections.xyxy, gt_box_nearest_dt)
-        z = pf.calc_z(
-            detections.class_scores[gt_nearest_idx, ground_truthes.class_labels], dt_gt_iou_scores)
-
-        # 論文の変数rを算出する
-        bp_box_nearest_dt = [background_patch_boxes[i] for i in bp_nearest_idx]
+            detections.xywh, background_patch_box)
+        # detectionと、各detectionに一番近いground truthのiouスコアを算出
+        bp_box_nearest_dt = background_patch_box[bp_nearest_idx]
         dt_bp_iou_scores = box.iou(detections.xyxy, bp_box_nearest_dt)
+        # 論文で提案された変数rを計算
         r = pf.calc_r(dt_bp_iou_scores, detections.xyxy, ground_truthes.xyxy)
 
         # 損失計算用の情報を積む
@@ -59,6 +65,7 @@ def background_patch_generation(orig_img):
 
         loss = loss.total_loss(detections, ground_truthes)
 
+        optimizer.zero_grad()
         loss.backword()
 
         grad_img = gpu_img.grad()
