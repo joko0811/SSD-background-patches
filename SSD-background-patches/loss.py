@@ -7,10 +7,11 @@ from model.yolo import detections_nms_out, detections_loss
 import util
 
 
-def tpc(detections: detections_loss, ground_truthes: detections_nms_out) -> float:
+def tpc(detections: detections_loss, ground_truthes: detections_nms_out):
     """True Positive Class Loss
     """
-    tpc_score = 0.
+    tpc_score = torch.tensor([0], dtype=torch.float,
+                             device=detections.data.device)
 
     gt_labels_for_nearest_dt = ground_truthes.class_labels[detections.nearest_gt_idx]
     calculated_class_score = detections.class_scores.detach()
@@ -19,17 +20,18 @@ def tpc(detections: detections_loss, ground_truthes: detections_nms_out) -> floa
         ignore_idx = gt_labels_for_nearest_dt[i]
         calculated_class_score[i, ignore_idx] = 0
 
-        tpc_score += (detections.z[i] *
-                      torch.log(torch.max(calculated_class_score[i]))).item()
+        tpc_score[0] += (detections.z[i] *
+                         torch.log(torch.max(calculated_class_score[i])))
 
     tpc_score *= -1
     return tpc_score
 
 
-def tps(detections: detections_loss, ground_truthes: detections_nms_out) -> float:
+def tps(detections: detections_loss, ground_truthes: detections_nms_out):
     """True Positive Shape Loss
     """
-    tps_score = 0.
+    tps_score = torch.tensor([0], dtype=torch.float,
+                             device=detections.data.device)
 
     # (x-x)^2+(y-y)^2+(w-w)^2+(h-h)
     dist = (
@@ -37,13 +39,14 @@ def tps(detections: detections_loss, ground_truthes: detections_nms_out) -> floa
 
     tps_score = torch.exp(-1*torch.sum(detections.z*torch.sum(dist, dim=1)))
 
-    return tps_score.item()
+    return tps_score
 
 
-def fpc(detections: detections_loss, ground_truthes: detections_nms_out) -> float:
+def fpc(detections: detections_loss, ground_truthes: detections_nms_out):
     """False Positive Class Loss
     """
-    fpc_score = 0.
+    fpc_score = torch.tensor([0], dtype=torch.float,
+                             device=detections.data.device)
 
     gt_labels_for_nearest_dt = ground_truthes.class_labels[detections.nearest_gt_idx]
     calculated_class_score = detections.class_scores.detach()
@@ -53,7 +56,7 @@ def fpc(detections: detections_loss, ground_truthes: detections_nms_out) -> floa
         calculated_class_score[i, ignore_idx] = 0
 
         fpc_score += (detections.r[i] *
-                      torch.log(torch.max(calculated_class_score[i]))).item()
+                      torch.log(torch.max(calculated_class_score[i])))
     fpc_score *= -1
     return fpc_score
 

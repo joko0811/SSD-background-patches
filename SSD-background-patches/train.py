@@ -66,7 +66,7 @@ def background_patch_generation(orig_img):
         loss = loss.total_loss(detections, ground_truthes)
 
         optimizer.zero_grad()
-        loss.backword()
+        loss.backward()
 
         grad_img = gpu_img.grad()
 

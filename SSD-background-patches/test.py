@@ -75,6 +75,7 @@ def test_loss(orig_img):
     optimizer = optim.Adam([gpu_img])
 
     while t < epoch:
+        gpu_img.requires_grad = True
         # t回目のパッチ適用画像から物体検出する
         detections = yolo.detect_with_grad(gpu_img)
         detections = yolo.detections_loss(detections[0])
@@ -104,6 +105,11 @@ def test_loss(orig_img):
         detections.set_loss_info(gt_nearest_idx, z, r)
 
         loss = total_loss(detections, ground_truthes)
+
+        optimizer.zero_grad()
+        loss.backward()
+
+        grad_img = gpu_img.grad.data
 
         t = t+1
     print("success!")
