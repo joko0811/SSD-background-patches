@@ -2,57 +2,63 @@ import torch
 import math
 import numpy as np
 
+from model.yolo import detections_nms_out, detections_loss
+
 import util
 
 
-def tpc(ditections, ground_truthes) -> float:
+def tpc(detections: detections_loss, ground_truthes: detections_nms_out) -> float:
     """True Positive Class Loss
     """
-    # 検出から本来の正解ラベルのクラススコアを抽出する
-    nearest_gt_label = [ground_truthes.class_label[i]
-                        for i in ditections.near_gt_idx]
-    calculated_class_score = ditections.class_score.copy()
-    calculated_class_score[:, nearest_gt_label] = 0
+    tpc_score = 0.
 
-    tpc_score = -1*np.sum(
-        [ditections.z[i]*np.max(calculated_class_score[i]) for i in range(ditections.total_det)])
+    gt_labels_for_nearest_dt = ground_truthes.class_labels[detections.nearest_gt_idx]
+    calculated_class_score = detections.class_scores.detach()
 
+    for i in range(calculated_class_score.shape[0]):
+        ignore_idx = gt_labels_for_nearest_dt[i]
+        calculated_class_score[i, ignore_idx] = 0
+
+        tpc_score += (detections.z[i] *
+                      torch.log(torch.max(calculated_class_score[i]))).item()
+
+    tpc_score *= -1
     return tpc_score
 
 
-def tps(detections, ground_truthes) -> float:
+def tps(detections: detections_loss, ground_truthes: detections_nms_out) -> float:
     """True Positive Shape Loss
     """
     tps_score = 0.
 
-    d_boxes_xywh = util.box.xyxy2xywh(detections.boxes)
-    g_boxes_xywh = util.box.xyxy2xywh(
-        [ground_truthes.boxes[i] for i in detections.nearest_gt_idx])
+    # (x-x)^2+(y-y)^2+(w-w)^2+(h-h)
+    dist = (
+        (detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx])**2)
 
-    dist = ((d_boxes_xywh-g_boxes_xywh)**2)  # (x-x)^2+(y-y)^2+(w-w)^2+(h-h)
-    tps_score = np.exp(-1*np.sum([detections.z*np.sum(d) for d in dist]))
+    tps_score = torch.exp(-1*torch.sum(detections.z*torch.sum(dist, dim=1)))
 
-    return tps_score
+    return tps_score.item()
 
 
-def fpc(ditections, ground_truthes) -> float:
+def fpc(detections: detections_loss, ground_truthes: detections_nms_out) -> float:
     """False Positive Class Loss
     """
+    fpc_score = 0.
 
-    # 対応するGround Truthで検出したクラスをインデックスとし、Detectionsのスコアを抽出する
-    # 検出から本来の正解ラベルのクラススコアを抽出する
-    nearest_gt_label = [ground_truthes.class_label[i]
-                        for i in ditections.near_gt_idx]
-    calculated_class_score = ditections.class_score.copy()
-    calculated_class_score[:, nearest_gt_label] = 0
+    gt_labels_for_nearest_dt = ground_truthes.class_labels[detections.nearest_gt_idx]
+    calculated_class_score = detections.class_scores.detach()
 
-    fpc_score = -1*np.sum(
-        [ditections.r[i]*np.max(calculated_class_score[i]) for i in range(ditections.total_det)])
+    for i in range(calculated_class_score.shape[0]):
+        ignore_idx = gt_labels_for_nearest_dt[i]
+        calculated_class_score[i, ignore_idx] = 0
 
+        fpc_score += (detections.r[i] *
+                      torch.log(torch.max(calculated_class_score[i]))).item()
+    fpc_score *= -1
     return fpc_score
 
 
-def total_loss(detections, ground_truthes):
+def total_loss(detections: detections_loss, ground_truthes: detections_nms_out):
     """Returns the total loss
     Args:
       detections:

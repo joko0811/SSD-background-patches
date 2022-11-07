@@ -123,7 +123,20 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     return output
 
 
-class detections_nms_out:
+class detections_base:
+    # yolo_out=[x,y,w,h,confidence_score,class_scores...]
+    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
+    def __init__(self, data):
+        self.data = data
+        self.xywh = self.data[:, :4]
+        self.xyxy = utils.xywh2xyxy(self.xywh)
+        self.conf = self.data[:, 4]
+        self.class_scores = self.data[:, 5:]
+        self.class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
+        self.total_det = len(self.data)
+
+
+class detections_nms_out(detections_base):
     # yolo_out=[x,y,w,h,confidence_score,class_scores...]
     # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
     # Detections matrix nx6 (xywh,xyxy,cls_score,cls_idx,cls_scores)
@@ -137,20 +150,7 @@ class detections_nms_out:
         self.total_det = len(self.data)
 
 
-class detections_yolo_out:
-    # yolo_out=[x,y,w,h,confidence_score,class_scores...]
-    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
-    def __init__(self, data):
-        self.data = data
-        self.xywh = self.data[:, :4]
-        self.xyxy = utils.xywh2xyxy(self.xywh)
-        self.conf = self.data[:, 4]
-        self.class_scores = self.data[:, 5:]
-        self.class_label = self.class_scores.argmax(dim=1).to(torch.int64)
-        self.total_det = len(self.data)
-
-
-class detections_loss(detections_yolo_out):
+class detections_loss(detections_base):
     def set_loss_info(self, nearest_gt_idx, z, r):
         self.nearest_gt_idx = nearest_gt_idx
         self.z = z
