@@ -1,9 +1,9 @@
 import torch
 
-from model.yolo import detections_nms_out, detections_loss
+from model.yolo_util import detections_ground_truth, detections_loss
 
 
-def tpc(detections: detections_loss, ground_truthes: detections_nms_out):
+def tpc(detections: detections_loss, ground_truthes: detections_ground_truth):
     """True Positive Class Loss
     """
     tpc_score = torch.tensor([0], dtype=torch.float,
@@ -23,7 +23,7 @@ def tpc(detections: detections_loss, ground_truthes: detections_nms_out):
     return tpc_score
 
 
-def tps(detections: detections_loss, ground_truthes: detections_nms_out):
+def tps(detections: detections_loss, ground_truthes: detections_ground_truth):
     """True Positive Shape Loss
     """
     tps_score = torch.tensor([0], dtype=torch.float,
@@ -38,7 +38,7 @@ def tps(detections: detections_loss, ground_truthes: detections_nms_out):
     return tps_score
 
 
-def fpc(detections: detections_loss, ground_truthes: detections_nms_out):
+def fpc(detections: detections_loss, ground_truthes: detections_ground_truth):
     """False Positive Class Loss
     """
     fpc_score = torch.tensor([0], dtype=torch.float,
@@ -57,7 +57,7 @@ def fpc(detections: detections_loss, ground_truthes: detections_nms_out):
     return fpc_score
 
 
-def total_loss(detections: detections_loss, ground_truthes: detections_nms_out):
+def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth):
     """Returns the total loss
     Args:
       detections:

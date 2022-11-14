@@ -6,7 +6,7 @@ from torchvision.datasets.coco import CocoDetection
 
 from util.img import pil2cv
 import box.condition
-from model import yolo
+from model import yolo, yolo_util
 import proposed_func as pf
 
 
@@ -24,9 +24,9 @@ def background_patch_generation(orig_img):
 
     with torch.no_grad():
         # 素の画像を物体検出器にかけた時の出力をground truthとする
-        ground_truthes = yolo.detect(gpu_img)
-        ground_truthes = yolo.nms(ground_truthes)
-        ground_truthes = yolo.detections_nms_out(ground_truthes[0])
+        ground_truthes = yolo_util.detect(gpu_img)
+        ground_truthes = yolo_util.nms(ground_truthes)
+        ground_truthes = yolo_util.detections_ground_truth(ground_truthes[0])
 
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
     background_patch_box = torch.zeros(
@@ -34,10 +34,15 @@ def background_patch_generation(orig_img):
 
     optimizer = optim.Adam([gpu_img])
 
+    model = yolo.load_model(
+        "weights/yolov3.cfg",
+        "weights/yolov3.weights")
+    model.eval()
+
     while t < epoch:
         # t回目のパッチ適用画像から物体検出する
-        detections = yolo.detect_with_grad(gpu_img)
-        detections = yolo.detections_loss(detections[0])
+        detections = model(gpu_img)
+        detections = yolo_util.detections_loss(detections[0])
 
         # 検出と一番近いground truth
         gt_nearest_idx = box.condition.find_nearest_box(
@@ -70,7 +75,7 @@ def background_patch_generation(orig_img):
         optimizer.zero_grad()
         loss.backward()
 
-        grad_img = gpu_img.grad()
+        grad_img = gpu_img.grad
 
         if t == 0:
             background_patch_boxes = pf.initial_background_patches()

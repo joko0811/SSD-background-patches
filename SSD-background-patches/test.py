@@ -8,9 +8,9 @@ from torchvision import transforms
 
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 
-import util
+from util import img
 from box import condition, seek
-from model import yolo
+from model import yolo, yolo_util
 from dataset import coco
 from loss import total_loss
 import proposed_func as pf
@@ -38,19 +38,29 @@ def get_image_from_file():
     return input_img
 
 
-def save_image(orig_img, detections):
+def show_image(orig_img, detections):
     pil_img = transforms.functional.to_pil_image(orig_img[0])
     datasets_class_names_path = "./coco2014/coco.names"
     class_names = coco.load_class_names(datasets_class_names_path)
 
-    ann_img = util.img.draw_boxes(pil_img, detections.xyxy,
-                                  detections.class_labels, detections.confidences, class_names)
+    ann_img = img.draw_boxes(pil_img, detections.xyxy,
+                             detections.class_labels, detections.confidences, class_names)
     ann_img.show()
 
 
 def run():
     img = get_image_from_file()
     test_loss(img)
+
+
+def test_model_grad(orig_img):
+    if torch.cuda.is_available():
+        gpu_img = orig_img.to(
+            device='cuda:0', dtype=torch.float)
+    ground_truthes = yolo_util.detect(gpu_img)
+    detections = yolo_util.detect_with_grad(gpu_img)
+
+    print("hoge")
 
 
 def test_loss(orig_img):
@@ -62,12 +72,13 @@ def test_loss(orig_img):
     if torch.cuda.is_available():
         gpu_img = orig_img.to(
             device='cuda:0', dtype=torch.float)
+        gpu_img.requires_grad = True
 
     with torch.no_grad():
         # 素の画像を物体検出器にかけた時の出力をground truthとする
-        ground_truthes = yolo.detect(gpu_img)
-        ground_truthes = yolo.nms(ground_truthes)
-        ground_truthes = yolo.detections_nms_out(ground_truthes[0])
+        ground_truthes = yolo_util.detect(gpu_img)
+        ground_truthes = yolo_util.nms(ground_truthes)
+        ground_truthes = yolo_util.detections_ground_truth(ground_truthes[0])
 
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
     background_patch_box = torch.zeros(
@@ -75,11 +86,19 @@ def test_loss(orig_img):
 
     optimizer = optim.Adam([gpu_img])
 
+    model = yolo.load_model(
+        "weights/yolov3.cfg",
+        "weights/yolov3.weights")
+    model.eval()
+
     while t < epoch:
+
         gpu_img.requires_grad = True
+
         # t回目のパッチ適用画像から物体検出する
-        detections = yolo.detect_with_grad(gpu_img)
-        detections = yolo.detections_loss(detections[0])
+
+        detections = model(gpu_img)
+        detections = yolo_util.detections_loss(detections[0])
 
         # 検出と一番近いground truthのインデックス
         gt_nearest_idx = seek.find_nearest_box(
@@ -112,7 +131,8 @@ def test_loss(orig_img):
         optimizer.zero_grad()
         loss.backward()
 
-        grad_img = gpu_img.grad.data
+        grad_img = gpu_img.grad
+        show_image(gpu_img, ground_truthes)
 
         t = t+1
     print("success!")
