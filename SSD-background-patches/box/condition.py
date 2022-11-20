@@ -25,36 +25,30 @@ def is_overlap_list(boxA, box_listB):
     return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2)))
 
 
-def xywh2xyxy(boxes):
-    """xywh to lrtb(x1y1x2y2)
-    """
-    x = boxes[..., 0]
-    y = boxes[..., 1]
-    w = boxes[..., 2]
-    h = boxes[..., 3]
-
-    x1 = x-(w/2)
-    y1 = y-(h/2)
-    x2 = x+(w/2)
-    y2 = y+(h/2)
-
-    return torch.cat([x1, y1, x2, y2], dim=1)
+def xywh2xyxy(xywh):
+    xyxy = xywh.new(xywh.shape)
+    # x1=x-w/2
+    xyxy[..., 0] = xywh[..., 0] - xywh[..., 2] / 2
+    # y1=y-h/2
+    xyxy[..., 1] = xywh[..., 1] - xywh[..., 3] / 2
+    # x2=x+w/2
+    xyxy[..., 2] = xywh[..., 0] + xywh[..., 2] / 2
+    # y2=y+h/2
+    xyxy[..., 3] = xywh[..., 1] + xywh[..., 3] / 2
+    return xyxy
 
 
-def xyxy2xywh(boxes):
-    """lrtb(x1y1x2y2) to xywh
-    """
-
-    x1 = boxes[..., 0]
-    y1 = boxes[..., 1]
-    x2 = boxes[..., 2]
-    y2 = boxes[..., 3]
-
-    x = (x1+x2)/2
-    y = (y1+y2)/2
-    w = abs(x2-x1)
-    h = abs(y2-y1)
-    return torch.cat([x, y, w, h], dim=1)
+def xyxy2xywh(xyxy):
+    xywh = xyxy.new(xyxy.shape)
+    # x=(x1+x2)/2
+    xywh[:, 0] = (xyxy[:, 0] + xyxy[:, 2]) / 2
+    # y=(y1+y2)/2
+    xywh[:, 1] = (xyxy[:, 1] + xyxy[:, 3]) / 2
+    # w=|x2-x1|
+    xywh[:, 2] = xyxy[:, 2] - xyxy[:, 0]
+    # h=|y2-y1|
+    xywh[:, 3] = xyxy[:, 3] - xyxy[:, 1]
+    return xywh
 
 
 def iou(boxA, boxB):
