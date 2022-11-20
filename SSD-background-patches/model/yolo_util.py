@@ -69,52 +69,59 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
-        x = x[x[..., 4] > conf_thres]  # confidence
+        above_threshold_x = x[x[..., 4] > conf_thres]  # confidence
 
         # If none remain process next image
-        if not x.shape[0]:
+        if not above_threshold_x.shape[0]:
             continue
 
         # Compute conf
-        x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
+        # conf = obj_conf * cls_conf
+        confidences = above_threshold_x[:, 5:] * above_threshold_x[:, 4:5]
 
         # Box (center x, center y, width, height) to (left, top, right, bottom)
-        box = utils.xywh2xyxy(x[:, :4])
+        box = utils.xywh2xyxy(above_threshold_x[:, :4])
 
         # Detections matrix nx6 (xyxy, cls_conf, cls_idx) (old)
         # Detections matrix nx6 (xywh,xyxy,cls_score,cls_idx,cls_scores)
         if multi_label:
-            i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
-            class_extract_x = torch.cat(
-                (x[i, :4], box[i], x[i, j + 5, None], j[:, None].float(), x[i, 5:]), 1)
+            i, j = (confidences > conf_thres).nonzero(as_tuple=False).T
+            reshaped_x = torch.cat(
+                (above_threshold_x[i, :4], box[i], confidences[i, j, None], j[:, None].float(), confidences[i]), 1)
         else:  # best class only
-            conf, j = x[:, 5:].max(1, keepdim=True)
-            class_extract_x = torch.cat((x[:, :4], box, conf, j.float(), x[:, 5:]), 1)[
+            conf, j = confidences.max(1, keepdim=True)
+            reshaped_x = torch.cat((x[:, :4], box, conf, j.float(), confidences), 1)[
                 conf.view(-1) > conf_thres]
 
         # Filter by class
         if classes is not None:
-            class_extract_x = class_extract_x[(class_extract_x[:, 9:10] == torch.tensor(
-                classes, device=class_extract_x.device)).any(1)]
+            filtered_x = reshaped_x[(reshaped_x[:, 9:10] == torch.tensor(
+                classes, device=reshaped_x.device)).any(1)]
+        else:
+            filtered_x = reshaped_x
 
         # Check shape
-        n = class_extract_x.shape[0]  # number of boxes
+        n = filtered_x.shape[0]  # number of boxes
         if not n:  # no boxes
             continue
         elif n > max_nms:  # excess boxes
             # sort by confidence
-            class_extract_x = class_extract_x[class_extract_x[:, 8].argsort(descending=True)[
+            sorted_x = filtered_x[filtered_x[:, 8].argsort(descending=True)[
                 :max_nms]]
+        else:
+            sorted_x = filtered_x
 
         # Batched NMS
-        c = class_extract_x[:, 9:10] * max_wh  # classes
+        c = sorted_x[:, 9:10] * max_wh  # classes
         # boxes (offset by class), scores
-        boxes, scores = class_extract_x[:, 4:8] + c, class_extract_x[:, 8]
-        i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
-        if i.shape[0] > max_det:  # limit detections
-            i = i[:max_det]
+        boxes, scores = sorted_x[:, 4:8] + c, sorted_x[:, 8]
+        nms_idx = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+        if nms_idx.shape[0] > max_det:  # limit detections
+            below_upper_limit_nms_idx = nms_idx[:max_det]
+        else:
+            below_upper_limit_nms_idx = nms_idx
 
-        output[xi] = class_extract_x[i]
+        output[xi] = sorted_x[below_upper_limit_nms_idx]
 
         if (time.time() - t) > time_limit:
             print(
@@ -125,30 +132,26 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
 
 
 class detections_base:
-    # dataはyoloの出力
     # yolo_out=[x,y,w,h,confidence_score,class_scores...]
-    def __init__(self, data):
+    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
+    def __init__(self, data, is_nms=True):
         self.data = data
-        self.xywh = self.data[:, :4]
-        self.xyxy = utils.xywh2xyxy(self.xywh)
-        self.confidences = self.data[:, 4]
-        self.class_scores = self.data[:, 5:]
-        self.class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
         self.total_det = len(self.data)
+        self.xywh = self.data[:, :4]
+        self.is_mns = is_nms
+        if is_nms:
+            self.xyxy = self.data[:, 4:8]
+            self.confidences = self.data[:, 8]
+            self.class_labels = self.data[:, 9].to(torch.int64)
+            self.class_scores = self.data[:, 10:]
+        else:
+            self.xyxy = utils.xywh2xyxy(self.xywh)
+            self.confidences = self.data[:, 4]
+            self.class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
+            self.class_scores = self.data[:, 5:]
 
 
 class detections_ground_truth(detections_base):
-    # dataはNMSの出力
-    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
-    def __init__(self, data):
-        self.data = data
-        self.xywh = self.data[:, :4]
-        self.xyxy = self.data[:, 4:8]
-        self.confidences = self.data[:, 8]
-        self.class_labels = self.data[:, 9].to(torch.int64)
-        self.class_scores = self.data[:, 10:]
-        self.total_det = len(self.data)
-
     def set_group_info(self, labels):
         self.group_labels = labels
 
