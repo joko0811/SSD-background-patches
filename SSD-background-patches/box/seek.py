@@ -1,9 +1,17 @@
 import torch
 
 
-def get_max_edge(box):
-    # box = lrtb (x1y1x2y2)
-    return max([abs(box[0]-box[2]), abs(box[1]-box[3])])
+def smallest_box_containing(boxes):
+    # box = xywh
+    max_xy, _ = boxes[:, :2].max(dim=0)
+    min_xy, _ = boxes[:, :2].min(dim=0)
+    # return box = xyxy
+    return torch.cat((max_xy, min_xy))
+
+
+def get_max_edge(boxes):
+    # box = xywh
+    return boxes[:, 2:4].max()
 
 
 def find_nearest_box(box_listA, box_listB):
