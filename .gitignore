@@ -1,6 +1,7 @@
 # Project
 .vscode/
 weights/
+testdata/
 coco2014/
 coco2014
 
