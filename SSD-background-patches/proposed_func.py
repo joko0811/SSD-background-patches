@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from box import condition, seek
+from box import condition, seek, transform
 
 
 def calc_z(class_scores, iou_scores):
@@ -115,9 +115,9 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box):
 def initial_background_patches(group_total, ground_truthes, gradient_image: torch.tensor):
 
     # パラメータの設定
-    initialize_size = 0.2  # 箱のサイズ（論文内では明記されていなかったが、サイズ＝面積とする）
+    initialize_size_rate = 0.2  # 箱のサイズ（論文内では明記されていなかったが、サイズ＝面積とする）
     aspect_rate = np.array([[1, 0.67, 0.75, 1.5, 1.33]])  # 箱のアスペクト比 1:要素
-    largest_dist_late = 0.2  # パッチと対象物体の間の許容できる最大距離に関してのパラメータ。最大距離は対象物体の最大辺＊このパラメータで算出する
+    largest_dist_rate = 0.2  # パッチと対象物体の間の許容できる最大距離に関してのパラメータ。最大距離は対象物体の最大辺＊このパラメータで算出する
     n_b = 3  # グループごとのパッチ最大数
 
     # 返り値
@@ -137,17 +137,18 @@ def initial_background_patches(group_total, ground_truthes, gradient_image: torc
         # ウインドウサイズ決定のため、グループ内で最大の面積を求める
         size = torch.max(group_boxes[2]*group_boxes[3])
         # アスペクト比、サイズからウインドウの高さと幅を求める
-        window_w = np.sqrt(initialize_size*size/aspect_rate)
+        window_w = np.sqrt(initialize_size_rate*size/aspect_rate)
         window_h = window_w*aspect_rate
 
         # 探索対象領域の決定
         for w, h in zip(window_w, window_h):
+
             # 探索範囲の決定（探索範囲はオブジェクトからオブジェクトボックスの最大辺の0.2倍の距離の範囲内
             gd_image_search_range = seek.smallest_box_containing(
-                group_boxes)+seek.get_max_edge(group_boxes)*0.2
+                group_boxes)+seek.get_max_edge(group_boxes)*largest_dist_rate
             # limit_grad_img=gradient_image[:,:,y1:y2+1,x1:x2+1]
-            limit_grad_img = gradient_image[:, :,
-                                            gd_image_search_range[1]:gd_image_search_range[3]+1, gd_image_search_range[0]:gd_image_search_range[2]+1]
+            limit_grad_img = transform.image_crop_by_box(
+                gradient_image, gd_image_search_range)
             # lgi_offset=x1y1
             lgi_offset = gd_image_search_range[:2]
 
@@ -169,8 +170,32 @@ def initial_background_patches(group_total, ground_truthes, gradient_image: torc
     return bp_boxes
 
 
-def expanded_background_patches():
-    return
+def expanded_background_patches(bp_boxes, gradient_image):
+    stride_rate = 0.02
+    stride = stride_rate*gradient_image.shape[2:4].max()
+
+    new_bp_boxes = torch.zeros(bp_boxes.shape, device=bp_box.device)
+
+    for i, bp_box in enumerate(bp_boxes):
+        max_gradient_sum = torch.tensor([0], device=bp_box.device)
+        for j in len(bp_box):
+            expand_bp_box = bp_box.detach()
+
+            if j <= 1:
+                # x1,y1の時は減算
+                expand_bp_box[j] -= stride
+            else:
+                # x2,y2の時は加算
+                expand_bp_box[j] += stride
+
+            ex_bp_gradiation_sum = transform.image_crop_by_box(
+                gradient_image, expand_bp_box).sum()
+
+            if max_gradient_sum <= ex_bp_gradiation_sum:
+                max_gradient_sum = ex_bp_gradiation_sum
+                new_bp_boxes[i] = expand_bp_box
+
+    return new_bp_boxes
 
 
 def perturbation_in_background_patches():
