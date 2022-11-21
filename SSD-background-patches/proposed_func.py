@@ -205,8 +205,9 @@ def perturbation_in_background_patches(gradient_image, bp_boxes):
     return bp_mask*gradient_image
 
 
-def perturbation_normalization():
-    return
+def perturbation_normalization(perturbation_image):
+    l2_norm_lambda = 30
+    return perturbation_image*l2_norm_lambda/torch.linalg.norm(perturbation_image)**2
 
 
 def update_i_with_pixel_clipping():
