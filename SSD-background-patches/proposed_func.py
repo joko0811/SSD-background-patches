@@ -198,8 +198,11 @@ def expanded_background_patches(bp_boxes, gradient_image):
     return new_bp_boxes
 
 
-def perturbation_in_background_patches():
-    return
+def perturbation_in_background_patches(gradient_image, bp_boxes):
+    # bp_boxesの範囲外を全部0にしたい
+    # bp_boxesを元にマスクを作成
+    bp_mask = transform.box2mask(gradient_image, bp_boxes)
+    return bp_mask*gradient_image
 
 
 def perturbation_normalization():
