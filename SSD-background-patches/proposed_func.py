@@ -210,5 +210,5 @@ def perturbation_normalization(perturbation_image):
     return perturbation_image*l2_norm_lambda/torch.linalg.norm(perturbation_image)**2
 
 
-def update_i_with_pixel_clipping():
-    return
+def update_i_with_pixel_clipping(image, perturbated_image):
+    return torch.clamp(image-perturbated_image, 0, 255)

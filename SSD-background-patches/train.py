@@ -86,14 +86,14 @@ def background_patch_generation(orig_img):
             grad_img, background_patch_boxes)
         perturbated_image = pf.perturbation_normalization(perturbated_image)
 
-        adv_img = pf.update_i_with_pixel_clipping(adv_img, perturbated_image)
+        gpu_img = pf.update_i_with_pixel_clipping(gpu_img, perturbated_image)
 
         if cv2.psnr() < psnr_threshold:
             break
 
         t += 1  # iterator increment
 
-    return adv_img
+    return gpu_img
 
 
 def main():
