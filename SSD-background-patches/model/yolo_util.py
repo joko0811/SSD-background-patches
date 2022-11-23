@@ -154,6 +154,7 @@ class detections_base:
 class detections_ground_truth(detections_base):
     def set_group_info(self, labels):
         self.group_labels = labels
+        self.total_group = int(self.group_labels.max().item())+1
 
 
 class detections_loss(detections_base):

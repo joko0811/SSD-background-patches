@@ -17,12 +17,12 @@ def is_overlap_list(boxA, box_listB):
     """
     # box = lrtb (x1y1x2y2)
     ax1, ay1, ax2, ay2 = boxA
-    bx1 = box_listB[:, 0]
-    by1 = box_listB[:, 1]
-    bx2 = box_listB[:, 2]
-    by2 = box_listB[:, 3]
+    bx1 = box_listB[..., 0]
+    by1 = box_listB[..., 1]
+    bx2 = box_listB[..., 2]
+    by2 = box_listB[..., 3]
 
-    return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2)))
+    return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2))).all()
 
 
 def xywh2xyxy(xywh):

@@ -1,5 +1,7 @@
-import torch
 import numpy as np
+
+import torch
+
 from box import condition, seek, transform
 
 
@@ -33,7 +35,7 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     """
     iou_score_threshold = 0.1
     iou_flag = iou_scores > iou_score_threshold
-    overlap_flag = torch.tensor([condition.is_overlap_list(dt, ground_truth_boxes).all()
+    overlap_flag = torch.tensor([condition.is_overlap_list(dt, ground_truth_boxes)
                                  for dt in detection_boxes], device=detection_boxes.device)
     r = torch.logical_and(iou_flag, overlap_flag)
     return r
@@ -68,32 +70,41 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box):
     # ソートしたときに全ての要素の順位が出るようにreshape
     # ([1,a-h+1,b-w+1])->([1,(a-h+1)*(b-w+1)])
     sort_array = windows_grad_sum.reshape(
-        [windows_grad_sum.shape[0].item(), windows_grad_sum[1].item()*windows_grad_sum[2].item()])
+        (windows_grad_sum.shape[0], windows_grad_sum.shape[1]*windows_grad_sum.shape[2]))
     # 順位づけ配列の形状をwindows_grad_sumに合わせる
     # これでwindows_grad_sumと同じインデックスの要素に全要素中の降順番号が降られた
     rsp_windows_grad_sum_sortnum = sort_array.argsort(
         descending=True).reshape(windows_grad_sum.shape)
 
-    # 座標マップ作成
+    # windows_grad_sum[1,y,x]の時、map[1,y,x]→スライディングウインドウのxyxyになる座標マップ
     def index2xyxy(img_shape, img_offset, w, h):
-        _, _, img_h, img_w = img_shape
-        i_0 = torch.arange(img_h)
-        i_1 = torch.arange(img_w)
-        x1 = img_offset[0]+i_1
-        y1 = img_offset[1]+i_0
-        x2 = img_offset[0]+i_1+w
-        y2 = img_offset[1]+i_0+h
-        return torch.cat(x1, y1, x2, y2, dim=1)
+        map_shape = img_shape.copy()
+        map_shape.append(4)
 
+        point_map = torch.ones(
+            map_shape, device=img_offset.device)*torch.cat((img_offset, img_offset))
+        _, img_h, img_w = img_shape
+
+        i_0 = torch.arange(img_h, device=img_offset.device).unsqueeze(
+            dim=1).repeat(1, img_w)
+        i_1 = torch.arange(img_w, device=img_offset.device)
+
+        point_map[..., 0] += i_1
+        point_map[..., 1] += i_0
+        point_map[..., 2] += i_1+w
+        point_map[..., 3] += i_0+h
+
+        return point_map
     # 画像サイズのマップ
-    point_map = index2xyxy(img, img_offset, sw_w, sw_h)
+    point_map = index2xyxy(list(windows_grad_sum.shape),
+                           img_offset, sw_w, sw_h)
 
     # 上位n_b件を抽出する
     extract_count = 0
     extract_iter = 0
     output_box = torch.zeros(n, 4)
     output_gradient_sum = torch.zeros(n)
-    while extract_count <= n:
+    while extract_count < n:
         # 座標と勾配の合計を取ってくる
         extract_idx = (rsp_windows_grad_sum_sortnum ==
                        extract_iter).nonzero()[0]
@@ -112,48 +123,62 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box):
     return output_box, output_gradient_sum
 
 
-def initial_background_patches(group_total, ground_truthes, gradient_image: torch.tensor):
+def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 
     # パラメータの設定
     initialize_size_rate = 0.2  # 箱のサイズ（論文内では明記されていなかったが、サイズ＝面積とする）
-    aspect_rate = np.array([[1, 0.67, 0.75, 1.5, 1.33]])  # 箱のアスペクト比 1:要素
+    aspect_rate = torch.tensor(
+        [1, 0.67, 0.75, 1.5, 1.33], device=ground_truthes.xyxy.device)  # 箱のアスペクト比 1:要素
     largest_dist_rate = 0.2  # パッチと対象物体の間の許容できる最大距離に関してのパラメータ。最大距離は対象物体の最大辺＊このパラメータで算出する
     n_b = 3  # グループごとのパッチ最大数
 
     # 返り値
-    bp_boxes = torch.zeros(group_total, n_b, 4)  # 選択したパッチの座標(xyxy)
-    bp_grad_sumes = torch.zeros(group_total, n_b)  # 選択したパッチ内部の勾配合計
+    bp_boxes = torch.zeros(
+        ground_truthes.total_group, n_b, 4, device=gradient_image.device)  # 選択したパッチの座標(xyxy)
+    bp_grad_sumes = torch.zeros(
+        ground_truthes.total_group, n_b, device=gradient_image.device)  # 選択したパッチ内部の勾配合計
 
-    for group_idx in range(group_total):
+    for group_idx in range(ground_truthes.total_group):
 
-        group_bp_box = torch.zeros(n_b, 4)
-        group_bp_grad_sum = torch.zeros(n_b)
+        group_bp_box = torch.zeros(n_b, 4, device=bp_boxes.device)
+        group_bp_grad_sum = torch.zeros(n_b, device=bp_grad_sumes.device)
 
         # グループに属するboxの抽出
-        group_boxes = (
+        group_boxes_xywh = (
             ground_truthes.xywh[ground_truthes.group_labels == group_idx])
+        group_boxes_xyxy = (
+            ground_truthes.xyxy[ground_truthes.group_labels == group_idx])
 
         # ウインドウサイズ決定
         # ウインドウサイズ決定のため、グループ内で最大の面積を求める
-        size = torch.max(group_boxes[2]*group_boxes[3])
+        max_size = torch.max(group_boxes_xywh[:, 2]*group_boxes_xywh[:, 3])
         # アスペクト比、サイズからウインドウの高さと幅を求める
-        window_w = np.sqrt(initialize_size_rate*size/aspect_rate)
+        window_w = torch.sqrt(initialize_size_rate*max_size/aspect_rate)
         window_h = window_w*aspect_rate
 
         # 探索対象領域の決定
         for w, h in zip(window_w, window_h):
 
             # 探索範囲の決定（探索範囲はオブジェクトからオブジェクトボックスの最大辺の0.2倍の距離の範囲内
-            gd_image_search_range = seek.smallest_box_containing(
-                group_boxes)+seek.get_max_edge(group_boxes)*largest_dist_rate
-            # limit_grad_img=gradient_image[:,:,y1:y2+1,x1:x2+1]
-            limit_grad_img = transform.image_crop_by_box(
-                gradient_image, gd_image_search_range)
+            # グループに属する箱の最外殻を決める
+            groupbox_outermost = seek.smallest_box_containing(
+                group_boxes_xyxy)
+            search_offset = seek.get_max_edge(
+                group_boxes_xyxy)*largest_dist_rate
+            before_clamp_area = transform.box_expand(
+                groupbox_outermost, search_offset)
+            # 領域を画像サイズに収める
+            search_area = transform.box_clamp(
+                before_clamp_area, gradient_image.shape[2], gradient_image.shape[3])
+
+            # 画像から探索領域を切り出す
+            search_grad_img = transform.image_crop_by_box(
+                gradient_image, search_area)
             # lgi_offset=x1y1
-            lgi_offset = gd_image_search_range[:2]
+            lgi_offset = search_area[:2]
 
             ex_boxes, ex_grad_sumes = extract_sliding_windows(
-                limit_grad_img, lgi_offset, w, h, n_b, bp_grad_sumes)
+                search_grad_img, lgi_offset, int(w.item()), int(h.item()), n_b, bp_boxes)
 
             # もしex_boxesの勾配の合計値(=ex_grad_sum)が既存のパッチ領域の勾配の合計値のいずれかより大きかった場合交換
             # bp_boxes,bp_grad_sumesはbp_gd_totalesの昇順に並んでいる
@@ -172,13 +197,13 @@ def initial_background_patches(group_total, ground_truthes, gradient_image: torc
 
 def expanded_background_patches(bp_boxes, gradient_image):
     stride_rate = 0.02
-    stride = stride_rate*gradient_image.shape[2:4].max()
+    stride = stride_rate*max(list(gradient_image.shape[2:4]))
 
-    new_bp_boxes = torch.zeros(bp_boxes.shape, device=bp_box.device)
+    new_bp_boxes = torch.zeros(bp_boxes.shape, device=bp_boxes.device)
 
     for i, bp_box in enumerate(bp_boxes):
         max_gradient_sum = torch.tensor([0], device=bp_box.device)
-        for j in len(bp_box):
+        for j in range(len(bp_box)):
             expand_bp_box = bp_box.detach()
 
             if j <= 1:

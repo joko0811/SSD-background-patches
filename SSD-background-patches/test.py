@@ -67,7 +67,7 @@ def test_model_grad(orig_img):
 
 def test_loss(orig_img):
 
-    epoch = 1  # T in paper
+    epoch = 2  # T in paper
     t = 0  # t in paper (iterator)
     psnr_threshold = 0
 
@@ -93,8 +93,8 @@ def test_loss(orig_img):
             group_labels.astype(np.float32)).clone().to(gpu_image.device))
 
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
-    background_patch_box = torch.zeros(
-        [ground_truthes.total_det*n_b, 4], device=adv_image.device)
+    background_patch_boxes = torch.zeros(
+        (ground_truthes.total_group*n_b, 4), device=adv_image.device)
 
     optimizer = optim.Adam([adv_image])
 
@@ -125,9 +125,9 @@ def test_loss(orig_img):
 
         # 検出と一番近い背景パッチ
         bp_nearest_idx = seek.find_nearest_box(
-            detections.xywh, background_patch_box)
+            detections.xywh, background_patch_boxes)
         # detectionと、各detectionに一番近いground truthのiouスコアを算出
-        bp_box_nearest_dt = background_patch_box[bp_nearest_idx]
+        bp_box_nearest_dt = background_patch_boxes[bp_nearest_idx]
         dt_bp_iou_scores = condition.iou(
             detections.xyxy, bp_box_nearest_dt)
         # 論文で提案された変数rを計算
@@ -141,7 +141,15 @@ def test_loss(orig_img):
         optimizer.zero_grad()
         loss.backward()
 
-        grad_img = adv_image.grad
+        gradient_image = adv_image.grad
+
+        with torch.no_grad():
+            if t == 0:
+                background_patch_boxes = pf.initial_background_patches(
+                    ground_truthes, gradient_image).reshape((ground_truthes.total_group*n_b, 4))
+            else:
+                background_patch_boxes = pf.expanded_background_patches(
+                    background_patch_boxes, gradient_image)
 
         t = t+1
     print("success!")
