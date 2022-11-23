@@ -147,8 +147,8 @@ class detections_base:
         else:
             self.xyxy = utils.xywh2xyxy(self.xywh)
             self.confidences = self.data[:, 4]
-            self.class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
             self.class_scores = self.data[:, 5:]
+            self.class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
 
 
 class detections_ground_truth(detections_base):

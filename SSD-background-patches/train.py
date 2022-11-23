@@ -19,20 +19,21 @@ def background_patch_generation(orig_img):
     psnr_threshold = 0
 
     if torch.cuda.is_available():
-        gpu_img = orig_img.to(
+        gpu_image = orig_img.to(
             device='cuda:0', dtype=torch.float)
+        adv_image = gpu_image.detach()
 
     with torch.no_grad():
         # 素の画像を物体検出器にかけた時の出力をground truthとする
-        ground_truthes = yolo_util.detect(gpu_img)
+        ground_truthes = yolo_util.detect(adv_image)
         ground_truthes = yolo_util.nms(ground_truthes)
         ground_truthes = yolo_util.detections_ground_truth(ground_truthes[0])
 
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
     background_patch_box = torch.zeros(
-        [ground_truthes.total_det*n_b, 4], device=gpu_img.device)
+        [ground_truthes.total_det*n_b, 4], device=adv_image.device)
 
-    optimizer = optim.Adam([gpu_img])
+    optimizer = optim.Adam([adv_image])
 
     model = yolo.load_model(
         "weights/yolov3.cfg",
@@ -41,7 +42,7 @@ def background_patch_generation(orig_img):
 
     while t < epoch:
         # t回目のパッチ適用画像から物体検出する
-        detections = model(gpu_img)
+        detections = model(adv_image)
         detections = yolo_util.detections_loss(detections[0])
 
         # 検出と一番近いground truth
@@ -75,25 +76,28 @@ def background_patch_generation(orig_img):
         optimizer.zero_grad()
         loss.backward()
 
-        grad_img = gpu_img.grad
+        grad_img = adv_image.grad
 
-        if t == 0:
-            background_patch_boxes = pf.initial_background_patches()
-        else:
-            background_patch_boxes = pf.expanded_background_patches()
+        with torch.no_grad():
+            if t == 0:
+                background_patch_boxes = pf.initial_background_patches()
+            else:
+                background_patch_boxes = pf.expanded_background_patches()
 
-        perturbated_image = pf.perturbation_in_background_patches(
-            grad_img, background_patch_boxes)
-        perturbated_image = pf.perturbation_normalization(perturbated_image)
+            perturbated_image = pf.perturbation_in_background_patches(
+                grad_img, background_patch_boxes)
+            perturbated_image = pf.perturbation_normalization(
+                perturbated_image)
 
-        gpu_img = pf.update_i_with_pixel_clipping(gpu_img, perturbated_image)
+            adv_image = pf.update_i_with_pixel_clipping(
+                adv_image, perturbated_image)
 
-        if cv2.psnr() < psnr_threshold:
-            break
+            if cv2.psnr(orig_img) < psnr_threshold:
+                break
 
-        t += 1  # iterator increment
+            t += 1  # iterator increment
 
-    return gpu_img
+    return adv_image
 
 
 def main():
