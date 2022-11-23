@@ -1,11 +1,12 @@
 import cv2
+import numpy as np
 
 import torch
 import torch.optim as optim
 from torchvision.datasets.coco import CocoDetection
 
-from util.img import pil2cv
-import box.condition
+from util import img, clustering
+from box import condition
 from model import yolo, yolo_util
 import proposed_func as pf
 
@@ -29,6 +30,12 @@ def background_patch_generation(orig_img):
         ground_truthes = yolo_util.nms(ground_truthes)
         ground_truthes = yolo_util.detections_ground_truth(ground_truthes[0])
 
+        # ground truthesをクラスタリング
+        group_labels = clustering.object_grouping(
+            ground_truthes.xywh.to('cpu').detach().numpy().copy())
+        ground_truthes.set_group_info(torch.from_numpy(
+            group_labels.astype(np.float32)).clone().to(gpu_image.device))
+
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
     background_patch_box = torch.zeros(
         [ground_truthes.total_det*n_b, 4], device=adv_image.device)
@@ -46,11 +53,11 @@ def background_patch_generation(orig_img):
         detections = yolo_util.detections_loss(detections[0])
 
         # 検出と一番近いground truth
-        gt_nearest_idx = box.condition.find_nearest_box(
+        gt_nearest_idx = condition.find_nearest_box(
             detections.xywh, ground_truthes.xywh)
         gt_box_nearest_dt = ground_truthes.xyxy[gt_nearest_idx]
         # detectionと、各detectionに一番近いground truthのiouスコアを算出
-        dt_gt_iou_scores = box.condition.iou(
+        dt_gt_iou_scores = condition.iou(
             detections.xyxy, gt_box_nearest_dt)
         # dtのスコアから、gt_nearest_idxで指定されるground truthの属するクラスのみを抽出
         dt_scores_for_nearest_gt_label = detections.class_scores.gather(
@@ -59,11 +66,11 @@ def background_patch_generation(orig_img):
         z = pf.calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
 
         # 検出と一番近い背景パッチ
-        bp_nearest_idx = box.condition.find_nearest_box(
+        bp_nearest_idx = condition.find_nearest_box(
             detections.xywh, background_patch_box)
         # detectionと、各detectionに一番近いground truthのiouスコアを算出
         bp_box_nearest_dt = background_patch_box[bp_nearest_idx]
-        dt_bp_iou_scores = box.condition.iou(
+        dt_bp_iou_scores = condition.iou(
             detections.xyxy, bp_box_nearest_dt)
         # 論文で提案された変数rを計算
         r = pf.calc_r(dt_bp_iou_scores, detections.xyxy, ground_truthes.xyxy)
@@ -106,7 +113,7 @@ def main():
     coco_train = CocoDetection(root=train_path,
                                annFile=train_annfile_path)
     img, target = coco_train[0]
-    img = pil2cv(img)
+    img = img.pil2cv(img)
 
     background_patch_generation(img)
 

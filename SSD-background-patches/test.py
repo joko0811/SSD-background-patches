@@ -7,13 +7,14 @@ from torchvision.datasets.coco import CocoDetection
 from torchvision import transforms
 
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
+from torchviz import make_dot
 
-from util import img
+
+from util import img, clustering
 from box import condition, seek
 from model import yolo, yolo_util
 from dataset import coco
 from loss import total_loss
-from torchviz import make_dot
 import proposed_func as pf
 
 
@@ -23,7 +24,7 @@ def get_image_from_dataset():
 
     coco_train = CocoDetection(root=train_path,
                                annFile=train_annfile_path, transform=transforms.ToTensor())
-    img, target = coco_train[0:1]
+    img, _ = coco_train[0:1]
     img = img.reshape(1, img.shape[0], img.shape[1], img.shape[2])
     return img
 
@@ -84,6 +85,12 @@ def test_loss(orig_img):
         gt_out = yolo_util.detect(adv_image)
         gt_mns = yolo_util.nms(gt_out)
         ground_truthes = yolo_util.detections_ground_truth(gt_mns[0])
+
+        # ground truthesをクラスタリング
+        group_labels = clustering.object_grouping(
+            ground_truthes.xywh.to('cpu').detach().numpy().copy())
+        ground_truthes.set_group_info(torch.from_numpy(
+            group_labels.astype(np.float32)).clone().to(gpu_image.device))
 
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
     background_patch_box = torch.zeros(
