@@ -27,7 +27,7 @@ def find_nearest_box(box_listA, box_listB):
 
     nearest_idx = torch.zeros((box_listA.shape[0]), device=box_listA.device)
     for i, boxA in enumerate(box_listA):
-        norm = torch.linalg.norm(box_listB[..., :2]-boxA[:2], dim=1)
+        norm = torch.linalg.norm(box_listB[:, :2]-boxA[:2], dim=1)
         min_idx = torch.argmin(norm)
         nearest_idx[i] = min_idx
 

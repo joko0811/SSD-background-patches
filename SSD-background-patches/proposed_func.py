@@ -38,7 +38,7 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     overlap_flag = torch.tensor([not condition.is_overlap_list(dt, ground_truth_boxes)
                                  for dt in detection_boxes], device=detection_boxes.device)
     r = torch.logical_and(iou_flag, overlap_flag)
-    return r
+    return r.long()
 
 
 def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box1, ignore_box2):

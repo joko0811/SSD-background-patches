@@ -57,9 +57,15 @@ def show_box(image, boxes):
     tmp_img.show()
 
 
+def save_image(image):
+    pil_img = transforms.functional.to_pil_image(image[0])
+    pil_img.save("./testdata/adv_image.png")
+
+
 def run():
     img = get_image_from_file()
-    test_loss(img)
+    # test_loss(img)
+    save_image(img)
 
 
 def test_model_grad(orig_img):
@@ -74,7 +80,7 @@ def test_model_grad(orig_img):
 
 def test_loss(orig_img):
 
-    epoch = 2  # T in paper
+    epoch = 250  # T in paper
     t = 0  # t in paper (iterator)
     psnr_threshold = 0
 
@@ -82,9 +88,9 @@ def test_loss(orig_img):
     torch.autograd.set_detect_anomaly(True)
 
     if torch.cuda.is_available():
-        gpu_image = orig_img.to(
+        ground_truth_image = orig_img.to(
             device='cuda:0', dtype=torch.float)
-        adv_image = gpu_image.detach()
+        adv_image = ground_truth_image.detach()
         adv_image.requires_grad = True
 
     with torch.no_grad():
@@ -97,7 +103,7 @@ def test_loss(orig_img):
         group_labels = clustering.object_grouping(
             ground_truthes.xywh.to('cpu').detach().numpy().copy())
         ground_truthes.set_group_info(torch.from_numpy(
-            group_labels.astype(np.float32)).clone().to(gpu_image.device))
+            group_labels.astype(np.float32)).clone().to(ground_truth_image.device))
 
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
     background_patch_boxes = torch.zeros(
@@ -155,29 +161,43 @@ def test_loss(orig_img):
         gradient_image = adv_image.grad
 
         with torch.no_grad():
+
             if t == 0:
+                # ループの最初にのみ実行
+                # パッチ領域を決定する
                 background_patch_boxes = pf.initial_background_patches(
                     ground_truthes, gradient_image).reshape((ground_truthes.total_group*n_b, 4))
             else:
+                # パッチ領域を拡大する（縮小はしない）
                 background_patch_boxes = pf.expanded_background_patches(
                     background_patch_boxes, gradient_image)
 
+            # 勾配画像をパッチ領域の形に切り出す
             perturbated_image = pf.perturbation_in_background_patches(
                 gradient_image, background_patch_boxes)
             show_box(perturbated_image, background_patch_boxes)
+            # パッチの正規化
             perturbated_image = pf.perturbation_normalization(
                 perturbated_image)
             show_box(perturbated_image, background_patch_boxes)
+            # adv_image-perturbated_imageの計算結果を[0,255]にクリップする
             adv_image = pf.update_i_with_pixel_clipping(
                 adv_image, perturbated_image)
 
+            # psnr評価用の画像を切り出す
+            psnr_truth_image = pf.perturbation_in_background_patches(
+                ground_truth_image, background_patch_boxes)
             psnr_eval_image = pf.perturbation_in_background_patches(
                 adv_image, background_patch_boxes)
-            if ((peak_signal_noise_ratio(psnr_eval_image) < psnr_threshold)
-                    or (z.size() == 0)):
+
+            if ((peak_signal_noise_ratio(psnr_truth_image, psnr_eval_image) < psnr_threshold)
+                    or (z.nonzero().size() == 0)):
+                # psnrが閾値以下もしくはzの要素が全て0の場合ループを抜ける
                 break
 
         t = t+1
+
+    save_image(adv_image)
     print("success!")
 
 
