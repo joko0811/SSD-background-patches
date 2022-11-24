@@ -6,8 +6,9 @@ import torch.optim as optim
 from torchvision.datasets.coco import CocoDetection
 from torchvision import transforms
 
-from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from torchviz import make_dot
+from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
+from skimage.metrics import peak_signal_noise_ratio
 
 
 from util import img, clustering
@@ -169,6 +170,12 @@ def test_loss(orig_img):
             show_box(perturbated_image, background_patch_boxes)
             adv_image = pf.update_i_with_pixel_clipping(
                 adv_image, perturbated_image)
+
+            psnr_eval_image = pf.perturbation_in_background_patches(
+                adv_image, background_patch_boxes)
+            if ((peak_signal_noise_ratio(psnr_eval_image) < psnr_threshold)
+                    or (z.size() == 0)):
+                break
 
         t = t+1
     print("success!")
