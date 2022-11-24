@@ -8,9 +8,9 @@ def image_crop_by_box(image, box):
 
 def box2mask(image, boxes):
     mask = torch.zeros(image.shape, device=image.device)
-    for y in len(image.shape[2]):
-        for x in len(image.shape[3]):
-            if torch.loginal_and(torch.logical_and(boxes[:, 0] <= x, x <= boxes[:, 2]), torch.logical_and(boxes[:, 1] <= y, y <= boxes[:, 3])).any():
+    for y in range(image.shape[2]):
+        for x in range(image.shape[3]):
+            if torch.logical_and(torch.logical_and(boxes[:, 0] <= x, x <= boxes[:, 2]), torch.logical_and(boxes[:, 1] <= y, y <= boxes[:, 3])).any():
                 mask[:, :, y, x] = 1
     return mask
 
