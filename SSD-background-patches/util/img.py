@@ -17,7 +17,7 @@ def pil2cv(pil_image):
 
 
 # https://pystyle.info/pillow-draw-object-detection-results-on-an-image/
-def draw_boxes(img, boxes, class_labeles, confidences, class_names):
+def draw_annotations(img, boxes, class_labeles, confidences, class_names):
     """画像に対してアノテーションを追加する
 
     Args:
@@ -63,5 +63,19 @@ def draw_boxes(img, boxes, class_labeles, confidences, class_names):
             (boxes[i, 0].item(), boxes[i, 1].item(), text_x2.item(), text_y2.item()), fill=color)
         draw.text((boxes[i, 0].item(), boxes[i, 1].item()),
                   caption, fill="black", font=font)
+
+    return img
+
+
+def draw_boxes(img, boxes):
+
+    draw = ImageDraw.Draw(img, mode="RGBA")
+
+    for i in range(len(boxes)):
+
+        # 矩形を描画する。
+        draw.rectangle(
+            boxes[i].tolist(), width=3
+        )
 
     return img
