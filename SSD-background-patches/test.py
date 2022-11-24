@@ -45,9 +45,15 @@ def show_image(orig_img, detections):
     datasets_class_names_path = "./coco2014/coco.names"
     class_names = coco.load_class_names(datasets_class_names_path)
 
-    ann_img = img.draw_boxes(pil_img, detections.xyxy,
-                             detections.class_labels, detections.confidences, class_names)
+    ann_img = img.draw_annotations(pil_img, detections.xyxy,
+                                   detections.class_labels, detections.confidences, class_names)
     ann_img.show()
+
+
+def show_box(image, boxes):
+    pil_img = transforms.functional.to_pil_image(image[0])
+    tmp_img = img.draw_boxes(pil_img, boxes)
+    tmp_img.show()
 
 
 def run():
@@ -105,10 +111,14 @@ def test_loss(orig_img):
 
     while t < epoch:
 
-        # t回目のパッチ適用画像から物体検出する
+        adv_image.requires_grad = True
 
+        # t回目のパッチ適用画像から物体検出する
         output = model(adv_image)
         detections = yolo_util.detections_loss(output[0], is_nms=False)
+        # nms_out = yolo_util.nms(output)
+        # det_out = yolo_util.detections_loss(nms_out[0])
+        # show_image(adv_image, det_out)
 
         # 検出と一番近いground truth
         gt_nearest_idx = seek.find_nearest_box(
@@ -150,6 +160,15 @@ def test_loss(orig_img):
             else:
                 background_patch_boxes = pf.expanded_background_patches(
                     background_patch_boxes, gradient_image)
+
+            perturbated_image = pf.perturbation_in_background_patches(
+                gradient_image, background_patch_boxes)
+            show_box(perturbated_image, background_patch_boxes)
+            perturbated_image = pf.perturbation_normalization(
+                perturbated_image)
+            show_box(perturbated_image, background_patch_boxes)
+            adv_image = pf.update_i_with_pixel_clipping(
+                adv_image, perturbated_image)
 
         t = t+1
     print("success!")

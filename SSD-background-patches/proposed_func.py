@@ -35,13 +35,13 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     """
     iou_score_threshold = 0.1
     iou_flag = iou_scores > iou_score_threshold
-    overlap_flag = torch.tensor([condition.is_overlap_list(dt, ground_truth_boxes)
+    overlap_flag = torch.tensor([not condition.is_overlap_list(dt, ground_truth_boxes)
                                  for dt in detection_boxes], device=detection_boxes.device)
     r = torch.logical_and(iou_flag, overlap_flag)
     return r
 
 
-def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box):
+def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box1, ignore_box2):
     """スライディングウインドウを作成、順位づけ
 
     画像からw*hのスライディングウインドウを作成、ウインドウ内の勾配強度の合計をとり、これを基に降順に順位付け
@@ -69,8 +69,9 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box):
 
     # ソートしたときに全ての要素の順位が出るようにreshape
     # ([1,a-h+1,b-w+1])->([1,(a-h+1)*(b-w+1)])
+    windows_num = windows_grad_sum.shape[1]*windows_grad_sum.shape[2]
     sort_array = windows_grad_sum.reshape(
-        (windows_grad_sum.shape[0], windows_grad_sum.shape[1]*windows_grad_sum.shape[2]))
+        (windows_grad_sum.shape[0], windows_num))
     # 順位づけ配列の形状をwindows_grad_sumに合わせる
     # これでwindows_grad_sumと同じインデックスの要素に全要素中の降順番号が降られた
     rsp_windows_grad_sum_sortnum = sort_array.argsort(
@@ -100,11 +101,11 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box):
                            img_offset, sw_w, sw_h)
 
     # 上位n_b件を抽出する
-    extract_count = 0
+    extract_counter = 0
     extract_iter = 0
-    output_box = torch.zeros(n, 4)
-    output_gradient_sum = torch.zeros(n)
-    while extract_count < n:
+    output_box = torch.zeros(n, 4, device=point_map.device)
+    output_gradient_sum = torch.zeros(n, device=windows_grad_sum.device)
+    while extract_counter < n and extract_iter < windows_num:
         # 座標と勾配の合計を取ってくる
         extract_idx = (rsp_windows_grad_sum_sortnum ==
                        extract_iter).nonzero()[0]
@@ -113,11 +114,11 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box):
         extract_gradient_sum = windows_grad_sum[extract_idx[0],
                                                 extract_idx[1], extract_idx[2]]
 
-        if not condition.is_overlap_list(extract_xyxy, ignore_box):
+        if (not condition.is_overlap_list(extract_xyxy, output_box)) and (not condition.is_overlap_list(extract_xyxy, ignore_box1)) and (not condition.is_overlap_list(extract_xyxy, ignore_box2)):
             # 除外リストと一つも重ならない場合、返り値に含める
-            output_box[extract_count] = extract_xyxy
-            output_gradient_sum[extract_count] = extract_gradient_sum
-            extract_count += 1
+            output_box[extract_counter] = extract_xyxy
+            output_gradient_sum[extract_counter] = extract_gradient_sum
+            extract_counter += 1
 
         extract_iter += 1
     return output_box, output_gradient_sum
@@ -178,15 +179,16 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
             lgi_offset = search_area[:2]
 
             ex_boxes, ex_grad_sumes = extract_sliding_windows(
-                search_grad_img, lgi_offset, int(w.item()), int(h.item()), n_b, bp_boxes)
+                search_grad_img, lgi_offset, int(w.item()), int(h.item()), n_b, group_bp_box, bp_boxes)
 
             # もしex_boxesの勾配の合計値(=ex_grad_sum)が既存のパッチ領域の勾配の合計値のいずれかより大きかった場合交換
             # bp_boxes,bp_grad_sumesはbp_gd_totalesの昇順に並んでいる
-            for bp_idx in range(n_b):
-                for ex_idx in range(n_b):
+            for ex_idx in range(n_b):
+                for bp_idx in range(n_b):
                     if group_bp_grad_sum[bp_idx] <= ex_grad_sumes[ex_idx]:
                         group_bp_box[bp_idx] = ex_boxes[ex_idx]
                         group_bp_grad_sum[bp_idx] = ex_grad_sumes[ex_idx]
+                        break
 
                 # group_idx番目のグループに対して適用するパッチ領域の決定
         bp_boxes[group_idx] = group_bp_box
@@ -204,7 +206,7 @@ def expanded_background_patches(bp_boxes, gradient_image):
     for i, bp_box in enumerate(bp_boxes):
         max_gradient_sum = torch.tensor([0], device=bp_box.device)
         for j in range(len(bp_box)):
-            expand_bp_box = bp_box.detach()
+            expand_bp_box = bp_box.clone()
 
             if j <= 1:
                 # x1,y1の時は減算
@@ -231,7 +233,7 @@ def perturbation_in_background_patches(gradient_image, bp_boxes):
 
 def perturbation_normalization(perturbation_image):
     l2_norm_lambda = 30
-    return perturbation_image*l2_norm_lambda/torch.linalg.norm(perturbation_image)**2
+    return (l2_norm_lambda/(torch.pow(torch.linalg.norm(perturbation_image), 2))) * perturbation_image
 
 
 def update_i_with_pixel_clipping(image, perturbated_image):
