@@ -29,9 +29,11 @@ def detect(img):
     with torch.no_grad():
         # yolo_out=[center_x,center_y,w,h,confidence_score,class_scores...]
         yolo_out = model(img)
+        nms_out = nms(yolo_out)
+        detections = detections_base(nms_out[0])
 
         # yolo_out=[left_x,top_y,right_x,bottom_y,class_scores...]
-        return yolo_out
+        return detections
 
 
 def detect_with_grad(img):

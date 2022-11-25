@@ -6,10 +6,11 @@ import torch.optim as optim
 from torchvision.datasets.coco import CocoDetection
 from torchvision import transforms
 
-from torchviz import make_dot
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from skimage.metrics import peak_signal_noise_ratio
 
+from torchviz import make_dot
+from tqdm import tqdm
 
 from util import img, clustering
 from box import condition, seek
@@ -31,7 +32,8 @@ def get_image_from_dataset():
 
 
 def get_image_from_file():
-    image_path = "./data/dog.jpg"
+    # image_path = "./data/dog.jpg"
+    image_path = "./testdata/adv_image.png"
     image_size = 416
     image = cv2.imread(image_path)
     input_img = transforms.Compose([
@@ -62,20 +64,13 @@ def save_image(image):
     pil_img.save("./testdata/adv_image.png")
 
 
-def run():
-    img = get_image_from_file()
-    # test_loss(img)
-    save_image(img)
+def test_detect(image):
 
-
-def test_model_grad(orig_img):
     if torch.cuda.is_available():
-        gpu_img = orig_img.to(
+        gpu_image = image.to(
             device='cuda:0', dtype=torch.float)
-    ground_truthes = yolo_util.detect(gpu_img)
-    detections = yolo_util.detect_with_grad(gpu_img)
-
-    print("hoge")
+    detections = yolo_util.detect(gpu_image)
+    show_image(image, detections)
 
 
 def test_loss(orig_img):
@@ -115,8 +110,9 @@ def test_loss(orig_img):
         "weights/yolov3.cfg",
         "weights/yolov3.weights")
     model.eval()
+    torch.autograd.set_detect_anomaly(True)
 
-    while t < epoch:
+    for t in tqdm(range(epoch)):
 
         adv_image.requires_grad = True
 
@@ -175,11 +171,11 @@ def test_loss(orig_img):
             # 勾配画像をパッチ領域の形に切り出す
             perturbated_image = pf.perturbation_in_background_patches(
                 gradient_image, background_patch_boxes)
-            show_box(perturbated_image, background_patch_boxes)
+            # show_box(perturbated_image, background_patch_boxes)
             # パッチの正規化
             perturbated_image = pf.perturbation_normalization(
                 perturbated_image)
-            show_box(perturbated_image, background_patch_boxes)
+            # show_box(perturbated_image, background_patch_boxes)
             # adv_image-perturbated_imageの計算結果を[0,255]にクリップする
             adv_image = pf.update_i_with_pixel_clipping(
                 adv_image, perturbated_image)
@@ -190,15 +186,19 @@ def test_loss(orig_img):
             psnr_eval_image = pf.perturbation_in_background_patches(
                 adv_image, background_patch_boxes)
 
-            if ((peak_signal_noise_ratio(psnr_truth_image, psnr_eval_image) < psnr_threshold)
+            if ((peak_signal_noise_ratio(psnr_truth_image.to('cpu').detach().numpy().copy(), psnr_eval_image.to('cpu').detach().numpy().copy()) < psnr_threshold)
                     or (z.nonzero().size() == 0)):
                 # psnrが閾値以下もしくはzの要素が全て0の場合ループを抜ける
                 break
 
-        t = t+1
-
     save_image(adv_image)
     print("success!")
+
+
+def run():
+
+    img = get_image_from_file()
+    test_loss(img)
 
 
 def main():

@@ -204,7 +204,7 @@ def expanded_background_patches(bp_boxes, gradient_image):
     new_bp_boxes = torch.zeros(bp_boxes.shape, device=bp_boxes.device)
 
     for i, bp_box in enumerate(bp_boxes):
-        max_gradient_sum = torch.tensor([0], device=bp_box.device)
+        max_gradient_sum = torch.tensor([-float('inf')], device=bp_box.device)
         for j in range(len(bp_box)):
             expand_bp_box = bp_box.clone()
 
