@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 import torch
-import torchvision
+from torchvision import transforms, ops
 
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from pytorchyolo.utils import utils
@@ -11,7 +11,7 @@ from .yolo import load_model
 
 
 def image_setup(img):
-    input_img = torchvision.transforms.Compose([
+    input_img = transforms.Compose([
         DEFAULT_TRANSFORMS,
         Resize(416)])(
             (img, np.zeros((1, 5))))[0].unsqueeze(0)
@@ -29,11 +29,9 @@ def detect(img):
     with torch.no_grad():
         # yolo_out=[center_x,center_y,w,h,confidence_score,class_scores...]
         yolo_out = model(img)
-        nms_out = nms(yolo_out)
-        detections = detections_base(nms_out[0])
 
         # yolo_out=[left_x,top_y,right_x,bottom_y,class_scores...]
-        return detections
+        return yolo_out
 
 
 def detect_with_grad(img):
@@ -117,7 +115,7 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
         c = sorted_x[:, 9:10] * max_wh  # classes
         # boxes (offset by class), scores
         boxes, scores = sorted_x[:, 4:8] + c, sorted_x[:, 8]
-        nms_idx = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+        nms_idx = ops.nms(boxes, scores, iou_thres)  # NMS
         if nms_idx.shape[0] > max_det:  # limit detections
             below_upper_limit_nms_idx = nms_idx[:max_det]
         else:
