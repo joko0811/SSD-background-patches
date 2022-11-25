@@ -9,11 +9,11 @@ from torchvision import transforms
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from skimage.metrics import peak_signal_noise_ratio
 
+from tensorboardX import SummaryWriter
 from torchviz import make_dot
 from tqdm import tqdm
 
 from util import img, clustering
-from box import condition, seek
 from model import yolo, yolo_util
 from dataset import coco
 from loss import total_loss
@@ -32,8 +32,8 @@ def get_image_from_dataset():
 
 
 def get_image_from_file():
-    # image_path = "./data/dog.jpg"
-    image_path = "./testdata/adv_image.png"
+    image_path = "./data/dog.jpg"
+    # image_path = "./testdata/adv_image.png"
     image_size = 416
     image = cv2.imread(image_path)
     input_img = transforms.Compose([
@@ -43,20 +43,20 @@ def get_image_from_file():
     return input_img
 
 
-def show_image(orig_img, detections):
+def make_annotation_image(orig_img, detections):
     pil_img = transforms.functional.to_pil_image(orig_img[0])
     datasets_class_names_path = "./coco2014/coco.names"
     class_names = coco.load_class_names(datasets_class_names_path)
 
     ann_img = img.draw_annotations(pil_img, detections.xyxy,
                                    detections.class_labels, detections.confidences, class_names)
-    ann_img.show()
+    return ann_img
 
 
-def show_box(image, boxes):
+def make_box_image(image, boxes):
     pil_img = transforms.functional.to_pil_image(image[0])
     tmp_img = img.draw_boxes(pil_img, boxes)
-    tmp_img.show()
+    return tmp_img
 
 
 def save_image(image):
@@ -69,14 +69,16 @@ def test_detect(image):
     if torch.cuda.is_available():
         gpu_image = image.to(
             device='cuda:0', dtype=torch.float)
-    detections = yolo_util.detect(gpu_image)
-    show_image(image, detections)
+    yolo_out = yolo_util.detect(gpu_image)
+    nms_out = yolo_util.nms(yolo_out)
+    detections = yolo_util.detections_base(nms_out[0])
+    make_annotation_image(image, detections)
 
 
 def test_loss(orig_img):
 
     epoch = 250  # T in paper
-    t = 0  # t in paper (iterator)
+    t_iter = 0  # t in paper (iterator)
     psnr_threshold = 0
 
     # 勾配計算失敗時のデバッグ用
@@ -90,9 +92,9 @@ def test_loss(orig_img):
 
     with torch.no_grad():
         # 素の画像を物体検出器にかけた時の出力をground truthとする
-        gt_out = yolo_util.detect(adv_image)
-        gt_mns = yolo_util.nms(gt_out)
-        ground_truthes = yolo_util.detections_ground_truth(gt_mns[0])
+        gt_yolo_out = yolo_util.detect(adv_image)
+        gt_nms_out = yolo_util.nms(gt_yolo_out)
+        ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
 
         # ground truthesをクラスタリング
         group_labels = clustering.object_grouping(
@@ -104,6 +106,8 @@ def test_loss(orig_img):
     background_patch_boxes = torch.zeros(
         (ground_truthes.total_group*n_b, 4), device=adv_image.device)
 
+    tbx_writer = SummaryWriter("testdata/tbx")
+
     optimizer = optim.Adam([adv_image])
 
     model = yolo.load_model(
@@ -112,44 +116,17 @@ def test_loss(orig_img):
     model.eval()
     torch.autograd.set_detect_anomaly(True)
 
-    for t in tqdm(range(epoch)):
+    for t_iter in tqdm(range(epoch)):
 
         adv_image.requires_grad = True
 
         # t回目のパッチ適用画像から物体検出する
         output = model(adv_image)
         detections = yolo_util.detections_loss(output[0], is_nms=False)
-        # nms_out = yolo_util.nms(output)
-        # det_out = yolo_util.detections_loss(nms_out[0])
-        # show_image(adv_image, det_out)
 
-        # 検出と一番近いground truth
-        gt_nearest_idx = seek.find_nearest_box(
-            detections.xywh, ground_truthes.xywh)
-        gt_box_nearest_dt = ground_truthes.xyxy[gt_nearest_idx]
-        # detectionと、各detectionに一番近いground truthのiouスコアを算出
-        dt_gt_iou_scores = condition.iou(
-            detections.xyxy, gt_box_nearest_dt)
-        # dtのスコアから、gt_nearest_idxで指定されるground truthの属するクラスのみを抽出
-        dt_scores_for_nearest_gt_label = detections.class_scores.gather(
-            1, ground_truthes.class_labels[gt_nearest_idx, None]).squeeze()
-        # 論文で提案された変数zを計算
-        z = pf.calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
-
-        # 検出と一番近い背景パッチ
-        bp_nearest_idx = seek.find_nearest_box(
-            detections.xywh, background_patch_boxes)
-        # detectionと、各detectionに一番近いground truthのiouスコアを算出
-        bp_box_nearest_dt = background_patch_boxes[bp_nearest_idx]
-        dt_bp_iou_scores = condition.iou(
-            detections.xyxy, bp_box_nearest_dt)
-        # 論文で提案された変数rを計算
-        r = pf.calc_r(dt_bp_iou_scores, detections.xyxy,
-                      ground_truthes.xyxy)
-
-        # 損失計算用の情報を積む
-        detections.set_loss_info(gt_nearest_idx, z, r)
-        loss = total_loss(detections, ground_truthes)
+        tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
+            detections, ground_truthes, background_patch_boxes)
+        loss = tpc_loss+tps_loss+fpc_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -158,7 +135,7 @@ def test_loss(orig_img):
 
         with torch.no_grad():
 
-            if t == 0:
+            if t_iter == 0:
                 # ループの最初にのみ実行
                 # パッチ領域を決定する
                 background_patch_boxes = pf.initial_background_patches(
@@ -171,24 +148,41 @@ def test_loss(orig_img):
             # 勾配画像をパッチ領域の形に切り出す
             perturbated_image = pf.perturbation_in_background_patches(
                 gradient_image, background_patch_boxes)
-            # show_box(perturbated_image, background_patch_boxes)
+            # make_box_image(perturbated_image, background_patch_boxes)
             # パッチの正規化
             perturbated_image = pf.perturbation_normalization(
                 perturbated_image)
-            # show_box(perturbated_image, background_patch_boxes)
+            # make_box_image(perturbated_image, background_patch_boxes)
             # adv_image-perturbated_imageの計算結果を[0,255]にクリップする
             adv_image = pf.update_i_with_pixel_clipping(
                 adv_image, perturbated_image)
 
             # psnr評価用の画像を切り出す
             psnr_truth_image = pf.perturbation_in_background_patches(
-                ground_truth_image, background_patch_boxes)
+                ground_truth_image, background_patch_boxes).detach().cpu().numpy()
             psnr_eval_image = pf.perturbation_in_background_patches(
-                adv_image, background_patch_boxes)
+                adv_image, background_patch_boxes).detach().cpu().numpy()
 
-            if ((peak_signal_noise_ratio(psnr_truth_image.to('cpu').detach().numpy().copy(), psnr_eval_image.to('cpu').detach().numpy().copy()) < psnr_threshold)
-                    or (z.nonzero().size() == 0)):
-                # psnrが閾値以下もしくはzの要素が全て0の場合ループを抜ける
+            tbx_writer.add_scalar(
+                "total_loss", loss, t_iter)
+            tbx_writer.add_scalar(
+                "tpc_loss", tpc_loss, t_iter)
+            tbx_writer.add_scalar(
+                "tps_loss", tps_loss, t_iter)
+            tbx_writer.add_scalar(
+                "fpc_loss", fpc_loss, t_iter)
+            if t_iter % 10 == 0:
+                tbx_writer.add_image("adversarial_image",
+                                     adv_image[0], t_iter)
+
+                bp_image = transforms.functional.to_tensor(make_box_image(
+                    perturbated_image, background_patch_boxes))
+                tbx_writer.add_image(
+                    "background_patch_boxes", bp_image, t_iter)
+
+            if ((peak_signal_noise_ratio(psnr_truth_image, psnr_eval_image) < psnr_threshold)
+                    or (end_flag)):
+                # psnrが閾値以下もしくは損失計算時に条件を満たした場合(zの要素がすべて0の場合)ループを抜ける
                 break
 
     save_image(adv_image)

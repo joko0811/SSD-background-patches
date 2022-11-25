@@ -1,6 +1,8 @@
 import torch
 
 from model.yolo_util import detections_ground_truth, detections_loss
+from box import condition, seek
+import proposed_func as pf
 
 
 def tpc(detections: detections_loss, max_class_scores):
@@ -36,7 +38,7 @@ def fpc(detections: detections_loss, max_class_scores):
     return fpc_score
 
 
-def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth):
+def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes):
     """Returns the total loss
     Args:
       detections:
@@ -47,16 +49,48 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
         (x1, y1, x2, y2, conf, cls)
     """
 
+    # nms_out = yolo_util.nms(output)
+    # det_out = yolo_util.detections_loss(nms_out[0])
+    # show_image(adv_image, det_out)
+
+    # 検出と一番近いground truth
+    gt_nearest_idx = seek.find_nearest_box(
+        detections.xywh, ground_truthes.xywh)
+    gt_box_nearest_dt = ground_truthes.xyxy[gt_nearest_idx]
+    # detectionと、各detectionに一番近いground truthのiouスコアを算出
+    dt_gt_iou_scores = condition.iou(
+        detections.xyxy, gt_box_nearest_dt)
+    # dtのスコアから、gt_nearest_idxで指定されるground truthの属するクラスのみを抽出
+    dt_scores_for_nearest_gt_label = detections.class_scores.gather(
+        1, ground_truthes.class_labels[gt_nearest_idx, None]).squeeze()
+    # 論文で提案された変数zを計算
+    z = pf.calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
+
+    # 検出と一番近い背景パッチ
+    bp_nearest_idx = seek.find_nearest_box(
+        detections.xywh, background_patch_boxes)
+    # detectionと、各detectionに一番近いground truthのiouスコアを算出
+    bp_box_nearest_dt = background_patch_boxes[bp_nearest_idx]
+    dt_bp_iou_scores = condition.iou(
+        detections.xyxy, bp_box_nearest_dt)
+    # 論文で提案された変数rを計算
+    r = pf.calc_r(dt_bp_iou_scores, detections.xyxy,
+                  ground_truthes.xyxy)
+
+    # 損失計算用の情報を積む
+    detections.set_loss_info(gt_nearest_idx, z, r)
+
     # tpc、fpcの計算に必要なパラメータ計算
     max_class_scores = get_max_scores_without_correct_class(
         detections, ground_truthes)
 
-    tpc_score = tpc(detections, max_class_scores)
-    tps_score = tps(detections, ground_truthes)
-    fpc_score = fpc(detections, max_class_scores)
+    tpc_loss = tpc(detections, max_class_scores)
+    tps_loss = tps(detections, ground_truthes)
+    fpc_loss = fpc(detections, max_class_scores)
 
-    loss = tpc_score+tps_score+fpc_score
-    return loss
+    end_flag_z = (z.nonzero().size() == 0)
+
+    return (tpc_loss, tps_loss, fpc_loss, end_flag_z)
 
 
 def get_max_scores_without_correct_class(detections: detections_loss, ground_truthes: detections_ground_truth):
