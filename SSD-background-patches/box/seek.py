@@ -18,17 +18,23 @@ def find_nearest_box(box_listA, box_listB):
     """box_listAの各要素に対して最も近いbox_listBのインデックスを返す
 
     box=[xywh]
-    # boxlist=[[x,y,w,h],[x,y,w,h],...]
+    boxlist=[[x,y,w,h],[x,y,w,h],...]
 
     Returns:
         nearest_idx:
             box_listAの要素数に等しい
     """
 
+    """
     nearest_idx = torch.zeros((box_listA.shape[0]), device=box_listA.device)
     for i, boxA in enumerate(box_listA):
         norm = torch.linalg.norm(box_listB[:, :2]-boxA[:2], dim=1)
         min_idx = torch.argmin(norm)
         nearest_idx[i] = min_idx
+    """
+
+    norm = torch.linalg.norm(box_listB[:, :2].unsqueeze(
+        0)-box_listA[:, :2].unsqueeze(1), dim=2)
+    nearest_idx = torch.argmin(norm, dim=1)
 
     return nearest_idx.to(torch.int64)
