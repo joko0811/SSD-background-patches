@@ -34,8 +34,7 @@ def get_image_from_dataset():
     return img
 
 
-def get_image_from_file():
-    image_path = "./data/dog.jpg"
+def get_image_from_file(image_path):
     # image_path = "./testdata/adv_image.png"
     image_size = 416
     image = cv2.imread(image_path)
@@ -62,20 +61,21 @@ def make_box_image(image, boxes):
     return tmp_img
 
 
-def save_image(image):
+def save_image(image, image_path):
     pil_img = transforms.functional.to_pil_image(image[0])
-    pil_img.save("./testdata/adv_image.png")
+    pil_img.save(image_path)
 
 
-def test_detect(image):
-
+def test_detect(input_path, output_path):
+    image = get_image_from_file(input_path)
     if torch.cuda.is_available():
         gpu_image = image.to(
             device='cuda:0', dtype=torch.float)
     yolo_out = yolo_util.detect(gpu_image)
     nms_out = yolo_util.nms(yolo_out)
     detections = yolo_util.detections_base(nms_out[0])
-    make_annotation_image(image, detections)
+    anno_image = make_annotation_image(image, detections)
+    anno_image.save(output_path)
 
 
 def init_tensorboard(name=None):
@@ -202,14 +202,21 @@ def test_loss(orig_img):
                 # psnrが閾値以下もしくは損失計算時に条件を満たした場合(zの要素がすべて0の場合)ループを抜ける
                 break
 
-    save_image(adv_image)
     print("success!")
+    return adv_image
 
 
 def run():
 
-    img = get_image_from_file()
-    test_loss(img)
+    input_path = "./testdata/adv_image.png"
+    output_path = "./testdata/det_image.png"
+    test_detect(input_path, output_path)
+
+    # input_path = "./data/dog.jpg"
+    # output_path = "./testdata/adv_image.png"
+    # get_image_from_file(input_path)
+    # adv_image=test_detect(img)
+    # save_image(adv_image,output_path)
 
 
 def main():
