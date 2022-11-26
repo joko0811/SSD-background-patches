@@ -1,5 +1,3 @@
-import numpy as np
-
 import torch
 
 from box import condition, seek, transform
@@ -199,7 +197,8 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 
 def expanded_background_patches(bp_boxes, gradient_image):
     stride_rate = 0.02
-    stride = stride_rate*max(list(gradient_image.shape[2:4]))
+    image_h, image_w = gradient_image.shape[2:4]
+    stride = stride_rate*max(image_h, image_w)
 
     new_bp_boxes = bp_boxes.clone()
 
@@ -218,6 +217,12 @@ def expanded_background_patches(bp_boxes, gradient_image):
             else:
                 bp_box_diff[j-2] = bp_box_diff[j]
                 bp_box_diff[j] += stride
+
+            if j % 2 == 0:
+                bp_box_diff = bp_box_diff.clamp(min=0, max=(image_w-1))
+            else:
+                bp_box_diff = bp_box_diff.clamp(min=0, max=(image_h-1))
+
             gradient_sum = transform.image_crop_by_box(
                 gradient_image, bp_box_diff).sum()
 
@@ -228,6 +233,11 @@ def expanded_background_patches(bp_boxes, gradient_image):
                     expand_bp_box[j] -= stride
                 else:
                     expand_bp_box[j] += stride
+
+                if j % 2 == 0:
+                    expand_bp_box = expand_bp_box.clamp(min=0, max=(image_w-1))
+                else:
+                    expand_bp_box = expand_bp_box.clamp(min=0, max=(image_h-1))
 
                 # new_bp_boxesからj番目の要素を除いた配列
                 compare_boxes = torch.cat(

@@ -44,7 +44,7 @@ def make_box_image(image, boxes):
 
 def init_tensorboard(name=None):
     logdir = 'testdata/tbx/'
-    subprocess.Popen(['tensorboard', f'--logdir={logdir}'])
+    # subprocess.Popen(['tensorboard', f'--logdir={logdir}'])
     time_str = time.strftime("%Y%m%d-%H%M%S")
     if name is not None:
         return SummaryWriter(f'{logdir}{time_str}_{name}')
@@ -166,11 +166,12 @@ def train_adversarial_image(orig_img):
                 break
 
     print("success!")
+    tbx_writer.close()
     return adv_image.clone().cpu()
 
 
 def main():
-    time_str = time.strftime("%Y%m%d-%H%M%S")
+    time_str = time.strftime("%Y%m%d_%H%M%S")
     input_image_path = "./data/dog.jpg"
     output_image_path = f'./testdata/adv/adv_image_{time_str}.png'
     image = get_image_from_file(input_image_path)
