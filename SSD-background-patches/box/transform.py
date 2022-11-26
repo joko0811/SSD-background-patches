@@ -7,12 +7,36 @@ def image_crop_by_box(image, box):
 
 
 def box2mask(image, boxes):
-    mask = torch.zeros(image.shape, device=image.device)
-    for y in range(image.shape[2]):
-        for x in range(image.shape[3]):
-            if torch.logical_and(torch.logical_and(boxes[:, 0] <= x, x <= boxes[:, 2]), torch.logical_and(boxes[:, 1] <= y, y <= boxes[:, 3])).any():
-                mask[:, :, y, x] = 1
-    return mask
+
+    image_h = image.shape[2]
+    image_w = image.shape[3]
+    mask_size = (image_h, image_w)
+
+    # マスクしたい領域が0
+    mask = torch.ones(mask_size, device=image.device)
+
+    for box in boxes:
+        x1, y1, x2, y2 = box
+
+        sc_idx_y = (torch.arange(y2-y1, dtype=torch.int64, device=image.device) +
+                    y1.to(torch.int64)).unsqueeze(1).tile(image_w)
+        sc_src_y = torch.ones(sc_idx_y.shape, device=sc_idx_y.device)
+        mask_y = torch.zeros(mask_size, device=image.device).scatter_(
+            0, sc_idx_y, sc_src_y)
+
+        sc_idx_x = (torch.arange(x2-x1, dtype=torch.int64, device=image.device) +
+                    x1.to(torch.int64)).tile(image_h, 1)
+        sc_src_x = torch.ones(sc_idx_x.shape, device=sc_idx_x.device)
+        mask_x = torch.zeros(mask_size, device=image.device).scatter_(
+            1, sc_idx_x, sc_src_x)
+
+        # mask_y,mask_x共通して1である箇所は0、それ以外は1のbox_mask
+        box_mask = torch.logical_not(mask_y*mask_x).int()
+
+        mask *= box_mask
+
+    # 0->1,1->0 マスクしたい領域が1
+    return (mask == 0).int()
 
 
 def box_expand(boxes, offset):

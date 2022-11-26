@@ -1,6 +1,9 @@
 import numpy as np
 import cv2
 
+import subprocess
+import time
+
 import torch
 import torch.optim as optim
 from torchvision.datasets.coco import CocoDetection
@@ -75,6 +78,16 @@ def test_detect(image):
     make_annotation_image(image, detections)
 
 
+def init_tensorboard(name=None):
+    logdir = 'testdata/tbx/'
+    subprocess.Popen(['tensorboard', f'--logdir={logdir}'])
+    time_str = time.strftime("%Y%m%d-%H%M%S")
+    if name is not None:
+        return SummaryWriter(f'{logdir}{time_str}_{name}')
+    else:
+        return SummaryWriter(f'{logdir}{time_str}')
+
+
 def test_loss(orig_img):
 
     epoch = 250  # T in paper
@@ -106,7 +119,7 @@ def test_loss(orig_img):
     background_patch_boxes = torch.zeros(
         (ground_truthes.total_group*n_b, 4), device=adv_image.device)
 
-    tbx_writer = SummaryWriter("testdata/tbx")
+    tbx_writer = init_tensorboard()
 
     optimizer = optim.Adam([adv_image])
 
@@ -162,6 +175,7 @@ def test_loss(orig_img):
                 ground_truth_image, background_patch_boxes).detach().cpu().numpy()
             psnr_eval_image = pf.perturbation_in_background_patches(
                 adv_image, background_patch_boxes).detach().cpu().numpy()
+            psnr = peak_signal_noise_ratio(psnr_truth_image, psnr_eval_image)
 
             tbx_writer.add_scalar(
                 "total_loss", loss, t_iter)
@@ -171,6 +185,9 @@ def test_loss(orig_img):
                 "tps_loss", tps_loss, t_iter)
             tbx_writer.add_scalar(
                 "fpc_loss", fpc_loss, t_iter)
+            tbx_writer.add_scalar(
+                "psnr", psnr, t_iter)
+
             if t_iter % 10 == 0:
                 tbx_writer.add_image("adversarial_image",
                                      adv_image[0], t_iter)
@@ -180,7 +197,7 @@ def test_loss(orig_img):
                 tbx_writer.add_image(
                     "background_patch_boxes", bp_image, t_iter)
 
-            if ((peak_signal_noise_ratio(psnr_truth_image, psnr_eval_image) < psnr_threshold)
+            if ((psnr < psnr_threshold)
                     or (end_flag)):
                 # psnrが閾値以下もしくは損失計算時に条件を満たした場合(zの要素がすべて0の場合)ループを抜ける
                 break

@@ -201,26 +201,40 @@ def expanded_background_patches(bp_boxes, gradient_image):
     stride_rate = 0.02
     stride = stride_rate*max(list(gradient_image.shape[2:4]))
 
-    new_bp_boxes = torch.zeros(bp_boxes.shape, device=bp_boxes.device)
+    new_bp_boxes = bp_boxes.clone()
 
     for i, bp_box in enumerate(bp_boxes):
-        max_gradient_sum = torch.tensor([-float('inf')], device=bp_box.device)
+        max_gradient_sum = torch.tensor([0], device=bp_box.device)
+
+        # 4方向への拡張領域のうち、勾配総和が最大になるものを選ぶ
         for j in range(len(bp_box)):
-            expand_bp_box = bp_box.clone()
+
+            # 拡張したとき、差分となる領域のbox
+            bp_box_diff = bp_box.clone()
 
             if j <= 1:
-                # x1,y1の時は減算
-                expand_bp_box[j] -= stride
+                bp_box_diff[j+2] = bp_box_diff[j]
+                bp_box_diff[j] -= stride
             else:
-                # x2,y2の時は加算
-                expand_bp_box[j] += stride
+                bp_box_diff[j-2] = bp_box_diff[j]
+                bp_box_diff[j] += stride
+            gradient_sum = transform.image_crop_by_box(
+                gradient_image, bp_box_diff).sum()
 
-            ex_bp_gradiation_sum = transform.image_crop_by_box(
-                gradient_image, expand_bp_box).sum()
+            if max_gradient_sum <= gradient_sum:
+                # 拡張するbp_box
+                expand_bp_box = bp_box.clone()
+                if j <= 1:
+                    expand_bp_box[j] -= stride
+                else:
+                    expand_bp_box[j] += stride
 
-            if max_gradient_sum <= ex_bp_gradiation_sum:
-                max_gradient_sum = ex_bp_gradiation_sum
-                new_bp_boxes[i] = expand_bp_box
+                # new_bp_boxesからj番目の要素を除いた配列
+                compare_boxes = torch.cat(
+                    (new_bp_boxes[:j], new_bp_boxes[j+1:]))
+                if (not condition.is_overlap_list(expand_bp_box, compare_boxes)):
+                    max_gradient_sum = gradient_sum
+                    new_bp_boxes[i] = expand_bp_box
 
     return new_bp_boxes
 
