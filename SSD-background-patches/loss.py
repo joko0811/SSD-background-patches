@@ -88,7 +88,7 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
     tps_loss = tps(detections, ground_truthes)
     fpc_loss = fpc(detections, max_class_scores)
 
-    end_flag_z = (z.nonzero().size() == 0)
+    end_flag_z = (z.nonzero().size() == (0, 1))
 
     return (tpc_loss, tps_loss, fpc_loss, end_flag_z)
 

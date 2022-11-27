@@ -140,7 +140,8 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
     for group_idx in range(ground_truthes.total_group):
 
         group_bp_box = torch.zeros(n_b, 4, device=bp_boxes.device)
-        group_bp_grad_sum = torch.zeros(n_b, device=bp_grad_sumes.device)
+        group_bp_grad_sum = torch.ones(
+            n_b, device=bp_grad_sumes.device)*(-1*float('inf'))
 
         # グループに属するboxの抽出
         group_boxes_xywh = (
