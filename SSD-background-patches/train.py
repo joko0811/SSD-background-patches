@@ -81,6 +81,11 @@ def train_adversarial_image(orig_img, tbx_writer=None):
         # 素の画像を物体検出器にかけた時の出力をground truthとする
         gt_yolo_out = yolo_util.detect(adv_image)
         gt_nms_out = yolo_util.nms(gt_yolo_out)
+
+        if gt_nms_out[0].nelement() == 0:
+            # 元画像の検出がない場合は敵対的画像を生成できない
+            return adv_image
+
         ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
 
         # ground truthesをクラスタリング
@@ -111,6 +116,9 @@ def train_adversarial_image(orig_img, tbx_writer=None):
         detections = yolo_util.detections_loss(output[0], is_nms=False)
         # nms_out = yolo_util.nms(output)
         # detections = yolo_util.detections_loss(nms_out[0])
+        # if nms_out[0].nelement() == 0:
+        #     # 検出がない場合は終了
+        #     return adv_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
             detections, ground_truthes, background_patch_boxes)
@@ -220,7 +228,7 @@ def main():
                                       annFile=train_annfile_path, transform=yolo_transforms)
             train_loader = torch.utils.data.DataLoader(train_set)
 
-            for image_idx, (image, _) in tqdm(enumerate(train_loader), total=len(train_loader)):
+            for image_idx, (image, _) in tqdm(enumerate(train_loader), total=iterate_num):
                 if image_idx >= iterate_num:
                     break
                 output_image_path = output_dir + \
