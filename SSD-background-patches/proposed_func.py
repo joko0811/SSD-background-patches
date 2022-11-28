@@ -33,8 +33,8 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     """
     iou_score_threshold = 0.1
     iou_flag = iou_scores > iou_score_threshold
-    overlap_flag = torch.tensor([not condition.is_overlap_list(dt, ground_truth_boxes)
-                                 for dt in detection_boxes], device=detection_boxes.device)
+    overlap_flag = torch.logical_not(condition.are_overlap_list(
+        detection_boxes, ground_truth_boxes))
     r = torch.logical_and(iou_flag, overlap_flag)
     return r.long()
 
