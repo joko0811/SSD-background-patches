@@ -8,6 +8,7 @@ from torchvision.datasets.coco import CocoDetection
 from torchvision import transforms
 
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
+from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 
 
 from util import img
@@ -70,17 +71,31 @@ def test_detect(input_path, output_path):
     anno_image.save(output_path)
 
 
+def test_dataset():
+    train_path = "./coco2014/images/train2014/"
+    train_annfile_path = "./coco2014/annotations/instances_train2014.json"
+
+    coco_transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((416, 416)),
+    ])
+
+    train_set = CocoDetection(root=train_path,
+                              annFile=train_annfile_path, transform=coco_transforms)
+
+    train_loader = torch.utils.data.DataLoader(train_set)
+    for i, (image, info) in enumerate(train_loader):
+        print(i)
+
+
 def run():
-
-    input_path = "./testdata/adv/adv_image_20221126-231625.png"
-    output_path = "./testdata/adv/annotation_adv_image_20221126-231625.png"
-    test_detect(input_path, output_path)
-
-    # input_path = "./data/dog.jpg"
-    # output_path = "./testdata/adv_image.png"
-    # get_image_from_file(input_path)
-    # adv_image=test_detect(img)
-    # save_image(adv_image,output_path)
+    model = yolo_util.load_model(
+        "weights/yolov3.cfg",
+        "weights/yolov3.weights")
+    test_dataset()
+    # input_path = "./testdata/monitor/20221127_171928/adv_image.png"
+    # output_path = "./testdata/monitor/20221127_171928/anno_image.png"
+    # test_detect(input_path, output_path)
 
 
 def main():
