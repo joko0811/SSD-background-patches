@@ -158,7 +158,5 @@ class detections_ground_truth(detections_base):
 
 
 class detections_loss(detections_base):
-    def set_loss_info(self, nearest_gt_idx, z, r):
+    def set_loss_info(self, nearest_gt_idx):
         self.nearest_gt_idx = nearest_gt_idx
-        self.z = z
-        self.r = r

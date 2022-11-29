@@ -5,17 +5,17 @@ from box import condition, seek
 import proposed_func as pf
 
 
-def tpc(detections: detections_loss, max_class_scores):
+def tpc(z, detections: detections_loss, max_class_scores):
     """True Positive Class Loss
     """
 
     # スコア計算
-    tpc_score = -1 * torch.sum(detections.z * torch.log(max_class_scores))
+    tpc_score = -1 * torch.sum(z * torch.log(max_class_scores))
 
     return tpc_score
 
 
-def tps(detections: detections_loss, ground_truthes: detections_ground_truth):
+def tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
     """True Positive Shape Loss
     """
 
@@ -23,22 +23,38 @@ def tps(detections: detections_loss, ground_truthes: detections_ground_truth):
     dist = (
         (detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx])**2)
 
-    tps_score = torch.exp(-1*torch.sum(detections.z*torch.sum(dist, dim=1)))
+    tps_score = torch.exp(-1*torch.sum(z*torch.sum(dist, dim=1)))
 
     return tps_score
 
 
-def fpc(detections: detections_loss, max_class_scores):
+def new_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth, image_wh):
+    """True Positive Shape Loss
+    """
+
+    # (x-x)^2+(y-y)^2+(w-w)^2+(h-h)
+    dist = (
+        (detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx])**2)
+    nomalization_dist = torch.cat(
+        (dist[:, 0:1]/image_wh[0], dist[:, 1:2]/image_wh[1], dist[:, 2:3]/image_wh[0], dist[:, 3:4]/image_wh[1]), dim=1)
+
+    tps_score = torch.log(
+        torch.sum(z*torch.sum(nomalization_dist, dim=1)))
+
+    return tps_score
+
+
+def fpc(r, detections: detections_loss, max_class_scores):
     """False Positive Class Loss
     """
 
     # スコア計算
-    fpc_score = -1 * torch.sum(detections.r * torch.log(max_class_scores))
+    fpc_score = -1 * torch.sum(r * torch.log(max_class_scores))
 
     return fpc_score
 
 
-def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes):
+def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes, image_size):
     """Returns the total loss
     Args:
       detections:
@@ -78,15 +94,15 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
                   ground_truthes.xyxy)
 
     # 損失計算用の情報を積む
-    detections.set_loss_info(gt_nearest_idx, z, r)
+    detections.set_loss_info(gt_nearest_idx)
 
     # tpc、fpcの計算に必要なパラメータ計算
     max_class_scores = get_max_scores_without_correct_class(
         detections, ground_truthes)
 
-    tpc_loss = tpc(detections, max_class_scores)
-    tps_loss = tps(detections, ground_truthes)
-    fpc_loss = fpc(detections, max_class_scores)
+    tpc_loss = tpc(z, detections, max_class_scores)
+    tps_loss = new_tps(z, detections, ground_truthes, image_size)
+    fpc_loss = fpc(r, detections, max_class_scores)
 
     end_flag_z = (z.nonzero().size() == (0, 1))
 

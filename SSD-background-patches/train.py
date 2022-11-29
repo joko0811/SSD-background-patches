@@ -65,7 +65,7 @@ def init_tensorboard(name=None):
 
 
 def train_adversarial_image(orig_img, tbx_writer=None):
-    epoch = 250  # T in paper
+    epoch = 350  # T in paper default 250
     t_iter = 0  # t in paper (iterator)
     psnr_threshold = 0
 
@@ -121,7 +121,7 @@ def train_adversarial_image(orig_img, tbx_writer=None):
         #     return adv_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
-            detections, ground_truthes, background_patch_boxes)
+            detections, ground_truthes, background_patch_boxes, adv_image.shape[2:4])
         loss = tpc_loss+tps_loss+fpc_loss
 
         optimizer.zero_grad()
@@ -197,7 +197,7 @@ def train_adversarial_image(orig_img, tbx_writer=None):
 
 
 def main():
-    mode = "evaluate"
+    mode = "monitor"
 
     time_str = time.strftime("%Y%m%d_%H%M%S")
     output_dir = f'./testdata/{mode}/{time_str}/'
