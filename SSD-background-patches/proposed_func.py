@@ -62,7 +62,7 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box1, ignore_
 
     # ウインドウごとに範囲内の全画素の合計をとり、三原色を合計
     # ([1,3,a-h+1,b-w+1,h,w])->([1,a-h+1,b-w+1])
-    windows_grad_sum = slide_windows.sum(dim=5).sum(
+    windows_grad_sum = slide_windows.abs().sum(dim=5).sum(
         dim=4).sum(dim=1)
 
     # ソートしたときに全ての要素の順位が出るようにreshape
@@ -225,7 +225,7 @@ def expanded_background_patches(bp_boxes, gradient_image):
                 bp_box_diff = bp_box_diff.clamp(min=0, max=(image_h-1))
 
             gradient_sum = transform.image_crop_by_box(
-                gradient_image, bp_box_diff).sum()
+                gradient_image, bp_box_diff).abs().sum()
 
             if max_gradient_sum <= gradient_sum:
                 # 拡張するbp_box
