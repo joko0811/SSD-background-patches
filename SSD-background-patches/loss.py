@@ -38,8 +38,7 @@ def new_tps(z, detections: detections_loss, ground_truthes: detections_ground_tr
     nomalization_dist = torch.cat(
         (dist[:, 0:1]/image_wh[0], dist[:, 1:2]/image_wh[1], dist[:, 2:3]/image_wh[0], dist[:, 3:4]/image_wh[1]), dim=1)
 
-    tps_score = torch.log(
-        torch.sum(z*torch.sum(nomalization_dist, dim=1)))
+    tps_score = torch.sum(z*torch.log(torch.sum(nomalization_dist, dim=1)/4))
 
     return tps_score
 
