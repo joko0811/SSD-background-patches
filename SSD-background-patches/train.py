@@ -66,7 +66,7 @@ def init_tensorboard(name=None):
 
 
 def train_adversarial_image(orig_img, tbx_writer=None):
-    epoch = 350  # T in paper default 250
+    epoch = 500  # T in paper default 250
     t_iter = 0  # t in paper (iterator)
     psnr_threshold = 0
 
@@ -202,26 +202,30 @@ def main():
         description="generate adversarial image")
     arg_parser.add_argument("-m", "--mode", type=str,
                             default="monitor", help="Select execution mode")
+    arg_parser.add_argument("-d", "--description", type=str,
+                            default="", help="Description to be included in the data")
     args = arg_parser.parse_args()
 
     mode = args.mode
+    description = args.description
 
     time_str = time.strftime("%Y%m%d_%H%M%S")
     print(f'start: {time_str}')
-    output_dir = f'./testdata/{mode}/{time_str}/'
+    output_dir = f'./testdata/{mode}/{time_str}{description}/'
     os.makedirs(output_dir)
 
     match mode:
         case "monitor":
 
-            input_image_path = "./data/dog.jpg"
+            input_image_path = "./data/bathroom.jpg"
             image = get_image_from_file(input_image_path)
 
             tbx_writer = SummaryWriter(output_dir)
             adv_image = train_adversarial_image(image, tbx_writer)
             tbx_writer.close()
 
-            output_image_path = output_dir+f'adv_image_{time_str}.png'
+            output_image_path = output_dir + \
+                f'adv_image_{time_str}.png'
 
             save_image(adv_image, output_image_path)
         case "evaluate":
