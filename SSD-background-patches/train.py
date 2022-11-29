@@ -174,8 +174,11 @@ def train_adversarial_image(orig_img, tbx_writer=None):
 
                 if t_iter % 10 == 0:
 
+                    nms_out = yolo_util.nms(output)
+                    nms_detections = yolo_util.detections_loss(nms_out[0])
+
                     det_image = transforms.functional.to_tensor(make_annotation_image(
-                        adv_image, detections))
+                        adv_image, nms_detections))
                     tbx_writer.add_image(
                         "adversarial_image", det_image, t_iter)
 
