@@ -1,5 +1,6 @@
 import os
 import time
+import argparse
 
 import cv2
 import numpy as np
@@ -197,9 +198,16 @@ def train_adversarial_image(orig_img, tbx_writer=None):
 
 
 def main():
-    mode = "monitor"
+    arg_parser = argparse.ArgumentParser(
+        description="generate adversarial image")
+    arg_parser.add_argument("-m", "--mode", type=str,
+                            default="monitor", help="Select execution mode")
+    args = arg_parser.parse_args()
+
+    mode = args.mode
 
     time_str = time.strftime("%Y%m%d_%H%M%S")
+    print(f'start: {time_str}')
     output_dir = f'./testdata/{mode}/{time_str}/'
     os.makedirs(output_dir)
 
