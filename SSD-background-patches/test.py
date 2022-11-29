@@ -89,13 +89,13 @@ def test_dataset():
 
 
 def run():
-    model = yolo_util.load_model(
-        "weights/yolov3.cfg",
-        "weights/yolov3.weights")
-    test_dataset()
-    # input_path = "./testdata/monitor/20221127_171928/adv_image.png"
-    # output_path = "./testdata/monitor/20221127_171928/anno_image.png"
-    # test_detect(input_path, output_path)
+    # model = yolo_util.load_model(
+    #     "weights/yolov3.cfg",
+    #     "weights/yolov3.weights")
+    # test_dataset()
+    input_path = "./data/adv_image_20221129_200007.png"
+    output_path = "./data/anno_image_20221129_200007.png"
+    test_detect(input_path, output_path)
 
 
 def main():

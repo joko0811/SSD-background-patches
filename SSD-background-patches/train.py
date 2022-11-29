@@ -66,7 +66,7 @@ def init_tensorboard(name=None):
 
 
 def train_adversarial_image(orig_img, tbx_writer=None):
-    epoch = 500  # T in paper default 250
+    epoch = 250  # T in paper default 250
     t_iter = 0  # t in paper (iterator)
     psnr_threshold = 0
 
@@ -217,7 +217,7 @@ def main():
     match mode:
         case "monitor":
 
-            input_image_path = "./data/bathroom.jpg"
+            input_image_path = "./data/dog.jpg"
             image = get_image_from_file(input_image_path)
 
             tbx_writer = SummaryWriter(output_dir)

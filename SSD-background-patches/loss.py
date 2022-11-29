@@ -32,9 +32,15 @@ def new_tps(z, detections: detections_loss, ground_truthes: detections_ground_tr
     """True Positive Shape Loss
     """
     dist = torch.abs(
-        detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx]+1e-5)
+        detections.xywh[:, :2]-ground_truthes.xywh[detections.nearest_gt_idx, :2]+1e-5)
+    z_sum = z*torch.sum(dist, dim=1)
 
-    tps_score = torch.exp(-1*torch.mean(z*torch.sum(dist, dim=1)))
+    unique_labels, labels_count = detections.nearest_gt_idx.unique(
+        return_counts=True)
+    average_by_gt = torch.zeros_like(unique_labels, dtype=z_sum.dtype).scatter_add(
+        0, detections.nearest_gt_idx, z_sum)/labels_count
+
+    tps_score = torch.exp(-1*torch.sum(average_by_gt))
 
     return tps_score
 
