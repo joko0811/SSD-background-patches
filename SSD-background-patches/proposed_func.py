@@ -58,11 +58,11 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box1, ignore_
     # スライディングウインドウで切り出せる範囲を全部取ってくる
     # ([1,3,a,b])->([1,3,a-h+1,b-w+1,h,w])
     # a,b,w,hは式は合ってるけど項の場所は怪しいかも
-    slide_windows = img.unfold(2, sw_h, 1).unfold(3, sw_w, 1)
+    slide_windows = img.abs().unfold(2, sw_h, 1).unfold(3, sw_w, 1)
 
     # ウインドウごとに範囲内の全画素の合計をとり、三原色を合計
     # ([1,3,a-h+1,b-w+1,h,w])->([1,a-h+1,b-w+1])
-    windows_grad_sum = slide_windows.abs().sum(dim=5).sum(
+    windows_grad_sum = slide_windows.sum(dim=5).sum(
         dim=4).sum(dim=1)
 
     # ソートしたときに全ての要素の順位が出るようにreshape
