@@ -1,5 +1,3 @@
-import numpy as np
-
 import torch
 
 from box import condition, seek, transform
@@ -35,8 +33,8 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     """
     iou_score_threshold = 0.1
     iou_flag = iou_scores > iou_score_threshold
-    overlap_flag = torch.tensor([not condition.is_overlap_list(dt, ground_truth_boxes)
-                                 for dt in detection_boxes], device=detection_boxes.device)
+    overlap_flag = torch.logical_not(condition.are_overlap_list(
+        detection_boxes, ground_truth_boxes))
     r = torch.logical_and(iou_flag, overlap_flag)
     return r.long()
 
@@ -60,7 +58,7 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box1, ignore_
     # スライディングウインドウで切り出せる範囲を全部取ってくる
     # ([1,3,a,b])->([1,3,a-h+1,b-w+1,h,w])
     # a,b,w,hは式は合ってるけど項の場所は怪しいかも
-    slide_windows = img.unfold(2, sw_h, 1).unfold(3, sw_w, 1)
+    slide_windows = img.abs().unfold(2, sw_h, 1).unfold(3, sw_w, 1)
 
     # ウインドウごとに範囲内の全画素の合計をとり、三原色を合計
     # ([1,3,a-h+1,b-w+1,h,w])->([1,a-h+1,b-w+1])
@@ -142,7 +140,8 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
     for group_idx in range(ground_truthes.total_group):
 
         group_bp_box = torch.zeros(n_b, 4, device=bp_boxes.device)
-        group_bp_grad_sum = torch.zeros(n_b, device=bp_grad_sumes.device)
+        group_bp_grad_sum = torch.ones(
+            n_b, device=bp_grad_sumes.device)*(-1*float('inf'))
 
         # グループに属するboxの抽出
         group_boxes_xywh = (
@@ -199,7 +198,8 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 
 def expanded_background_patches(bp_boxes, gradient_image):
     stride_rate = 0.02
-    stride = stride_rate*max(list(gradient_image.shape[2:4]))
+    image_h, image_w = gradient_image.shape[2:4]
+    stride = stride_rate*max(image_h, image_w)
 
     new_bp_boxes = bp_boxes.clone()
 
@@ -218,8 +218,14 @@ def expanded_background_patches(bp_boxes, gradient_image):
             else:
                 bp_box_diff[j-2] = bp_box_diff[j]
                 bp_box_diff[j] += stride
+
+            if j % 2 == 0:
+                bp_box_diff = bp_box_diff.clamp(min=0, max=(image_w-1))
+            else:
+                bp_box_diff = bp_box_diff.clamp(min=0, max=(image_h-1))
+
             gradient_sum = transform.image_crop_by_box(
-                gradient_image, bp_box_diff).sum()
+                gradient_image, bp_box_diff).abs().sum()
 
             if max_gradient_sum <= gradient_sum:
                 # 拡張するbp_box
@@ -228,6 +234,11 @@ def expanded_background_patches(bp_boxes, gradient_image):
                     expand_bp_box[j] -= stride
                 else:
                     expand_bp_box[j] += stride
+
+                if j % 2 == 0:
+                    expand_bp_box = expand_bp_box.clamp(min=0, max=(image_w-1))
+                else:
+                    expand_bp_box = expand_bp_box.clamp(min=0, max=(image_h-1))
 
                 # new_bp_boxesからj番目の要素を除いた配列
                 compare_boxes = torch.cat(

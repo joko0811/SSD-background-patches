@@ -1,18 +1,29 @@
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 
 def pil2cv(pil_image):
-    ''' PIL型 -> OpenCV型 '''
     new_image = np.array(pil_image, dtype=np.uint8)
-    if new_image.ndim == 2:  # モノクロ
+    if new_image.ndim == 2:
         pass
-    elif new_image.shape[2] == 3:  # カラー
+    elif new_image.shape[2] == 3:
         new_image = cv2.cvtColor(new_image, cv2.COLOR_RGB2BGR)
-    elif new_image.shape[2] == 4:  # 透過
+    elif new_image.shape[2] == 4:
         new_image = cv2.cvtColor(new_image, cv2.COLOR_RGBA2BGRA)
+    return new_image
+
+
+def cv2pil(image):
+    new_image = image.copy()
+    if new_image.ndim == 2:
+        pass
+    elif new_image.shape[2] == 3:
+        new_image = cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB)
+    elif new_image.shape[2] == 4:
+        new_image = cv2.cvtColor(new_image, cv2.COLOR_BGRA2RGBA)
+    new_image = Image.fromarray(new_image)
     return new_image
 
 
