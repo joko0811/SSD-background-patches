@@ -37,8 +37,12 @@ def new_tps(z, detections: detections_loss, ground_truthes: detections_ground_tr
 
     unique_labels, labels_count = detections.nearest_gt_idx.unique(
         return_counts=True)
+    # nearest_gt_idxに出現しないラベルを含めた除算用のラベル毎集計変数を作成
+    labels_count_per_class = torch.ones(torch.max(
+        unique_labels)+1, device=z_sum.device, dtype=labels_count.dtype).scatter(0, unique_labels, labels_count)
+    # 一番近いGround Truthのインデックスでラベル付し、ラベルに属する検出のz_sumの平均をとる
     average_by_gt = torch.zeros(torch.max(unique_labels)+1, device=z_sum.device, dtype=z_sum.dtype).scatter_add(
-        0, detections.nearest_gt_idx, z_sum)/labels_count
+        0, detections.nearest_gt_idx, z_sum)/labels_count_per_class
 
     tps_score = torch.exp(-1*torch.sum(average_by_gt))
 
