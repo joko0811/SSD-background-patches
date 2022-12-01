@@ -122,7 +122,7 @@ def train_adversarial_image(orig_img, tbx_writer=None):
         #     return adv_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
-            detections, ground_truthes, background_patch_boxes, adv_image.shape[2:4])
+            detections, ground_truthes, background_patch_boxes)
         loss = tpc_loss+tps_loss+fpc_loss
 
         optimizer.zero_grad()
