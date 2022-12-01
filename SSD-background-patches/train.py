@@ -246,8 +246,6 @@ def main():
             for image_idx, (image, _) in tqdm(enumerate(train_loader), total=iterate_num):
                 if image_idx >= iterate_num:
                     break
-                if image_idx < 57:
-                    continue
                 output_image_path = output_dir + \
                     f'{image_idx}_adv_image_{time_str}.png'
                 adv_image = train_adversarial_image(image)
