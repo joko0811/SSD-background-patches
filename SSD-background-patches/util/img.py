@@ -1,7 +1,14 @@
 import cv2
 import numpy as np
+
+from torchvision import transforms
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
+
+
+def save_tensor_image(image, image_path):
+    pil_img = transforms.functional.to_pil_image(image[0])
+    pil_img.save(image_path)
 
 
 def pil2cv(pil_image):
@@ -27,7 +34,16 @@ def cv2pil(image):
     return new_image
 
 
+def tensor2annotation_image(image, detections, class_names):
+    pil_img = transforms.functional.to_pil_image(image[0])
+
+    ann_img = draw_annotations(pil_img, detections.xyxy,
+                               detections.class_labels, detections.confidences, class_names)
+    return ann_img
+
 # https://pystyle.info/pillow-draw-object-detection-results-on-an-image/
+
+
 def draw_annotations(img, boxes, class_labeles, confidences, class_names):
     """画像に対してアノテーションを追加する
 
@@ -76,6 +92,12 @@ def draw_annotations(img, boxes, class_labeles, confidences, class_names):
                   caption, fill="black", font=font)
 
     return img
+
+
+def tensor2box_annotation_image(image, boxes):
+    pil_img = transforms.functional.to_pil_image(image[0])
+    box_img = draw_boxes(pil_img, boxes)
+    return box_img
 
 
 def draw_boxes(img, boxes):
