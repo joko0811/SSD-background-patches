@@ -12,8 +12,9 @@ from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 
 
 from util import img
-from model import yolo_util
-from dataset import coco
+from model import yolo, yolo_util
+from dataset.coco import load_class_names
+from dataset.simple import DirectoryDataset
 
 
 def get_image_from_dataset():
@@ -41,7 +42,7 @@ def get_image_from_file(image_path):
 def make_annotation_image(orig_img, detections):
     pil_img = transforms.functional.to_pil_image(orig_img[0])
     datasets_class_names_path = "./coco2014/coco.names"
-    class_names = coco.load_class_names(datasets_class_names_path)
+    class_names = load_class_names(datasets_class_names_path)
 
     ann_img = img.draw_annotations(pil_img, detections.xyxy,
                                    detections.class_labels, detections.confidences, class_names)
@@ -72,30 +73,64 @@ def test_detect(input_path, output_path):
 
 
 def test_dataset():
-    train_path = "./coco2014/images/train2014/"
-    train_annfile_path = "./coco2014/annotations/instances_train2014.json"
+    coco_path = "./coco2014/images/train2014/"
+    coco_annfile_path = "./coco2014/annotations/instances_train2014.json"
+    images_dir_path = "./testdata/evaluate/20221201_220253/"
 
-    coco_transforms = transforms.Compose([
+    coco_class_names_path = "./coco2014/coco.names"
+    class_names = load_class_names(coco_class_names_path)
+
+    model = yolo.load_model(
+        "weights/yolov3.cfg",
+        "weights/yolov3.weights")
+    model.eval()
+
+    yolo_transforms = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((416, 416)),
     ])
 
-    train_set = CocoDetection(root=train_path,
-                              annFile=train_annfile_path, transform=coco_transforms)
+    coco_set = CocoDetection(root=coco_path,
+                             annFile=coco_annfile_path, transform=yolo_transforms)
+    coco_loader = torch.utils.data.DataLoader(coco_set)
 
-    train_loader = torch.utils.data.DataLoader(train_set)
-    for i, (image, info) in enumerate(train_loader):
-        print(i)
+    dir_set = DirectoryDataset(
+        image_path=images_dir_path, transform=yolo_transforms)
+    dir_loader = torch.utils.data.DataLoader(dir_set)
+
+    for i, ((dir_image, dir_image_path), (coco_image, coco_info)) in enumerate(zip(dir_loader, coco_loader)):
+        if i > 5:
+            break
+
+        if torch.cuda.is_available():
+            dir_image = dir_image.to(device='cuda:0', dtype=torch.float)
+            coco_image = coco_image.to(device='cuda:0', dtype=torch.float)
+
+        dir_output = model(dir_image)
+        dir_nms_out = yolo_util.nms(dir_output)
+        dir_detections = yolo_util.detections_base(dir_nms_out[0])
+
+        dir_anno_img = img.tensor2annotation_image(
+            dir_image, dir_detections, class_names)
+        dir_anno_img.save("data/dir_"+str(i)+".png")
+
+        coco_output = model(coco_image)
+        coco_nms_out = yolo_util.nms(coco_output)
+        coco_detections = yolo_util.detections_base(coco_nms_out[0])
+
+        coco_anno_img = img.tensor2annotation_image(
+            coco_image, coco_detections, class_names)
+        coco_anno_img.save("data/coco_"+str(i)+".png")
 
 
 def run():
+    test_dataset()
     # model = yolo_util.load_model(
     #     "weights/yolov3.cfg",
     #     "weights/yolov3.weights")
-    # test_dataset()
-    input_path = "./data/dog.jpg"
-    output_path = "./data/dog_anno.jpg"
-    test_detect(input_path, output_path)
+    # input_path = "./data/dog.jpg"
+    # output_path = "./data/dog_anno.jpg"
+    # test_detect(input_path, output_path)
 
 
 def main():
