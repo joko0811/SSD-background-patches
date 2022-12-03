@@ -213,6 +213,7 @@ def main():
             img.save_tensor_image(adv_image, output_image_path)
         case "evaluate":
             iterate_num = 1000
+            iterate_digit = len(str(iterate_num))
 
             train_path = "./coco2014/images/train2014/"
             train_annfile_path = "./coco2014/annotations/instances_train2014.json"
@@ -229,9 +230,12 @@ def main():
             for image_idx, (image, _) in tqdm(enumerate(train_loader), total=iterate_num):
                 if image_idx >= iterate_num:
                     break
-                output_image_path = output_dir + \
-                    f'{image_idx}_adv_image_{time_str}.png'
                 adv_image = train_adversarial_image(image)
+
+                iter_str = str(image_idx).zfill(iterate_digit)
+                output_image_path = output_dir + \
+                    f'adv_image_{iter_str}_{time_str}.png'
+
                 img.save_tensor_image(adv_image, output_image_path)
 
         case _:
