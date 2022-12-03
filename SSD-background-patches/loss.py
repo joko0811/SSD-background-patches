@@ -1,8 +1,9 @@
 import torch
 
 from model.yolo_util import detections_ground_truth, detections_loss
-from box import condition, seek
-import proposed_func as pf
+from box.seek import find_nearest_box
+from evaluation.detection import iou
+from proposed_func import calc_r, calc_z
 
 
 def tpc(z, detections: detections_loss, max_class_scores):
@@ -75,28 +76,28 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
     # show_image(adv_image, det_out)
 
     # 検出と一番近いground truth
-    gt_nearest_idx = seek.find_nearest_box(
+    gt_nearest_idx = find_nearest_box(
         detections.xywh, ground_truthes.xywh)
     gt_box_nearest_dt = ground_truthes.xyxy[gt_nearest_idx]
     # detectionと、各detectionに一番近いground truthのiouスコアを算出
-    dt_gt_iou_scores = condition.iou(
+    dt_gt_iou_scores = iou(
         detections.xyxy, gt_box_nearest_dt)
     # dtのスコアから、gt_nearest_idxで指定されるground truthの属するクラスのみを抽出
     dt_scores_for_nearest_gt_label = detections.class_scores.gather(
         1, ground_truthes.class_labels[gt_nearest_idx, None]).squeeze()
     # 論文で提案された変数zを計算
-    z = pf.calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
+    z = calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
 
     # 検出と一番近い背景パッチ
-    bp_nearest_idx = seek.find_nearest_box(
+    bp_nearest_idx = find_nearest_box(
         detections.xywh, background_patch_boxes)
     # detectionと、各detectionに一番近いground truthのiouスコアを算出
     bp_box_nearest_dt = background_patch_boxes[bp_nearest_idx]
-    dt_bp_iou_scores = condition.iou(
+    dt_bp_iou_scores = iou(
         detections.xyxy, bp_box_nearest_dt)
     # 論文で提案された変数rを計算
-    r = pf.calc_r(dt_bp_iou_scores, detections.xyxy,
-                  ground_truthes.xyxy)
+    r = calc_r(dt_bp_iou_scores, detections.xyxy,
+               ground_truthes.xyxy)
 
     # 損失計算用の情報を積む
     detections.set_loss_info(gt_nearest_idx)

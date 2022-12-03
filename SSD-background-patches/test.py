@@ -93,8 +93,8 @@ def run():
     #     "weights/yolov3.cfg",
     #     "weights/yolov3.weights")
     # test_dataset()
-    input_path = "./data/adv_image_20221129_200007.png"
-    output_path = "./data/anno_image_20221129_200007.png"
+    input_path = "./data/dog.jpg"
+    output_path = "./data/dog_anno.jpg"
     test_detect(input_path, output_path)
 
 
