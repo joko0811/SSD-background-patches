@@ -13,7 +13,7 @@ from dataset.simple import DirectoryDataset
 from evaluation.detection import list_iou, calc_class_TP, calc_class_FP, calc_class_FN
 
 
-def format_detections(detections, det_idx, label_names):
+def format_detections(detections, det_idx, label_names, image_hw):
     label = label_names[detections.class_labels[det_idx]]
     conf = detections.confidences[det_idx]
     box = detections.xyxy[det_idx]
@@ -21,14 +21,18 @@ def format_detections(detections, det_idx, label_names):
     return label+" "+str(conf.item())+" "+str(int(box[0].item()))+" "+str(int(box[1].item()))+" "+str(int(box[2].item()))+" "+str(int(box[3].item()))
 
 
-def format_yolo(detections, det_idx, label_names):
+def format_yolo(detections, det_idx, label_names, image_hw):
     label_idx = detections.class_labels[det_idx]
     box = detections.xywh[det_idx]
+    yolo_x = box[0].item()/image_hw[1]
+    yolo_y = box[1].item()/image_hw[0]
+    yolo_w = box[2].item()/image_hw[1]
+    yolo_h = box[3].item()/image_hw[0]
 
-    return str(label_idx.item())+" "+str(int(box[0].item()))+" "+str(int(box[1].item()))+" "+str(int(box[2].item()))+" "+str(int(box[3].item()))
+    return str(label_idx.item())+" "+str(yolo_x)+" "+str(yolo_y)+" "+str(yolo_w)+" "+str(yolo_h)
 
 
-def save_detections(model_out, class_names, image_path, format):
+def save_detections(model_out, class_names, image_path, format, image_wh):
     nms_out = yolo_util.nms(model_out)
 
     detections = yolo_util.detections_base(nms_out[0])
@@ -36,7 +40,7 @@ def save_detections(model_out, class_names, image_path, format):
 
     for i in range(detections.total_det):
         det_str += format(
-            detections, i, class_names)+"\n"
+            detections, i, class_names, image_wh)+"\n"
 
     with open(image_path, mode='w') as f:
         f.write(det_str)
@@ -89,11 +93,11 @@ def evaluation(path):
 
         gt_output = model(gt_image)
         save_detections(gt_output, class_names, gt_out_path +
-                        image_name+".txt", format_yolo)
+                        image_name+".txt", format_yolo, gt_image.shape[-2:])
 
         dt_output = model(adv_image)
         save_detections(dt_output, class_names, dt_out_path +
-                        image_name+".txt", format_detections)
+                        image_name+".txt", format_detections, adv_image.shape[-2:])
 
     return
 
