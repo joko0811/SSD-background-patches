@@ -34,27 +34,6 @@ def get_image_from_file(image_path):
     return tensor_image
 
 
-def save_image(image, image_path):
-    pil_img = transforms.functional.to_pil_image(image[0])
-    pil_img.save(image_path)
-
-
-def make_box_image(image, boxes):
-    pil_img = transforms.functional.to_pil_image(image[0])
-    box_img = img.draw_boxes(pil_img, boxes)
-    return box_img
-
-
-def make_annotation_image(image, detections):
-    pil_img = transforms.functional.to_pil_image(image[0])
-    datasets_class_names_path = "./coco2014/coco.names"
-    class_names = coco.load_class_names(datasets_class_names_path)
-
-    ann_img = img.draw_annotations(pil_img, detections.xyxy,
-                                   detections.class_labels, detections.confidences, class_names)
-    return ann_img
-
-
 def init_tensorboard(name=None):
     logdir = 'testdata/tbx/'
     # subprocess.Popen(['tensorboard', f'--logdir={logdir}'])
@@ -65,7 +44,7 @@ def init_tensorboard(name=None):
         return SummaryWriter(f'{logdir}{time_str}')
 
 
-def train_adversarial_image(orig_img, tbx_writer=None):
+def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
     epoch = 250  # T in paper default 250
     t_iter = 0  # t in paper (iterator)
     psnr_threshold = 0
@@ -122,7 +101,7 @@ def train_adversarial_image(orig_img, tbx_writer=None):
         #     return adv_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
-            detections, ground_truthes, background_patch_boxes, adv_image.shape[2:4])
+            detections, ground_truthes, background_patch_boxes)
         loss = tpc_loss+tps_loss+fpc_loss
 
         optimizer.zero_grad()
@@ -178,12 +157,12 @@ def train_adversarial_image(orig_img, tbx_writer=None):
                     nms_out = yolo_util.nms(output)
                     nms_detections = yolo_util.detections_loss(nms_out[0])
 
-                    det_image = transforms.functional.to_tensor(make_annotation_image(
-                        adv_image, nms_detections))
+                    det_image = transforms.functional.to_tensor(img.tensor2annotation_image(
+                        adv_image, nms_detections, class_names))
                     tbx_writer.add_image(
                         "adversarial_image", det_image, t_iter)
 
-                    bp_image = transforms.functional.to_tensor(make_box_image(
+                    bp_image = transforms.functional.to_tensor(img.tensor2box_annotation_image(
                         nomalized_perturbated_image, background_patch_boxes))
                     tbx_writer.add_image(
                         "background_patch_boxes", bp_image, t_iter)
@@ -217,19 +196,24 @@ def main():
     match mode:
         case "monitor":
 
+            datasets_class_names_path = "./coco2014/coco.names"
+            class_names = coco.load_class_names(datasets_class_names_path)
+
             input_image_path = "./data/dog.jpg"
             image = get_image_from_file(input_image_path)
 
             tbx_writer = SummaryWriter(output_dir)
-            adv_image = train_adversarial_image(image, tbx_writer)
+            adv_image = train_adversarial_image(
+                image, class_names=class_names, tbx_writer=tbx_writer)
             tbx_writer.close()
 
             output_image_path = output_dir + \
                 f'adv_image_{time_str}.png'
 
-            save_image(adv_image, output_image_path)
+            img.save_tensor_image(adv_image, output_image_path)
         case "evaluate":
             iterate_num = 1000
+            iterate_digit = len(str(iterate_num))
 
             train_path = "./coco2014/images/train2014/"
             train_annfile_path = "./coco2014/annotations/instances_train2014.json"
@@ -246,10 +230,13 @@ def main():
             for image_idx, (image, _) in tqdm(enumerate(train_loader), total=iterate_num):
                 if image_idx >= iterate_num:
                     break
-                output_image_path = output_dir + \
-                    f'{image_idx}_adv_image_{time_str}.png'
                 adv_image = train_adversarial_image(image)
-                save_image(adv_image, output_image_path)
+
+                iter_str = str(image_idx).zfill(iterate_digit)
+                output_image_path = output_dir + \
+                    f'adv_image_{iter_str}_{time_str}.png'
+
+                img.save_tensor_image(adv_image, output_image_path)
 
         case _:
             raise Exception('modeが想定されていない値です')
