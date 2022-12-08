@@ -14,7 +14,7 @@ from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 from util import img
 from model import yolo, yolo_util
 from dataset.coco import load_class_names
-from dataset.simple import DirectoryDataset
+from dataset.simple import DirectoryImageDataset, DirectoryTxtDataset
 
 
 def get_image_from_dataset():
@@ -75,7 +75,8 @@ def test_detect(input_path, output_path):
 def test_dataset():
     coco_path = "./coco2014/images/train2014/"
     coco_annfile_path = "./coco2014/annotations/instances_train2014.json"
-    images_dir_path = "./testdata/evaluate/20221201_220253/"
+    coco_labelfile_path = "./coco2014/labels/train2014/"
+    images_dir_path = "./testdata/evaluate/20221205_185858/"
 
     coco_class_names_path = "./coco2014/coco.names"
     class_names = load_class_names(coco_class_names_path)
@@ -94,7 +95,9 @@ def test_dataset():
                              annFile=coco_annfile_path, transform=yolo_transforms)
     coco_loader = torch.utils.data.DataLoader(coco_set)
 
-    dir_set = DirectoryDataset(
+    coco_label_set = DirectoryTxtDataset()
+
+    dir_set = DirectoryImageDataset(
         image_path=images_dir_path, transform=yolo_transforms)
     dir_loader = torch.utils.data.DataLoader(dir_set)
 

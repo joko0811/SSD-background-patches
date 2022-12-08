@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from model import yolo, yolo_util
 from dataset.coco import load_class_names
-from dataset.simple import DirectoryDataset
+from dataset.simple import DirectoryImageDataset
 from evaluation.detection import list_iou, calc_class_TP, calc_class_FP, calc_class_FN
 
 
@@ -70,7 +70,7 @@ def evaluation(path):
                            transform=yolo_transforms)
     gt_loader = torch.utils.data.DataLoader(gt_set)
 
-    adv_set = DirectoryDataset(
+    adv_set = DirectoryImageDataset(
         image_path=path, transform=yolo_transforms)
     adv_loader = torch.utils.data.DataLoader(adv_set)
 
