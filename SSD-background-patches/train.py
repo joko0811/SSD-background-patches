@@ -2,6 +2,7 @@ import os
 import time
 import argparse
 
+from PIL import Image
 import cv2
 import numpy as np
 
@@ -26,11 +27,18 @@ from dataset import coco
 def get_image_from_file(image_path):
     # image_path = "./testdata/adv_image.png"
     image_size = 416
-    cv2_image = cv2.imread(image_path)
-    tensor_image = transforms.Compose([
-        DEFAULT_TRANSFORMS,
-        Resize(image_size)])(
-            (cv2_image, np.zeros((1, 5))))[0].unsqueeze(0)
+    # cv2_image = cv2.imread(image_path)
+    # tensor_image = transforms.Compose([
+    #     DEFAULT_TRANSFORMS,
+    #     Resize(image_size)])(
+    #         (cv2_image, np.zeros((1, 5))))[0].unsqueeze(0)
+
+    pil_image = Image.open(image_path)
+    yolo_transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((416, 416)),
+    ])
+    tensor_image = yolo_transforms(pil_image).unsqueeze(0)
     return tensor_image
 
 
@@ -199,7 +207,7 @@ def main():
             datasets_class_names_path = "./coco2014/coco.names"
             class_names = coco.load_class_names(datasets_class_names_path)
 
-            input_image_path = "./data/dog.jpg"
+            input_image_path = "./data/bathroom.jpg"
             image = get_image_from_file(input_image_path)
 
             tbx_writer = SummaryWriter(output_dir)
@@ -210,7 +218,8 @@ def main():
             output_image_path = output_dir + \
                 f'adv_image_{time_str}.png'
 
-            img.save_tensor_image(adv_image, output_image_path)
+            pil_image = transforms.functional.to_pil_image(adv_image[0])
+            pil_image.save(output_image_path)
         case "evaluate":
             iterate_num = 1000
             iterate_digit = len(str(iterate_num))
@@ -236,7 +245,8 @@ def main():
                 output_image_path = output_dir + \
                     f'adv_image_{iter_str}_{time_str}.png'
 
-                img.save_tensor_image(adv_image, output_image_path)
+                pil_image = transforms.functional.to_pil_image(adv_image[0])
+                pil_image.save(output_image_path)
 
         case _:
             raise Exception('modeが想定されていない値です')
