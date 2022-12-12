@@ -242,7 +242,7 @@ def expanded_background_patches(bp_boxes, gradient_image):
 
                 # new_bp_boxesからj番目の要素を除いた配列
                 compare_boxes = torch.cat(
-                    (new_bp_boxes[:j], new_bp_boxes[j+1:]))
+                    (new_bp_boxes[:i], new_bp_boxes[i+1:]))
                 if (not condition.is_overlap_list(expand_bp_box, compare_boxes)):
                     max_gradient_sum = gradient_sum
                     new_bp_boxes[i] = expand_bp_box
