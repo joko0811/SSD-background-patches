@@ -106,11 +106,11 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
     max_class_scores = get_max_scores_without_correct_class(
         detections, ground_truthes)
 
+    end_flag_z = (z.nonzero().size() == (0, 1))
+
     tpc_loss = tpc(z, detections, max_class_scores)
     tps_loss = new_tps(z, detections, ground_truthes)
     fpc_loss = fpc(r, detections, max_class_scores)
-
-    end_flag_z = (z.nonzero().size() == (0, 1))
 
     return (tpc_loss, tps_loss, fpc_loss, end_flag_z)
 
@@ -132,6 +132,12 @@ def get_max_scores_without_correct_class(detections: detections_loss, ground_tru
         mask_for_class_score, detections.class_scores)
 
     # 正しいクラス以外のすべての全クラスのなかで最大のスコアを抽出
-    max_class_scores = torch.max(masked_class_scores, dim=1)[0]
+    max_class_scores, _ = torch.max(masked_class_scores, dim=1)
 
-    return max_class_scores
+    # 損失計算時にmax_class_scoresの対数を取る
+    # 対数計算結果でnanが発生するのを防止するため、max_class_scoresで値が0の要素は極小値と置換する
+    zero_indexes = (max_class_scores == 0).nonzero()
+    nan_proofed_max_class_scores = max_class_scores.scatter_(
+        0, zero_indexes, torch.ones(zero_indexes.shape, device=zero_indexes.device) * 1e-5)
+
+    return nan_proofed_max_class_scores

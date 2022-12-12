@@ -92,8 +92,6 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
     model.eval()
 
     optimizer = optim.Adam([adv_image])
-    # 勾配計算失敗時のデバッグ用
-    torch.autograd.set_detect_anomaly(True)
 
     for t_iter in tqdm(range(epoch), leave=is_monitor_mode):
 
@@ -101,12 +99,12 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
 
         # t回目のパッチ適用画像から物体検出する
         output = model(adv_image)
-        detections = yolo_util.detections_loss(output[0], is_nms=False)
-        # nms_out = yolo_util.nms(output)
-        # detections = yolo_util.detections_loss(nms_out[0])
-        # if nms_out[0].nelement() == 0:
-        #     # 検出がない場合は終了
-        #     return adv_image
+        # detections = yolo_util.detections_loss(output[0], is_nms=False)
+        nms_out = yolo_util.nms(output)
+        detections = yolo_util.detections_loss(nms_out[0])
+        if nms_out[0].nelement() == 0:
+            # 検出がない場合は終了
+            return adv_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
             detections, ground_truthes, background_patch_boxes)
@@ -146,6 +144,8 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
                 ground_truth_image, background_patch_boxes).detach().cpu().numpy()
             psnr_eval_image = pf.perturbation_in_background_patches(
                 adv_image, background_patch_boxes).detach().cpu().numpy()
+
+            # NOTE:psnrはzの要素が全て0になったときにnanになることがある
             psnr = peak_signal_noise_ratio(psnr_truth_image, psnr_eval_image)
 
             if tbx_writer is not None:
@@ -207,12 +207,13 @@ def main():
             datasets_class_names_path = "./coco2014/coco.names"
             class_names = coco.load_class_names(datasets_class_names_path)
 
-            input_image_path = "./data/bathroom.jpg"
+            input_image_path = "./data/dog.jpg"
             image = get_image_from_file(input_image_path)
 
             tbx_writer = SummaryWriter(output_dir)
-            adv_image = train_adversarial_image(
-                image, class_names=class_names, tbx_writer=tbx_writer)
+            with torch.autograd.detect_anomaly():
+                adv_image = train_adversarial_image(
+                    image, class_names=class_names, tbx_writer=tbx_writer)
             tbx_writer.close()
 
             output_image_path = output_dir + \
