@@ -29,7 +29,23 @@ def tps(z, detections: detections_loss, ground_truthes: detections_ground_truth)
     return tps_score
 
 
-def new_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
+def normalized_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth, image_hw):
+    """True Positive Shape Loss
+    """
+    # xyは画像サイズで割る　[0,1]区間に正規化
+    # whも
+    # (x-x)^2+(y-y)^2+(w-w)^2+(h-h)
+    dist_div = torch.tensor([image_hw[1], image_hw[0]],
+                            device=detections.xywh.device).tile(2)
+    dist = (
+        (detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx])/dist_div).pow(2)
+
+    tps_score = torch.exp(-1*torch.sum(z*torch.sum(dist[:, :2], dim=1)))
+
+    return tps_score
+
+
+def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
     """True Positive Shape Loss
     """
     dist = torch.abs(
@@ -60,7 +76,7 @@ def fpc(r, detections: detections_loss, max_class_scores):
     return fpc_score
 
 
-def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes):
+def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes, image_hw):
     """Returns the total loss
     Args:
       detections:
@@ -108,8 +124,8 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
 
     end_flag_z = (z.nonzero().size() == (0, 1))
 
-    tpc_loss = tpc(z, detections, max_class_scores)
-    tps_loss = new_tps(z, detections, ground_truthes)
+    tpc_loss = tpc(z, detections, max_class_scores)*0.1
+    tps_loss = normalized_tps(z, detections, ground_truthes, image_hw)
     fpc_loss = fpc(r, detections, max_class_scores)
 
     return (tpc_loss, tps_loss, fpc_loss, end_flag_z)

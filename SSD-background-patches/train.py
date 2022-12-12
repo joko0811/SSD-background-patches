@@ -55,7 +55,7 @@ def init_tensorboard(name=None):
 def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
     epoch = 250  # T in paper default 250
     t_iter = 0  # t in paper (iterator)
-    psnr_threshold = 0
+    psnr_threshold = 35
 
     is_monitor_mode = (tbx_writer is not None)
 
@@ -107,7 +107,7 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
             return adv_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
-            detections, ground_truthes, background_patch_boxes)
+            detections, ground_truthes, background_patch_boxes, adv_image.shape[2:])
         loss = tpc_loss+tps_loss+fpc_loss
 
         optimizer.zero_grad()
@@ -207,7 +207,7 @@ def main():
             datasets_class_names_path = "./coco2014/coco.names"
             class_names = coco.load_class_names(datasets_class_names_path)
 
-            input_image_path = "./data/dog.jpg"
+            input_image_path = "./data/bathroom.jpg"
             image = get_image_from_file(input_image_path)
 
             tbx_writer = SummaryWriter(output_dir)
