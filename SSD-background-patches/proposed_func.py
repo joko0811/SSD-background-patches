@@ -39,7 +39,7 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     return r.long()
 
 
-def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box1, ignore_box2):
+def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
     """スライディングウインドウを作成、順位づけ
 
     画像からw*hのスライディングウインドウを作成、ウインドウ内の勾配強度の合計をとり、これを基に降順に順位付け
@@ -112,7 +112,8 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_box1, ignore_
         extract_gradient_sum = windows_grad_sum[extract_idx[0],
                                                 extract_idx[1], extract_idx[2]]
 
-        if (not condition.is_overlap_list(extract_xyxy, output_box)) and (not condition.is_overlap_list(extract_xyxy, ignore_box1)) and (not condition.is_overlap_list(extract_xyxy, ignore_box2)):
+        # TODO:除外リストにGround truthを含める
+        if (not condition.is_overlap_list(extract_xyxy, output_box)) and (not condition.is_overlap_list(extract_xyxy, ignore_boxes)):
             # 除外リストと一つも重ならない場合、返り値に含める
             output_box[extract_counter] = extract_xyxy
             output_gradient_sum[extract_counter] = extract_gradient_sum
@@ -139,7 +140,7 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 
     for group_idx in range(ground_truthes.total_group):
 
-        group_bp_box = torch.zeros(n_b, 4, device=bp_boxes.device)
+        group_bp_boxes = torch.zeros(n_b, 4, device=bp_boxes.device)
         group_bp_grad_sum = torch.ones(
             n_b, device=bp_grad_sumes.device)*(-1*float('inf'))
 
@@ -177,26 +178,28 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
             # lgi_offset=x1y1
             lgi_offset = search_area[:2]
 
+            ignore_boxes = torch.cat(
+                (ground_truthes.xyxy, group_bp_boxes, bp_boxes.view(1, -1, bp_boxes.shape[-1]).squeeze(0)))
             ex_boxes, ex_grad_sumes = extract_sliding_windows(
-                search_grad_img, lgi_offset, int(w.item()), int(h.item()), n_b, group_bp_box, bp_boxes)
+                search_grad_img, lgi_offset, int(w.item()), int(h.item()), n_b, ignore_boxes)
 
             # もしex_boxesの勾配の合計値(=ex_grad_sum)が既存のパッチ領域の勾配の合計値のいずれかより大きかった場合交換
             # bp_boxes,bp_grad_sumesはbp_gd_totalesの昇順に並んでいる
             for ex_idx in range(n_b):
                 for bp_idx in range(n_b):
                     if group_bp_grad_sum[bp_idx] <= ex_grad_sumes[ex_idx]:
-                        group_bp_box[bp_idx] = ex_boxes[ex_idx]
+                        group_bp_boxes[bp_idx] = ex_boxes[ex_idx]
                         group_bp_grad_sum[bp_idx] = ex_grad_sumes[ex_idx]
                         break
 
                 # group_idx番目のグループに対して適用するパッチ領域の決定
-        bp_boxes[group_idx] = group_bp_box
+        bp_boxes[group_idx] = group_bp_boxes
         bp_grad_sumes[group_idx] = group_bp_grad_sum
 
     return bp_boxes
 
 
-def expanded_background_patches(bp_boxes, gradient_image):
+def expanded_background_patches(bp_boxes, ground_truthes, gradient_image):
     stride_rate = 0.02
     image_h, image_w = gradient_image.shape[2:4]
     stride = stride_rate*max(image_h, image_w)
@@ -243,7 +246,8 @@ def expanded_background_patches(bp_boxes, gradient_image):
                 # new_bp_boxesからj番目の要素を除いた配列
                 compare_boxes = torch.cat(
                     (new_bp_boxes[:i], new_bp_boxes[i+1:]))
-                if (not condition.is_overlap_list(expand_bp_box, compare_boxes)):
+                ignore_boxes = torch.cat((ground_truthes.xyxy, compare_boxes))
+                if (not condition.is_overlap_list(expand_bp_box, ignore_boxes)):
                     max_gradient_sum = gradient_sum
                     new_bp_boxes[i] = expand_bp_box
 
@@ -258,7 +262,7 @@ def perturbation_in_background_patches(gradient_image, bp_boxes):
 
 def perturbation_normalization(perturbation_image):
     l2_norm_lambda = 30
-    return (l2_norm_lambda/(torch.pow(torch.linalg.norm(perturbation_image), 2))) * perturbation_image
+    return (l2_norm_lambda/(torch.linalg.norm(perturbation_image))) * perturbation_image
 
 
 def update_i_with_pixel_clipping(image, perturbated_image):
