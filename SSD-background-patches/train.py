@@ -125,7 +125,7 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
             else:
                 # パッチ領域を拡大する（縮小はしない）
                 background_patch_boxes = pf.expanded_background_patches(
-                    background_patch_boxes, gradient_image)
+                    background_patch_boxes, ground_truthes, gradient_image)
 
             # 勾配画像をパッチ領域の形に切り出す
             perturbated_image = pf.perturbation_in_background_patches(
