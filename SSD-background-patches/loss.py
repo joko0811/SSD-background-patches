@@ -35,12 +35,13 @@ def normalized_tps(z, detections: detections_loss, ground_truthes: detections_gr
     # xyは画像サイズで割る　[0,1]区間に正規化
     # whも
     # (x-x)^2+(y-y)^2+(w-w)^2+(h-h)
-    dist_div = torch.tensor([image_hw[1], image_hw[0]],
-                            device=detections.xywh.device).tile(2)
+    hw_weight = 0.1
+    dist_div = torch.tensor([image_hw[1], image_hw[0], image_hw[1]/hw_weight, image_hw[0]/hw_weight],
+                            device=detections.xywh.device)
     dist = (
         (detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx])/dist_div).pow(2)
 
-    tps_score = torch.exp(-1*torch.sum(z*torch.sum(dist[:, :2], dim=1)))
+    tps_score = torch.exp(-1*torch.sum(z*torch.sum(dist, dim=1)))
 
     return tps_score
 

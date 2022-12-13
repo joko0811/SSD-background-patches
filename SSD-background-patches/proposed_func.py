@@ -261,7 +261,7 @@ def perturbation_in_background_patches(gradient_image, bp_boxes):
 
 
 def perturbation_normalization(perturbation_image):
-    l2_norm_lambda = 30
+    l2_norm_lambda = 1/30
     return (l2_norm_lambda/(torch.linalg.norm(perturbation_image))) * perturbation_image
 
 
