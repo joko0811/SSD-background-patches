@@ -58,13 +58,13 @@ def xywh2xyxy(xywh):
 def xyxy2xywh(xyxy):
     xywh = xyxy.new(xyxy.shape)
     # x=(x1+x2)/2
-    xywh[:, 0] = (xyxy[:, 0] + xyxy[:, 2]) / 2
+    xywh[..., 0] = (xyxy[..., 0] + xyxy[..., 2]) / 2
     # y=(y1+y2)/2
-    xywh[:, 1] = (xyxy[:, 1] + xyxy[:, 3]) / 2
+    xywh[..., 1] = (xyxy[..., 1] + xyxy[..., 3]) / 2
     # w=|x2-x1|
-    xywh[:, 2] = xyxy[:, 2] - xyxy[:, 0]
+    xywh[..., 2] = xyxy[..., 2] - xyxy[..., 0]
     # h=|y2-y1|
-    xywh[:, 3] = xyxy[:, 3] - xyxy[:, 1]
+    xywh[..., 3] = xyxy[..., 3] - xyxy[..., 1]
     return xywh
 
 
