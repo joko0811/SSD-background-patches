@@ -226,7 +226,7 @@ def main():
             pil_image = transforms.functional.to_pil_image(adv_image[0])
             pil_image.save(output_image_path)
         case "evaluate":
-            iterate_num = 1000
+            iterate_num = 2000
             iterate_digit = len(str(iterate_num))
 
             train_path = "./coco2014/images/train2014/"
