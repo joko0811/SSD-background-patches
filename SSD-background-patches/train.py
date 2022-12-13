@@ -198,7 +198,11 @@ def main():
 
     time_str = time.strftime("%Y%m%d_%H%M%S")
     print(f'start: {time_str}')
-    output_dir = f'./testdata/{mode}/{time_str}{description}/'
+    if description is None:
+        output_dir = f'./testdata/{mode}/{time_str}/'
+    else:
+        output_dir = f'./testdata/{mode}/{time_str}_{description}/'
+
     os.makedirs(output_dir)
 
     match mode:
