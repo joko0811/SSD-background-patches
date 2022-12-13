@@ -205,9 +205,9 @@ def expanded_background_patches(bp_boxes, ground_truthes, gradient_image):
     # stride = stride_rate*max(image_h, image_w)
     stride = stride_rate*ground_truthes.xywh[:, 2:].max()
 
-    bp_area_threshold_rate = 1.5
-    min_gt_area = (ground_truthes.xywh[:, 2]*ground_truthes.xywh[:, 3]).min()
-    bp_area_threshold = min_gt_area*bp_area_threshold_rate
+    bp_area_threshold_rate = 1
+    max_gt_area = (ground_truthes.xywh[:, 2]*ground_truthes.xywh[:, 3]).max()
+    bp_area_threshold = max_gt_area*bp_area_threshold_rate
 
     new_bp_boxes = bp_boxes.clone()
 
