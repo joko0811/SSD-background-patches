@@ -202,11 +202,22 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 def expanded_background_patches(bp_boxes, ground_truthes, gradient_image):
     stride_rate = 0.02
     image_h, image_w = gradient_image.shape[2:4]
-    stride = stride_rate*max(image_h, image_w)
+    # stride = stride_rate*max(image_h, image_w)
+    stride = stride_rate*ground_truthes.xywh[:, 2:].max()
+
+    bp_area_threshold_rate = 1.5
+    min_gt_area = (ground_truthes.xywh[:, 2]*ground_truthes.xywh[:, 3]).min()
+    bp_area_threshold = min_gt_area*bp_area_threshold_rate
 
     new_bp_boxes = bp_boxes.clone()
 
     for i, bp_box in enumerate(bp_boxes):
+
+        bp_box_wh = condition.xyxy2xywh(bp_box)[2:]
+        bp_box_area = bp_box_wh[0]*bp_box_wh[1]
+        if bp_box_area > bp_area_threshold:
+            continue
+
         max_gradient_sum = torch.tensor([0], device=bp_box.device)
 
         # 4方向への拡張領域のうち、勾配総和が最大になるものを選ぶ
@@ -246,6 +257,7 @@ def expanded_background_patches(bp_boxes, ground_truthes, gradient_image):
                 # new_bp_boxesからj番目の要素を除いた配列
                 compare_boxes = torch.cat(
                     (new_bp_boxes[:i], new_bp_boxes[i+1:]))
+                # パッチ領域が除外対象の領域と重ならない場合更新
                 ignore_boxes = torch.cat((ground_truthes.xyxy, compare_boxes))
                 if (not condition.is_overlap_list(expand_bp_box, ignore_boxes)):
                     max_gradient_sum = gradient_sum
