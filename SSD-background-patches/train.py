@@ -110,6 +110,11 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
             detections, ground_truthes, background_patch_boxes, adv_image.shape[2:])
         loss = tpc_loss+tps_loss+fpc_loss
 
+        if end_flag:
+            # 損失計算時に条件を満たした場合終了(zの要素がすべて0の場合)
+            # 原因は特定していないがzの要素が全て0の場合勾配画像がバグるので
+            break
+
         optimizer.zero_grad()
         loss.backward()
 
@@ -120,6 +125,7 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
             if t_iter == 0:
                 # ループの最初にのみ実行
                 # パッチ領域を決定する
+                # NOTE:十分な背景領域が存在しない場合、パッチは選択されない
                 background_patch_boxes = pf.initial_background_patches(
                     ground_truthes, gradient_image).reshape((ground_truthes.total_group*n_b, 4))
             else:
@@ -162,11 +168,8 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
 
                 if t_iter % 10 == 0:
 
-                    nms_out = yolo_util.nms(output)
-                    nms_detections = yolo_util.detections_loss(nms_out[0])
-
                     det_image = transforms.functional.to_tensor(img.tensor2annotation_image(
-                        adv_image, nms_detections, class_names))
+                        adv_image, detections, class_names))
                     tbx_writer.add_image(
                         "adversarial_image", det_image, t_iter)
 
@@ -175,10 +178,8 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
                     tbx_writer.add_image(
                         "background_patch_boxes", bp_image, t_iter)
 
-            if ((psnr < psnr_threshold)
-                    or (end_flag)):
+            if psnr < psnr_threshold:
                 # psnrが閾値以下
-                # もしくは損失計算時に条件を満たした場合(zの要素がすべて0の場合)
                 break
 
     return adv_image.clone().cpu()

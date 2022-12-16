@@ -112,7 +112,6 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
         extract_gradient_sum = windows_grad_sum[extract_idx[0],
                                                 extract_idx[1], extract_idx[2]]
 
-        # TODO:除外リストにGround truthを含める
         if (not condition.is_overlap_list(extract_xyxy, output_box)) and (not condition.is_overlap_list(extract_xyxy, ignore_boxes)):
             # 除外リストと一つも重ならない場合、返り値に含める
             output_box[extract_counter] = extract_xyxy
