@@ -39,6 +39,55 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     return r.long()
 
 
+def calculate_search_area(image, boxes):
+    """計算量削減のため、画像からスライディングウインドウで探索する領域を抽出する
+    """
+
+    largest_dist_rate = 0.2  # パッチと対象物体の間のoffsetを算出する際に用いる
+
+    # グループに属する箱の最外殻を決める
+    box_outermost = seek.smallest_box_containing(
+        boxes)
+    # 箱の最大辺から拡張する幅を決める
+    search_offset = seek.get_max_edge(
+        boxes)*largest_dist_rate
+    # 箱の最外殻から拡張幅分増やした箱を取得する
+    before_clamp_area = transform.box_expand(
+        box_outermost, search_offset)
+    # 領域を画像サイズに収める
+    search_area = transform.box_clamp(
+        before_clamp_area, image.shape[2], image.shape[3])
+
+    # 画像から探索領域を切り出す
+    search_image = transform.image_crop_by_box(
+        image, search_area)
+
+    return search_image, search_area
+
+
+def calculate_window_wh(boxes):
+    """スライディングウインドウのwhを決定する
+    Args:
+        boxes:
+            xywh形式の箱
+    """
+
+    # スライディングウインドウのサイズを決める定数
+    # （論文内では明記されていなかったが、サイズ＝面積とする）
+    initialize_size_rate = 0.2
+    # スライディングウインドウののアスペクト比を示す配列(1:要素)
+    aspect_rate = torch.tensor(
+        [1, 0.67, 0.75, 1.5, 1.33], device=boxes.device)
+
+    # ウインドウサイズ決定
+    # ウインドウサイズ決定のため、グループ内で最大の面積を求める
+    max_size = torch.max(boxes[:, 2]*boxes[:, 3])
+    # アスペクト比、サイズからウインドウの高さと幅を求める
+    window_w = torch.sqrt(initialize_size_rate*max_size/aspect_rate)
+    window_h = window_w*aspect_rate
+    return window_w, window_h
+
+
 def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
     """スライディングウインドウを作成、順位づけ
 
@@ -57,7 +106,6 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
 
     # スライディングウインドウで切り出せる範囲を全部取ってくる
     # ([1,3,a,b])->([1,3,a-h+1,b-w+1,h,w])
-    # a,b,w,hは式は合ってるけど項の場所は怪しいかも
     slide_windows = img.abs().unfold(2, sw_h, 1).unfold(3, sw_w, 1)
 
     # ウインドウごとに範囲内の全画素の合計をとり、三原色を合計
@@ -124,11 +172,6 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
 
 def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 
-    # パラメータの設定
-    initialize_size_rate = 0.2  # 箱のサイズ（論文内では明記されていなかったが、サイズ＝面積とする）
-    aspect_rate = torch.tensor(
-        [1, 0.67, 0.75, 1.5, 1.33], device=ground_truthes.xyxy.device)  # 箱のアスペクト比 1:要素
-    largest_dist_rate = 0.2  # パッチと対象物体の間の許容できる最大距離に関してのパラメータ。最大距離は対象物体の最大辺＊このパラメータで算出する
     n_b = 3  # グループごとのパッチ最大数
 
     # 返り値
@@ -144,36 +187,20 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
             n_b, device=bp_grad_sumes.device)*(-1*float('inf'))
 
         # グループに属するboxの抽出
-        group_boxes_xywh = (
+        group_xywh = (
             ground_truthes.xywh[ground_truthes.group_labels == group_idx])
-        group_boxes_xyxy = (
+        group_xyxy = (
             ground_truthes.xyxy[ground_truthes.group_labels == group_idx])
 
-        # ウインドウサイズ決定
-        # ウインドウサイズ決定のため、グループ内で最大の面積を求める
-        max_size = torch.max(group_boxes_xywh[:, 2]*group_boxes_xywh[:, 3])
-        # アスペクト比、サイズからウインドウの高さと幅を求める
-        window_w = torch.sqrt(initialize_size_rate*max_size/aspect_rate)
-        window_h = window_w*aspect_rate
-
         # 探索対象領域の決定
+        search_grad_img, search_area = calculate_search_area(
+            gradient_image, group_xyxy)
+
+        # ウインドウの高さ、幅の決定
+        window_w, window_h = calculate_window_wh(group_xywh)
+
         for w, h in zip(window_w, window_h):
 
-            # 探索範囲の決定（探索範囲はオブジェクトからオブジェクトボックスの最大辺の0.2倍の距離の範囲内
-            # グループに属する箱の最外殻を決める
-            groupbox_outermost = seek.smallest_box_containing(
-                group_boxes_xyxy)
-            search_offset = seek.get_max_edge(
-                group_boxes_xyxy)*largest_dist_rate
-            before_clamp_area = transform.box_expand(
-                groupbox_outermost, search_offset)
-            # 領域を画像サイズに収める
-            search_area = transform.box_clamp(
-                before_clamp_area, gradient_image.shape[2], gradient_image.shape[3])
-
-            # 画像から探索領域を切り出す
-            search_grad_img = transform.image_crop_by_box(
-                gradient_image, search_area)
             # lgi_offset=x1y1
             lgi_offset = search_area[:2]
 
