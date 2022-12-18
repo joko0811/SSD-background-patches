@@ -3,7 +3,6 @@ import time
 import argparse
 
 from PIL import Image
-import cv2
 import numpy as np
 
 import torch
@@ -57,17 +56,24 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
     t_iter = 0  # t in paper (iterator)
     psnr_threshold = 35
 
-    is_monitor_mode = (tbx_writer is not None)
+    n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
+    background_patch_boxes = torch.zeros(
+        (ground_truthes.total_group*n_b, 4), device=adv_image.device)
 
     if torch.cuda.is_available():
         ground_truth_image = orig_img.to(
             device='cuda:0', dtype=torch.float)
-        adv_image = ground_truth_image.detach()
+        adv_image = ground_truth_image.clone()
         adv_image.requires_grad = True
+
+    model = yolo.load_model(
+        "weights/yolov3.cfg",
+        "weights/yolov3.weights")
+    model.eval()
 
     with torch.no_grad():
         # 素の画像を物体検出器にかけた時の出力をground truthとする
-        gt_yolo_out = yolo_util.detect(adv_image)
+        gt_yolo_out = model(adv_image)
         gt_nms_out = yolo_util.nms(gt_yolo_out)
 
         if gt_nms_out[0].nelement() == 0:
@@ -78,22 +84,13 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
 
         # ground truthesをクラスタリング
         group_labels = clustering.object_grouping(
-            ground_truthes.xywh.to('cpu').detach().numpy().copy())
+            ground_truthes.xywh.detach().cpu().numpy())
         ground_truthes.set_group_info(torch.from_numpy(
-            group_labels.astype(np.float32)).clone().to(ground_truth_image.device))
-
-    n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
-    background_patch_boxes = torch.zeros(
-        (ground_truthes.total_group*n_b, 4), device=adv_image.device)
-
-    model = yolo.load_model(
-        "weights/yolov3.cfg",
-        "weights/yolov3.weights")
-    model.eval()
+            group_labels.astype(np.float32)).to(ground_truth_image.device))
 
     optimizer = optim.Adam([adv_image])
 
-    for t_iter in tqdm(range(epoch), leave=is_monitor_mode):
+    for t_iter in tqdm(range(epoch), leave=(tbx_writer is not None)):
 
         adv_image.requires_grad = True
 

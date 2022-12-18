@@ -88,7 +88,7 @@ def calculate_window_wh(boxes):
     return window_w, window_h
 
 
-def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
+def extract_sliding_windows(image, offset, sw_w, sw_h, n, ignore_boxes):
     """スライディングウインドウを作成、順位づけ
 
     画像からw*hのスライディングウインドウを作成、ウインドウ内の勾配強度の合計をとり、これを基に降順に順位付け
@@ -106,7 +106,7 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
 
     # スライディングウインドウで切り出せる範囲を全部取ってくる
     # ([1,3,a,b])->([1,3,a-h+1,b-w+1,h,w])
-    slide_windows = img.abs().unfold(2, sw_h, 1).unfold(3, sw_w, 1)
+    slide_windows = image.abs().unfold(2, sw_h, 1).unfold(3, sw_w, 1)
 
     # ウインドウごとに範囲内の全画素の合計をとり、三原色を合計
     # ([1,3,a-h+1,b-w+1,h,w])->([1,a-h+1,b-w+1])
@@ -123,9 +123,9 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
     rsp_windows_grad_sum_sortnum = sort_array.argsort(
         descending=True).reshape(windows_grad_sum.shape)
 
-    # 画像サイズのマップ
-    point_map = _index2xyxy(list(windows_grad_sum.shape),
-                            img_offset, sw_w, sw_h)
+    # 画像サイズhwの二次元マップ
+    point_map = create_box_map_of_original_image(list(windows_grad_sum.shape[1:]),
+                                                 offset, sw_w, sw_h)
 
     # 上位n_b件を抽出する
     extract_counter = 0
@@ -136,8 +136,7 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
         # 座標と勾配の合計を取ってくる
         extract_idx = (rsp_windows_grad_sum_sortnum ==
                        extract_iter).nonzero()[0]
-        extract_xyxy = point_map[extract_idx[0],
-                                 extract_idx[1], extract_idx[2]]
+        extract_xyxy = point_map[extract_idx[1], extract_idx[2]]
         extract_gradient_sum = windows_grad_sum[extract_idx[0],
                                                 extract_idx[1], extract_idx[2]]
 
@@ -178,9 +177,9 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
             gradient_image, group_xyxy)
 
         # ウインドウの高さ、幅の決定
-        window_w, window_h = calculate_window_wh(group_xywh)
+        window_list_w, window_list_h = calculate_window_wh(group_xywh)
 
-        for w, h in zip(window_w, window_h):
+        for window_w, window_h in zip(window_list_w, window_list_h):
 
             # lgi_offset=x1y1
             lgi_offset = search_area[:2]
@@ -188,7 +187,7 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
             ignore_boxes = torch.cat(
                 (ground_truthes.xyxy, group_bp_boxes, bp_boxes.view(1, -1, bp_boxes.shape[-1]).squeeze(0)))
             ex_boxes, ex_grad_sumes = extract_sliding_windows(
-                search_grad_img, lgi_offset, int(w.item()), int(h.item()), n_b, ignore_boxes)
+                search_grad_img, lgi_offset, int(window_w.item()), int(window_h.item()), n_b, ignore_boxes)
 
             # もしex_boxesの勾配の合計値(=ex_grad_sum)が既存のパッチ領域の勾配の合計値のいずれかより大きかった場合交換
             # bp_boxes,bp_grad_sumesはbp_gd_totalesの昇順に並んでいる
@@ -289,19 +288,19 @@ def update_i_with_pixel_clipping(image, perturbated_image):
 
 
 # windows_grad_sum[1,y,x]の時、map[1,y,x]→スライディングウインドウのxyxyになる座標マップ
-def _index2xyxy(img_shape, img_offset, w, h):
+def create_box_map_of_original_image(image_hw, offset, w, h):
     """切り出してきた画像の右上座標xy、whを元に元画像のxyxy座標を返す座標マップを作成
     """
-    map_shape = img_shape.copy()
-    map_shape.append(4)
+    map_hw = image_hw.copy()
+    map_hw.append(4)
 
     point_map = torch.ones(
-        map_shape, device=img_offset.device)*torch.cat((img_offset, img_offset))
-    _, img_h, img_w = img_shape
+        map_hw, device=offset.device)*torch.cat((offset, offset))
+    img_h, img_w = image_hw
 
-    i_0 = torch.arange(img_h, device=img_offset.device).unsqueeze(
+    i_0 = torch.arange(img_h, device=offset.device).unsqueeze(
         dim=1).repeat(1, img_w)
-    i_1 = torch.arange(img_w, device=img_offset.device)
+    i_1 = torch.arange(img_w, device=offset.device)
 
     point_map[..., 0] += i_1
     point_map[..., 1] += i_0
