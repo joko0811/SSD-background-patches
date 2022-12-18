@@ -123,28 +123,9 @@ def extract_sliding_windows(img, img_offset, sw_w, sw_h, n, ignore_boxes):
     rsp_windows_grad_sum_sortnum = sort_array.argsort(
         descending=True).reshape(windows_grad_sum.shape)
 
-    # windows_grad_sum[1,y,x]の時、map[1,y,x]→スライディングウインドウのxyxyになる座標マップ
-    def index2xyxy(img_shape, img_offset, w, h):
-        map_shape = img_shape.copy()
-        map_shape.append(4)
-
-        point_map = torch.ones(
-            map_shape, device=img_offset.device)*torch.cat((img_offset, img_offset))
-        _, img_h, img_w = img_shape
-
-        i_0 = torch.arange(img_h, device=img_offset.device).unsqueeze(
-            dim=1).repeat(1, img_w)
-        i_1 = torch.arange(img_w, device=img_offset.device)
-
-        point_map[..., 0] += i_1
-        point_map[..., 1] += i_0
-        point_map[..., 2] += i_1+w
-        point_map[..., 3] += i_0+h
-
-        return point_map
     # 画像サイズのマップ
-    point_map = index2xyxy(list(windows_grad_sum.shape),
-                           img_offset, sw_w, sw_h)
+    point_map = _index2xyxy(list(windows_grad_sum.shape),
+                            img_offset, sw_w, sw_h)
 
     # 上位n_b件を抽出する
     extract_counter = 0
@@ -305,3 +286,26 @@ def perturbation_normalization(perturbation_image):
 
 def update_i_with_pixel_clipping(image, perturbated_image):
     return torch.clamp(image-perturbated_image, 0, 255)
+
+
+# windows_grad_sum[1,y,x]の時、map[1,y,x]→スライディングウインドウのxyxyになる座標マップ
+def _index2xyxy(img_shape, img_offset, w, h):
+    """切り出してきた画像の右上座標xy、whを元に元画像のxyxy座標を返す座標マップを作成
+    """
+    map_shape = img_shape.copy()
+    map_shape.append(4)
+
+    point_map = torch.ones(
+        map_shape, device=img_offset.device)*torch.cat((img_offset, img_offset))
+    _, img_h, img_w = img_shape
+
+    i_0 = torch.arange(img_h, device=img_offset.device).unsqueeze(
+        dim=1).repeat(1, img_w)
+    i_1 = torch.arange(img_w, device=img_offset.device)
+
+    point_map[..., 0] += i_1
+    point_map[..., 1] += i_0
+    point_map[..., 2] += i_1+w
+    point_map[..., 3] += i_0+h
+
+    return point_map
