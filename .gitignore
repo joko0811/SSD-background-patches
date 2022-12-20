@@ -2,6 +2,7 @@
 .vscode/
 weights/
 testdata/
+outputs/
 coco2014/
 coco2014
 

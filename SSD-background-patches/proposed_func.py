@@ -1,9 +1,11 @@
 import torch
 
+from omegaconf import DictConfig
+
 from box import condition, seek, transform
 
 
-def calc_z(class_scores, iou_scores):
+def calc_z(class_scores, iou_scores, config: DictConfig):
     """calc z param
     zの要素数はクラス数と等しい
     Args:
@@ -12,15 +14,15 @@ def calc_z(class_scores, iou_scores):
       iou_score:
         Ground Truthesに対応する検出とGroundTruthesのIoUスコア
     """
-    class_score_threshold = 0.1
-    iou_score_threshold = 0.5
+    class_score_threshold = config.class_score_threshold  # default 0.1
+    iou_score_threshold = config.iou_score_threshold  # default 0.5
 
     z = torch.logical_and((class_scores > class_score_threshold),
                           (iou_scores > iou_score_threshold))
     return z.long()
 
 
-def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
+def calc_r(iou_scores, detection_boxes, ground_truth_boxes, config: DictConfig):
     """calc r param
     rの要素数はクラス数と等しい
     Args:
@@ -31,7 +33,7 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
       target_boxes:
         ground truthのボックス全て
     """
-    iou_score_threshold = 0.1
+    iou_score_threshold = config.iou_score_threshold  # default 0.1
     iou_flag = iou_scores > iou_score_threshold
     overlap_flag = torch.logical_not(condition.are_overlap_list(
         detection_boxes, ground_truth_boxes))
@@ -39,11 +41,12 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes):
     return r.long()
 
 
-def calculate_search_area(image, boxes):
+def calculate_search_area(image, boxes, config: DictConfig):
     """計算量削減のため、画像からスライディングウインドウで探索する領域を抽出する
     """
 
-    largest_dist_rate = 0.2  # パッチと対象物体の間のoffsetを算出する際に用いる
+    # パッチと対象物体の間のoffsetを算出する際に用いる
+    largest_dist_rate = config.largest_dist_rate  # default 0.2
 
     # グループに属する箱の最外殻を決める
     box_outermost = seek.smallest_box_containing(
@@ -65,7 +68,7 @@ def calculate_search_area(image, boxes):
     return search_image, search_area
 
 
-def calculate_window_wh(boxes):
+def calculate_window_wh(boxes, config: DictConfig):
     """スライディングウインドウのwhを決定する
     Args:
         boxes:
@@ -74,8 +77,8 @@ def calculate_window_wh(boxes):
 
     # スライディングウインドウのサイズを決める定数
     # （論文内では明記されていなかったが、サイズ＝面積とする）
-    initialize_size_rate = 0.2
-    # スライディングウインドウののアスペクト比を示す配列(1:要素)
+    initialize_size_rate = config.initialize_size_rate  # default 0.2
+    # スライディングウインドウのアスペクト比を示す配列(1:要素)
     aspect_rate = torch.tensor(
         [1, 0.67, 0.75, 1.5, 1.33], device=boxes.device)
 
@@ -150,9 +153,9 @@ def extract_sliding_windows(partial_image, x1y1_partial_image, sw_w, sw_h, n, ig
     return output_box, output_gradient_sum
 
 
-def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
-
-    n_b = 3  # グループごとのパッチ最大数
+def initial_background_patches(ground_truthes, gradient_image: torch.tensor, config: DictConfig):
+    # グループごとのパッチ最大数
+    n_b = config.n_b  # default 3
 
     # 返り値
     bp_boxes = torch.zeros(
@@ -174,10 +177,11 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 
         # 探索対象領域の決定
         search_grad_img, search_area = calculate_search_area(
-            gradient_image, group_xyxy)
+            gradient_image, group_xyxy, config.calculate_search_area)
 
         # ウインドウの高さ、幅の決定
-        window_list_w, window_list_h = calculate_window_wh(group_xywh)
+        window_list_w, window_list_h = calculate_window_wh(
+            group_xywh, config.calculate_window_wh)
 
         for window_w, window_h in zip(window_list_w, window_list_h):
 
@@ -201,16 +205,16 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
         bp_boxes[group_idx] = group_bp_boxes
         bp_grad_sumes[group_idx] = group_bp_grad_sum
 
-    return bp_boxes
+    return bp_boxes.reshape((ground_truthes.total_group*n_b, 4))
 
 
-def expanded_background_patches(bp_boxes, ground_truthes, gradient_image):
-    stride_rate = 0.02
+def expanded_background_patches(bp_boxes, ground_truthes, gradient_image, config: DictConfig):
+    stride_rate = config.stride_rate  # default 0.02
     image_h, image_w = gradient_image.shape[2:4]
     # stride = stride_rate*max(image_h, image_w)
     stride = stride_rate*ground_truthes.xywh[:, 2:].max()
 
-    bp_area_threshold_rate = 1
+    bp_area_threshold_rate = config.bp_area_threshold_rate  # default 0.02
     max_gt_area = (ground_truthes.xywh[:, 2]*ground_truthes.xywh[:, 3]).max()
     bp_area_threshold = max_gt_area*bp_area_threshold_rate
 
@@ -277,8 +281,8 @@ def perturbation_in_background_patches(gradient_image, bp_boxes):
     return bp_mask*gradient_image
 
 
-def perturbation_normalization(perturbation_image):
-    l2_norm_lambda = 1/30
+def perturbation_normalization(perturbation_image, config: DictConfig):
+    l2_norm_lambda = config.l2_norm_lambda  # default 0.03=1/30
     return (l2_norm_lambda/(torch.linalg.norm(perturbation_image))) * perturbation_image
 
 

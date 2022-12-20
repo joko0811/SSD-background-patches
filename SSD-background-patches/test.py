@@ -26,7 +26,6 @@ def get_image_from_dataset():
 
 
 def get_image_from_file(image_path):
-    # image_path = "./testdata/adv_image.png"
     image_size = 416
     image = cv2.imread(image_path)
     input_img = transforms.Compose([
@@ -73,7 +72,7 @@ def test_dataset():
     coco_path = "./coco2014/images/train2014/"
     coco_annfile_path = "./coco2014/annotations/instances_train2014.json"
     coco_labelfile_path = "./coco2014/labels/train2014/"
-    images_dir_path = "./testdata/evaluate/20221205_185858/"
+    images_dir_path = "./output/evaluate/20221205_185858/"
 
     coco_class_names_path = "./coco2014/coco.names"
     class_names = load_class_names(coco_class_names_path)
@@ -124,7 +123,7 @@ def test_dataset():
 
 
 def run():
-    test_hydra_config_parse()
+    return
 
 
 def main():
