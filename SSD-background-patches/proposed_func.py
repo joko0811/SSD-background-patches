@@ -88,7 +88,7 @@ def calculate_window_wh(boxes):
     return window_w, window_h
 
 
-def extract_sliding_windows(image, offset, sw_w, sw_h, n, ignore_boxes):
+def extract_sliding_windows(partial_image, x1y1_partial_image, sw_w, sw_h, n, ignore_boxes):
     """スライディングウインドウを作成、順位づけ
 
     画像からw*hのスライディングウインドウを作成、ウインドウ内の勾配強度の合計をとり、これを基に降順に順位付け
@@ -106,7 +106,7 @@ def extract_sliding_windows(image, offset, sw_w, sw_h, n, ignore_boxes):
 
     # スライディングウインドウで切り出せる範囲を全部取ってくる
     # ([1,3,a,b])->([1,3,a-h+1,b-w+1,h,w])
-    slide_windows = image.abs().unfold(2, sw_h, 1).unfold(3, sw_w, 1)
+    slide_windows = partial_image.abs().unfold(2, sw_h, 1).unfold(3, sw_w, 1)
 
     # ウインドウごとに範囲内の全画素の合計をとり、三原色を合計
     # ([1,3,a-h+1,b-w+1,h,w])->([1,a-h+1,b-w+1])
@@ -124,8 +124,8 @@ def extract_sliding_windows(image, offset, sw_w, sw_h, n, ignore_boxes):
         descending=True).reshape(windows_grad_sum.shape)
 
     # 画像サイズhwの二次元マップ
-    point_map = create_box_map_of_original_image(list(windows_grad_sum.shape[1:]),
-                                                 offset, sw_w, sw_h)
+    point_map = create_box_map_of_original_image(
+        x1y1_partial_image, list(windows_grad_sum.shape[1:]), sw_w, sw_h)
 
     # 上位n_b件を抽出する
     extract_counter = 0
@@ -181,13 +181,12 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor):
 
         for window_w, window_h in zip(window_list_w, window_list_h):
 
-            # lgi_offset=x1y1
-            lgi_offset = search_area[:2]
+            x1y1_search_area = search_area[:2]
 
             ignore_boxes = torch.cat(
                 (ground_truthes.xyxy, group_bp_boxes, bp_boxes.view(1, -1, bp_boxes.shape[-1]).squeeze(0)))
             ex_boxes, ex_grad_sumes = extract_sliding_windows(
-                search_grad_img, lgi_offset, int(window_w.item()), int(window_h.item()), n_b, ignore_boxes)
+                search_grad_img, x1y1_search_area, int(window_w.item()), int(window_h.item()), n_b, ignore_boxes)
 
             # もしex_boxesの勾配の合計値(=ex_grad_sum)が既存のパッチ領域の勾配の合計値のいずれかより大きかった場合交換
             # bp_boxes,bp_grad_sumesはbp_gd_totalesの昇順に並んでいる
@@ -288,19 +287,19 @@ def update_i_with_pixel_clipping(image, perturbated_image):
 
 
 # windows_grad_sum[1,y,x]の時、map[1,y,x]→スライディングウインドウのxyxyになる座標マップ
-def create_box_map_of_original_image(image_hw, offset, w, h):
+def create_box_map_of_original_image(x1y1_partial_image, hw_partial_image, w, h):
     """切り出してきた画像の右上座標xy、whを元に元画像のxyxy座標を返す座標マップを作成
     """
-    map_hw = image_hw.copy()
+    map_hw = hw_partial_image.copy()
     map_hw.append(4)
 
     point_map = torch.ones(
-        map_hw, device=offset.device)*torch.cat((offset, offset))
-    img_h, img_w = image_hw
+        map_hw, device=x1y1_partial_image.device)*torch.cat((x1y1_partial_image, x1y1_partial_image))
+    img_h, img_w = hw_partial_image
 
-    i_0 = torch.arange(img_h, device=offset.device).unsqueeze(
+    i_0 = torch.arange(img_h, device=x1y1_partial_image.device).unsqueeze(
         dim=1).repeat(1, img_w)
-    i_1 = torch.arange(img_w, device=offset.device)
+    i_1 = torch.arange(img_w, device=x1y1_partial_image.device)
 
     point_map[..., 0] += i_1
     point_map[..., 1] += i_0
