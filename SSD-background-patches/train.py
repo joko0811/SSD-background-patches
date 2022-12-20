@@ -57,8 +57,6 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
     psnr_threshold = 35
 
     n_b = 3  # 論文内で定められたパッチ生成枚数を指定するためのパラメータ
-    background_patch_boxes = torch.zeros(
-        (ground_truthes.total_group*n_b, 4), device=adv_image.device)
 
     if torch.cuda.is_available():
         ground_truth_image = orig_img.to(
@@ -88,6 +86,8 @@ def train_adversarial_image(orig_img, class_names=None, tbx_writer=None):
         ground_truthes.set_group_info(torch.from_numpy(
             group_labels.astype(np.float32)).to(ground_truth_image.device))
 
+    background_patch_boxes = torch.zeros(
+        (ground_truthes.total_group*n_b, 4), device=adv_image.device)
     optimizer = optim.Adam([adv_image])
 
     for t_iter in tqdm(range(epoch), leave=(tbx_writer is not None)):
