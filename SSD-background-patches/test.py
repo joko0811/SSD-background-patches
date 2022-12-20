@@ -1,14 +1,11 @@
 import numpy as np
 import cv2
 
-import time
-
 import torch
 from torchvision.datasets.coco import CocoDetection
 from torchvision import transforms
 
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
-from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 
 
 from util import img
@@ -127,13 +124,7 @@ def test_dataset():
 
 
 def run():
-    test_dataset()
-    # model = yolo_util.load_model(
-    #     "weights/yolov3.cfg",
-    #     "weights/yolov3.weights")
-    # input_path = "./data/dog.jpg"
-    # output_path = "./data/dog_anno.jpg"
-    # test_detect(input_path, output_path)
+    test_hydra_config_parse()
 
 
 def main():
