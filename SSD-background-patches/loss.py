@@ -1,12 +1,14 @@
 import torch
 
+from omegaconf import DictConfig
+
 from model.yolo_util import detections_ground_truth, detections_loss
 from box.seek import find_nearest_box
 from evaluation.detection import iou
 from proposed_func import calc_r, calc_z
 
 
-def tpc(z, detections: detections_loss, max_class_scores):
+def tpc(z, max_class_scores):
     """True Positive Class Loss
     """
 
@@ -29,7 +31,28 @@ def tps(z, detections: detections_loss, ground_truthes: detections_ground_truth)
     return tps_score
 
 
-def new_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
+def normalized_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth, image_hw, config: DictConfig):
+    """True Positive Shape Loss
+    """
+    # xyは画像サイズで割る　[0,1]区間に正規化
+    # whも
+    # (x-x)^2+(y-y)^2+(w-w)^2+(h-h)
+
+    # dist_div = torch.tensor([image_hw[1], image_hw[0], image_hw[1]/hw_weight, image_hw[0]/hw_weight],
+
+    hw_weight = config.hw_weight  # default 0.1
+    gt_xywh_for_nearest_dt = ground_truthes.xywh[detections.nearest_gt_idx]
+    dist_div = torch.cat(
+        [gt_xywh_for_nearest_dt[:, :2], gt_xywh_for_nearest_dt[:, 2:4]/hw_weight], dim=1)
+    dist = (
+        (detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx])/dist_div).pow(2)
+
+    tps_score = torch.exp(-1*torch.sum(torch.sum(dist[:, :2], dim=1)))
+
+    return tps_score
+
+
+def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
     """True Positive Shape Loss
     """
     dist = torch.abs(
@@ -50,7 +73,7 @@ def new_tps(z, detections: detections_loss, ground_truthes: detections_ground_tr
     return tps_score
 
 
-def fpc(r, detections: detections_loss, max_class_scores):
+def fpc(r, max_class_scores):
     """False Positive Class Loss
     """
 
@@ -60,7 +83,7 @@ def fpc(r, detections: detections_loss, max_class_scores):
     return fpc_score
 
 
-def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes):
+def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes, image_hw, config: DictConfig):
     """Returns the total loss
     Args:
       detections:
@@ -70,10 +93,6 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
         ground truth detections
         (x1, y1, x2, y2, conf, cls)
     """
-
-    # nms_out = yolo_util.nms(output)
-    # det_out = yolo_util.detections_loss(nms_out[0])
-    # show_image(adv_image, det_out)
 
     # 検出と一番近いground truth
     gt_nearest_idx = find_nearest_box(
@@ -86,7 +105,7 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
     dt_scores_for_nearest_gt_label = detections.class_scores.gather(
         1, ground_truthes.class_labels[gt_nearest_idx, None]).squeeze()
     # 論文で提案された変数zを計算
-    z = calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores)
+    z = calc_z(dt_scores_for_nearest_gt_label, dt_gt_iou_scores, config.calc_z)
 
     # 検出と一番近い背景パッチ
     bp_nearest_idx = find_nearest_box(
@@ -97,7 +116,7 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
         detections.xyxy, bp_box_nearest_dt)
     # 論文で提案された変数rを計算
     r = calc_r(dt_bp_iou_scores, detections.xyxy,
-               ground_truthes.xyxy)
+               ground_truthes.xyxy, config.calc_r)
 
     # 損失計算用の情報を積む
     detections.set_loss_info(gt_nearest_idx)
@@ -106,11 +125,16 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
     max_class_scores = get_max_scores_without_correct_class(
         detections, ground_truthes)
 
-    tpc_loss = tpc(z, detections, max_class_scores)
-    tps_loss = new_tps(z, detections, ground_truthes)
-    fpc_loss = fpc(r, detections, max_class_scores)
-
     end_flag_z = (z.nonzero().size() == (0, 1))
+
+    tpc_weight = config.tpc_weight  # default 0.1
+    tps_weight = config.tps_weight  # default 1
+    fpc_weight = config.fpc_weight  # default 1
+
+    tpc_loss = tpc(z, max_class_scores)*tpc_weight
+    tps_loss = normalized_tps(
+        z, detections, ground_truthes, image_hw, config.nomalized_tps)*tps_weight
+    fpc_loss = fpc(r, max_class_scores)*fpc_weight
 
     return (tpc_loss, tps_loss, fpc_loss, end_flag_z)
 
@@ -132,6 +156,12 @@ def get_max_scores_without_correct_class(detections: detections_loss, ground_tru
         mask_for_class_score, detections.class_scores)
 
     # 正しいクラス以外のすべての全クラスのなかで最大のスコアを抽出
-    max_class_scores = torch.max(masked_class_scores, dim=1)[0]
+    max_class_scores, _ = torch.max(masked_class_scores, dim=1)
 
-    return max_class_scores
+    # 損失計算時にmax_class_scoresの対数を取る
+    # 対数計算結果でnanが発生するのを防止するため、max_class_scoresで値が0の要素は極小値と置換する
+    zero_indexes = (max_class_scores == 0).nonzero()
+    nan_proofed_max_class_scores = max_class_scores.scatter_(
+        0, zero_indexes, torch.ones(zero_indexes.shape, device=zero_indexes.device) * 1e-5)
+
+    return nan_proofed_max_class_scores

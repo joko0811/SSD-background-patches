@@ -58,31 +58,11 @@ def xywh2xyxy(xywh):
 def xyxy2xywh(xyxy):
     xywh = xyxy.new(xyxy.shape)
     # x=(x1+x2)/2
-    xywh[:, 0] = (xyxy[:, 0] + xyxy[:, 2]) / 2
+    xywh[..., 0] = (xyxy[..., 0] + xyxy[..., 2]) / 2
     # y=(y1+y2)/2
-    xywh[:, 1] = (xyxy[:, 1] + xyxy[:, 3]) / 2
+    xywh[..., 1] = (xyxy[..., 1] + xyxy[..., 3]) / 2
     # w=|x2-x1|
-    xywh[:, 2] = xyxy[:, 2] - xyxy[:, 0]
+    xywh[..., 2] = xyxy[..., 2] - xyxy[..., 0]
     # h=|y2-y1|
-    xywh[:, 3] = xyxy[:, 3] - xyxy[:, 1]
+    xywh[..., 3] = xyxy[..., 3] - xyxy[..., 1]
     return xywh
-
-
-def iou(boxA, boxB):
-    # box = lrtb (x1y1x2y2)
-    ax1 = boxA[:, 0]
-    ay1 = boxA[:, 1]
-    ax2 = boxA[:, 2]
-    ay2 = boxA[:, 3]
-    bx1 = boxB[:, 0]
-    by1 = boxB[:, 1]
-    bx2 = boxB[:, 2]
-    by2 = boxB[:, 3]
-
-    intersect = (torch.min(ax2, bx2)-torch.max(ax1, bx1)) * \
-        (torch.min(ay2, by2)-torch.max(ay1, by1))
-    a_area = (ax2-ax1)*(ay2-ay1)
-    b_area = (bx2-bx1)*(by2-by1)
-
-    iou = intersect/(a_area+b_area-intersect)
-    return iou

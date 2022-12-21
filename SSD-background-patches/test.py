@@ -1,20 +1,17 @@
 import numpy as np
 import cv2
 
-import time
-
 import torch
 from torchvision.datasets.coco import CocoDetection
 from torchvision import transforms
 
 from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
-from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 
 
 from util import img
 from model import yolo, yolo_util
 from dataset.coco import load_class_names
-from dataset.simple import DirectoryDataset
+from dataset.simple import DirectoryImageDataset, DirectoryTxtDataset
 
 
 def get_image_from_dataset():
@@ -29,7 +26,6 @@ def get_image_from_dataset():
 
 
 def get_image_from_file(image_path):
-    # image_path = "./testdata/adv_image.png"
     image_size = 416
     image = cv2.imread(image_path)
     input_img = transforms.Compose([
@@ -75,7 +71,8 @@ def test_detect(input_path, output_path):
 def test_dataset():
     coco_path = "./coco2014/images/train2014/"
     coco_annfile_path = "./coco2014/annotations/instances_train2014.json"
-    images_dir_path = "./testdata/evaluate/20221201_220253/"
+    coco_labelfile_path = "./coco2014/labels/train2014/"
+    images_dir_path = "./output/evaluate/20221205_185858/"
 
     coco_class_names_path = "./coco2014/coco.names"
     class_names = load_class_names(coco_class_names_path)
@@ -94,7 +91,9 @@ def test_dataset():
                              annFile=coco_annfile_path, transform=yolo_transforms)
     coco_loader = torch.utils.data.DataLoader(coco_set)
 
-    dir_set = DirectoryDataset(
+    coco_label_set = DirectoryTxtDataset()
+
+    dir_set = DirectoryImageDataset(
         image_path=images_dir_path, transform=yolo_transforms)
     dir_loader = torch.utils.data.DataLoader(dir_set)
 
@@ -124,13 +123,7 @@ def test_dataset():
 
 
 def run():
-    test_dataset()
-    # model = yolo_util.load_model(
-    #     "weights/yolov3.cfg",
-    #     "weights/yolov3.weights")
-    # input_path = "./data/dog.jpg"
-    # output_path = "./data/dog_anno.jpg"
-    # test_detect(input_path, output_path)
+    return
 
 
 def main():
