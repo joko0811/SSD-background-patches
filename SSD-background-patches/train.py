@@ -162,12 +162,12 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
     return adv_image.clone().cpu()
 
 
-@hydra.main(config_path="../conf/", config_name="config")
+@hydra.main(version_base=None, config_path="../conf/", config_name="config")
 def main(cfg: DictConfig):
     config = cfg.train_main
 
     print("change working directory"+os.getcwd())
-    orig_wd_path = hydra.utils.get_original_cwd()
+    orig_wd_path = os.getcwd()
 
     setting_path = os.path.join(orig_wd_path, config.model.setting_path)
     annfile_path = os.path.join(orig_wd_path, config.model.weight_path)
@@ -194,7 +194,7 @@ def main(cfg: DictConfig):
             class_names_path = os.path.join(
                 orig_wd_path, config.dataset.class_names)
             class_names = coco.load_class_names(class_names_path)
-            tbx_writer = SummaryWriter(os.getcwd())
+            tbx_writer = SummaryWriter(config.output_dir)
 
             with torch.autograd.detect_anomaly():
                 adv_image = train_adversarial_image(
@@ -202,10 +202,12 @@ def main(cfg: DictConfig):
 
             tbx_writer.close()
 
-            output_image_path = f'./adv_image.png'
+            output_image_path = os.path.join(
+                config.output_dir, "adv_image.png")
 
             pil_image = transforms.functional.to_pil_image(adv_image[0])
             pil_image.save(output_image_path)
+            print("finished!")
 
         case "evaluate":
             iterate_num = 2000
@@ -232,7 +234,8 @@ def main(cfg: DictConfig):
 
                 iter_str = str(image_idx).zfill(iterate_digit)
                 os.mkdir(config.evaluate_dir_path)
-                output_image_path = f'adv_image_{iter_str}.png'
+                output_image_path = os.path.join(
+                    config.evaluate_dir_path, f'adv_image_{iter_str}.png')
 
                 pil_image = transforms.functional.to_pil_image(adv_image[0])
                 pil_image.save(output_image_path)

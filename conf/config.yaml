@@ -1,6 +1,7 @@
 # プロジェクト全体で用いる設定
 iou_threshold: 0.5
 n_b: 3  # クラスタリングしたグループ毎に割り当てられるパッチの枚数
+output_dir: ${hydra:runtime.output_dir}
 
 model:  # 使用モデルの設定
   yolo:
@@ -14,8 +15,9 @@ dataset:  # 使用データセットの設定
     annfile_path: "coco2014/annotations/instances_train2014.json"
 
 train_main: # 敵対的画像生成時の設定
+  output_dir: ${output_dir}
   monitor_image_path: "data/bathroom.jpg"
-  evaluate_dir_path: "image/"
+  evaluate_dir_path: ${train_main.output_dir}image/
   model: ${model.yolo}
   dataset: ${dataset.coco}
   train_adversarial_image:  # 敵対的画像生成時の設定
