@@ -1,5 +1,4 @@
 import os
-import argparse
 
 from PIL import Image
 import numpy as np
@@ -176,13 +175,7 @@ def main(cfg: DictConfig):
         annfile_path)
     model.eval()
 
-    arg_parser = argparse.ArgumentParser(
-        description="generate adversarial image")
-    arg_parser.add_argument("-m", "--mode", type=str,
-                            default="monitor", help="Select execution mode")
-    args = arg_parser.parse_args()
-
-    mode = args.mode
+    mode = config.mode
 
     match mode:
         case "monitor":

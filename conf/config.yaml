@@ -15,6 +15,7 @@ dataset:  # 使用データセットの設定
     annfile_path: "coco2014/annotations/instances_train2014.json"
 
 train_main: # 敵対的画像生成時の設定
+  mode: "monitor"
   output_dir: ${output_dir}
   monitor_image_path: "data/bathroom.jpg"
   evaluate_dir_path: ${train_main.output_dir}image/
