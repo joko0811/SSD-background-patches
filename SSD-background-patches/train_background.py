@@ -6,7 +6,6 @@ import hydra
 from omegaconf import DictConfig
 
 import torch
-import torch.optim as optim
 from torchvision import transforms
 from torchvision.datasets.coco import CocoDetection
 
@@ -19,17 +18,16 @@ import proposed_func as pf
 from model import yolo, yolo_util
 from loss import total_loss
 from util import clustering
-from imageutil import imgdraw
+from imageutil import imgdraw, imgseg
 from dataset import coco
 
 
 def get_image_from_file(image_path):
     pil_image = Image.open(image_path)
     yolo_transforms = transforms.Compose([
-        transforms.ToTensor(),
         transforms.Resize((416, 416)),
     ])
-    tensor_image = yolo_transforms(pil_image).unsqueeze(0)
+    tensor_image = yolo_transforms(pil_image)
     return tensor_image
 
 
@@ -38,52 +36,57 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
     perturbate_iter = 0  # initialize
     max_perturbate_iter = config.max_iter  # default 250
     psnr_threshold = config.psnr_threshold  # default 35
-
-    if torch.cuda.is_available():
-        ground_truth_image = orig_img.to(
-            device='cuda:0', dtype=torch.float)
-        adv_image = ground_truth_image.clone()
-        adv_image.requires_grad = True
-
-    with torch.no_grad():
-        # 素の画像を物体検出器にかけた時の出力をground truthとする
-        gt_yolo_out = model(adv_image)
-        gt_nms_out = yolo_util.nms(gt_yolo_out)
-
-        if gt_nms_out[0].nelement() == 0:
-            # 元画像の検出がない場合は敵対的画像を生成できない
-            return adv_image
-
-        ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
-
-        # ground truthesをクラスタリング
-        group_labels = clustering.object_grouping(
-            ground_truthes.xywh.detach().cpu().numpy())
-        ground_truthes.set_group_info(torch.from_numpy(
-            group_labels.astype(np.float32)).to(ground_truth_image.device))
-
     # グループ毎に割り当てられるパッチ枚数
     n_b = config.n_b  # default 3
 
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+    ground_truth_image = transforms.functional.to_tensor(
+        orig_img).to(device=device, dtype=torch.float)
+    if ground_truth_image.dim() == 3:
+        ground_truth_image = ground_truth_image.unsqueeze(0)
+
+    # 前景 更新なし
+    foreground_image = ground_truth_image.clone()
+    # 敵対的背景 更新あり
+    background_image = torch.zeros(foreground_image.shape, device=device)
+    # マスク 更新なし PIL
+    mask_image = imgseg.gen_mask_image(orig_img)
+
+    # 敵対的画像 更新あり
+    adv_image = ground_truth_image.clone()
+
+    # 素の画像を物体検出器にかけた時の出力をground truthとする
+    gt_yolo_out = model(foreground_image)
+    gt_nms_out = yolo_util.nms(gt_yolo_out)
+    if gt_nms_out[0].nelement() == 0:
+        # 元画像の検出がない場合は敵対的画像を生成できない
+        return foreground_image
+    ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
+
+    # ground truthesをクラスタリング
+    group_labels = clustering.object_grouping(
+        ground_truthes.xywh.detach().cpu().numpy())
+    ground_truthes.set_group_info(torch.from_numpy(
+        group_labels.astype(np.float32)).to(ground_truth_image.device))
+
     background_patch_boxes = torch.zeros(
-        (ground_truthes.total_group*n_b, 4), device=adv_image.device)
-    # TODO:最適化は使っていないので置き換える(optimizer.zero_gradは使っているので注意)
-    optimizer = optim.Adam([adv_image])
+        (ground_truthes.total_group*n_b, 4), device=device)
 
     for perturbate_iter in tqdm(range(max_perturbate_iter), leave=(tbx_writer is not None)):
 
         adv_image.requires_grad = True
 
-        # perturbate_iter回目のパッチ適用画像から物体検出する
+        # perturbate_iter回目の敵対的画像から物体検出する
         output = model(adv_image)
         nms_out = yolo_util.nms(output)
         detections = yolo_util.detections_loss(nms_out[0])
         if nms_out[0].nelement() == 0:
             # 検出がない場合は終了
-            return adv_image
+            return foreground_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
-            detections, ground_truthes, background_patch_boxes, adv_image.shape[2:], config.loss)
+            detections, ground_truthes, background_patch_boxes, foreground_image.shape[2:], config.loss)
         loss = tpc_loss+tps_loss+fpc_loss
 
         if end_flag:
@@ -91,10 +94,10 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
             # 原因は特定していないがzの要素が全て0の場合勾配画像がバグるので
             break
 
-        optimizer.zero_grad()
         loss.backward()
 
-        gradient_image = adv_image.grad
+        gradient_image = adv_image.grad.clone()
+        adv_image.grad.zero_()
 
         with torch.no_grad():
 
@@ -118,8 +121,12 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
                 perturbated_image, config.perturbation_normalization)
             # make_box_image(perturbated_image, background_patch_boxes)
             # adv_image-perturbated_imageの計算結果を[0,255]にクリップする
-            adv_image = pf.update_i_with_pixel_clipping(
-                adv_image, nomalized_perturbated_image)
+            background_image = pf.update_i_with_pixel_clipping(
+                background_image, nomalized_perturbated_image)
+
+            # 敵対的背景の合成
+            adv_image = imgseg.wrap_composite_image(
+                foreground_image[0], background_image[0], mask_image).unsqueeze(0)
 
             # psnr評価用の画像を切り出す
             psnr_truth_image = pf.perturbation_in_background_patches(
@@ -144,10 +151,10 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
 
                 if perturbate_iter % 10 == 0:
 
-                    det_image = transforms.functional.to_tensor(imgdraw.tensor2annotation_image(
+                    adv_anno_image = transforms.functional.to_tensor(imgdraw.tensor2annotation_image(
                         adv_image, detections, class_names))
                     tbx_writer.add_image(
-                        "adversarial_image", det_image, perturbate_iter)
+                        "adversarial_image", adv_anno_image, perturbate_iter)
 
                     bp_image = transforms.functional.to_tensor(imgdraw.tensor2box_annotation_image(
                         nomalized_perturbated_image, background_patch_boxes))
@@ -158,7 +165,7 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
                 # psnrが閾値以下
                 break
 
-    return adv_image.clone().cpu()
+    return foreground_image.clone().cpu()
 
 
 @hydra.main(version_base=None, config_path="../conf/", config_name="config")
@@ -211,7 +218,6 @@ def main(cfg: DictConfig):
                 orig_wd_path, config.dataset.annfile_path)
 
             yolo_transforms = transforms.Compose([
-                transforms.ToTensor(),
                 transforms.Resize((416, 416)),
             ])
 
