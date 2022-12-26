@@ -1,5 +1,4 @@
 import os
-import time
 import argparse
 
 from PIL import Image
@@ -20,7 +19,8 @@ from tqdm import tqdm
 import proposed_func as pf
 from model import yolo, yolo_util
 from loss import total_loss
-from util import img, clustering
+from util import clustering
+from imageutil import imgdraw
 from dataset import coco
 
 
@@ -145,12 +145,12 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
 
                 if perturbate_iter % 10 == 0:
 
-                    det_image = transforms.functional.to_tensor(img.tensor2annotation_image(
+                    det_image = transforms.functional.to_tensor(imgdraw.tensor2annotation_image(
                         adv_image, detections, class_names))
                     tbx_writer.add_image(
                         "adversarial_image", det_image, perturbate_iter)
 
-                    bp_image = transforms.functional.to_tensor(img.tensor2box_annotation_image(
+                    bp_image = transforms.functional.to_tensor(imgdraw.tensor2box_annotation_image(
                         nomalized_perturbated_image, background_patch_boxes))
                     tbx_writer.add_image(
                         "background_patch_boxes", bp_image, perturbate_iter)
