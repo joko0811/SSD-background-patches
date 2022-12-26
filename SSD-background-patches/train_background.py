@@ -33,7 +33,7 @@ def get_image_from_file(image_path):
     return tensor_image
 
 
-def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=None, tbx_writer=None):
+def train_adversarial_image(model, orig_img, config: DictConfig, class_names=None, tbx_writer=None):
 
     perturbate_iter = 0  # initialize
     max_perturbate_iter = config.max_iter  # default 250
