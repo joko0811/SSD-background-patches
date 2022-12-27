@@ -13,6 +13,7 @@ from dataset.simple import DirectoryImageDataset
 from evaluation.detection import list_iou, calc_class_TP, calc_class_FP, calc_class_FN
 
 
+# TODO: format_は適当なところに分離させる
 def format_detections(detections, det_idx, label_names, image_hw):
     label = label_names[detections.class_labels[det_idx]]
     conf = detections.confidences[det_idx]
@@ -88,6 +89,7 @@ def evaluation_yolo(out_path):
                         image_name+".txt", format_detections, image.shape[-2:])
 
 
+# TODO: 検出の保存は学習時にやる
 def evaluation(path):
 
     out_path = path+"box/"
