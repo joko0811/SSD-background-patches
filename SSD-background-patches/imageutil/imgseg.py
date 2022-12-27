@@ -1,4 +1,6 @@
 import rembg  # tool to remove images background
+
+import torch
 from torchvision import transforms
 
 
@@ -14,7 +16,7 @@ def composite_image(foreground_image, background_image, mask_image, pos):
     return im
 
 
-def wrap_composite_image(foreground_image, background_image, mask_image):
+def wrap_composite_image(foreground_image, background_image, mask_image, pos=None):
     """合成位置中心固定
     Args:
         foreground_image: tensor image
@@ -28,7 +30,11 @@ def wrap_composite_image(foreground_image, background_image, mask_image):
 
     x = abs(int(background_image.shape[1]/2 - foreground_image.shape[1]/2))
     y = abs(int(background_image.shape[0]/2 - foreground_image.shape[0]/2))
-    pos = [x, y]
+    if pos is None:
+        pos = [x, y]
+    else:
+        pos[0] += x
+        pos[1] += y
 
     im = composite_image(fg, bg, mask_image, pos)
-    return transforms.functional.to_tensor(im)
+    return transforms.functional.to_tensor(im).to(device=foreground_image.device, dtype=torch.float)
