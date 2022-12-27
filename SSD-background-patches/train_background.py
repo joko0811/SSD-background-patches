@@ -6,6 +6,7 @@ import hydra
 from omegaconf import DictConfig
 
 import torch
+import torch.optim as optim
 from torchvision import transforms
 from torchvision.datasets.coco import CocoDetection
 
@@ -41,37 +42,44 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
+    # 元画像 更新なし
     ground_truth_image = transforms.functional.to_tensor(
         orig_img).to(device=device, dtype=torch.float)
     if ground_truth_image.dim() == 3:
         ground_truth_image = ground_truth_image.unsqueeze(0)
 
-    # 前景 更新なし
-    foreground_image = ground_truth_image.clone()
     # 敵対的背景 更新あり
-    background_image = torch.zeros(foreground_image.shape, device=device)
+    background_image = torch.zeros(ground_truth_image.shape, device=device)
     # マスク 更新なし PIL
     mask_image = imgseg.gen_mask_image(orig_img)
+    # 前景 更新なし
+    foreground_image = imgseg.wrap_composite_image(
+        ground_truth_image[0], background_image[0], mask_image).unsqueeze(0)
 
     # 敵対的画像 更新あり
-    adv_image = ground_truth_image.clone()
+    adv_image = imgseg.wrap_composite_image(
+        ground_truth_image[0], background_image[0], mask_image).unsqueeze(0)
 
-    # 素の画像を物体検出器にかけた時の出力をground truthとする
-    gt_yolo_out = model(foreground_image)
-    gt_nms_out = yolo_util.nms(gt_yolo_out)
-    if gt_nms_out[0].nelement() == 0:
-        # 元画像の検出がない場合は敵対的画像を生成できない
-        return foreground_image
-    ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
+    with torch.no_grad():
+        # 素の画像を物体検出器にかけた時の出力をground truthとする
+        gt_yolo_out = model(adv_image)
+        gt_nms_out = yolo_util.nms(gt_yolo_out)
+        if gt_nms_out[0].nelement() == 0:
+            # 元画像の検出がない場合は敵対的画像を生成できない
+            return background_image
+        ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
 
-    # ground truthesをクラスタリング
-    group_labels = clustering.object_grouping(
-        ground_truthes.xywh.detach().cpu().numpy())
-    ground_truthes.set_group_info(torch.from_numpy(
-        group_labels.astype(np.float32)).to(ground_truth_image.device))
+        # ground truthesをクラスタリング
+        group_labels = clustering.object_grouping(
+            ground_truthes.xywh.detach().cpu().numpy())
+        ground_truthes.set_group_info(torch.from_numpy(
+            group_labels.astype(np.float32)).to(ground_truth_image.device))
 
     background_patch_boxes = torch.zeros(
         (ground_truthes.total_group*n_b, 4), device=device)
+
+    # TODO:最適化は使っていないので置き換える(optimizer.zero_gradは使っているので注意)
+    optimizer = optim.Adam([adv_image])
 
     for perturbate_iter in tqdm(range(max_perturbate_iter), leave=(tbx_writer is not None)):
 
@@ -83,10 +91,10 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
         detections = yolo_util.detections_loss(nms_out[0])
         if nms_out[0].nelement() == 0:
             # 検出がない場合は終了
-            return foreground_image
+            return background_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
-            detections, ground_truthes, background_patch_boxes, foreground_image.shape[2:], config.loss)
+            detections, ground_truthes, background_patch_boxes, adv_image.shape[2:], config.loss)
         loss = tpc_loss+tps_loss+fpc_loss
 
         if end_flag:
@@ -94,10 +102,10 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
             # 原因は特定していないがzの要素が全て0の場合勾配画像がバグるので
             break
 
+        optimizer.zero_grad()
         loss.backward()
 
-        gradient_image = adv_image.grad.clone()
-        adv_image.grad.zero_()
+        gradient_image = adv_image.grad
 
         with torch.no_grad():
 
@@ -126,11 +134,11 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
 
             # 敵対的背景の合成
             adv_image = imgseg.wrap_composite_image(
-                foreground_image[0], background_image[0], mask_image).unsqueeze(0)
+                ground_truth_image[0], background_image[0], mask_image).unsqueeze(0)
 
             # psnr評価用の画像を切り出す
             psnr_truth_image = pf.perturbation_in_background_patches(
-                ground_truth_image, background_patch_boxes).detach().cpu().numpy()
+                foreground_image, background_patch_boxes).detach().cpu().numpy()
             psnr_eval_image = pf.perturbation_in_background_patches(
                 adv_image, background_patch_boxes).detach().cpu().numpy()
 
@@ -165,10 +173,10 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
                 # psnrが閾値以下
                 break
 
-    return foreground_image.clone().cpu()
+    return background_image.clone().cpu()
 
 
-@hydra.main(version_base=None, config_path="../conf/", config_name="config")
+@ hydra.main(version_base=None, config_path="../conf/", config_name="config")
 def main(cfg: DictConfig):
     config = cfg.train_main
 
