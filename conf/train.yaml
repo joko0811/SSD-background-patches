@@ -1,14 +1,14 @@
 # プロジェクト全体で用いる設定
 iou_threshold: 0.5
-n_b: 3  # クラスタリングしたグループ毎に割り当てられるパッチの枚数
+n_b: 3 # クラスタリングしたグループ毎に割り当てられるパッチの枚数
 output_dir: ${hydra:runtime.output_dir}
 
-model:  # 使用モデルの設定
+model: # 使用モデルの設定
   yolo:
     setting_path: "weights/yolov3.cfg"
     weight_path: "weights/yolov3.weights"
 
-dataset:  # 使用データセットの設定
+dataset: # 使用データセットの設定
   coco:
     class_names: "coco2014/coco.names"
     data_path: "coco2014/images/train2014/"
@@ -18,13 +18,16 @@ train_main: # 敵対的画像生成時の設定
   mode: "monitor"
   output_dir: ${output_dir}
   monitor_image_path: "data/bathroom.jpg"
-  evaluate_dir_path: ${train_main.output_dir}image/
+  evaluate_orig_path: ${train_main.output_dir}orig_image/
+  evaluate_image_path: ${train_main.output_dir}image/
+  evaluate_detection_path: ${train_main.output_dir}detection/
+  evaluate_patch_path: ${train_main.output_dir}patch/
   model: ${model.yolo}
   dataset: ${dataset.coco}
-  train_adversarial_image:  # 敵対的画像生成時の設定
+  train_adversarial_image: # 敵対的画像生成時の設定
     n_b: ${n_b}
     max_iter: 250 # 一枚の画像ごとに摂動を加える最大回数
-    psnr_threshold: 35  # psnrが閾値以下の場合生成終了
+    psnr_threshold: 35 # psnrが閾値以下の場合生成終了
     loss: ${train_main.loss}
     dataset_class_names: ${dataset.coco.class_names}
     initial_background_patches: ${train_main.initial_background_patches}
@@ -37,20 +40,19 @@ train_main: # 敵対的画像生成時の設定
     nomalized_tps:
       hw_weight: 0.1
     calc_z: # 損失計算に必要なパラメータ計算の設定
-      class_score_threshold: 0.1  # 値が閾値以上であるか判定する
+      class_score_threshold: 0.1 # 値が閾値以上であるか判定する
       iou_score_threshold: ${iou_threshold} # 値が閾値以上であるか判定する
     calc_r: # 損失計算に必要なパラメータ計算の設定
       iou_score_threshold: 0.1
   initial_background_patches: # 背景パッチ初期化処理の設定
     n_b: ${n_b}
-    calculate_search_area:  # 計算量削減のための探索領域絞り込み処理の設定
-      largest_dist_rate: 0.2  # 対象物体の間のオフセット算出
-    calculate_window_wh:  # スライディングウインドウのサイズを決定する処理の設定
-      initialize_size_rate: 0.2  # スライディングウインドウの面積比
-  expanded_background_patches:  # 背景パッチ拡張処理の設定
+    calculate_search_area: # 計算量削減のための探索領域絞り込み処理の設定
+      largest_dist_rate: 0.2 # 対象物体の間のオフセット算出
+    calculate_window_wh: # スライディングウインドウのサイズを決定する処理の設定
+      initialize_size_rate: 0.2 # スライディングウインドウの面積比
+  expanded_background_patches: # 背景パッチ拡張処理の設定
     stride_rate: 0.02 # 拡大率に関するパラメータ
     bp_area_threshold_rate: 1 # 背景パッチ領域の上限を決める
   perturbation_normalization: # 摂動画像正規化処理の設定
-    l2_norm_lambda: 0.03  # l2norm計算時のパラメータ
-
+    l2_norm_lambda: 0.03 # l2norm計算時のパラメータ
 

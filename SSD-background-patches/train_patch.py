@@ -226,9 +226,9 @@ def main(cfg: DictConfig):
                     model, image, config.train_adversarial_image)
 
                 iter_str = str(image_idx).zfill(iterate_digit)
-                os.mkdir(config.evaluate_dir_path)
+                os.mkdir(config.evaluate_image_path)
                 output_image_path = os.path.join(
-                    config.evaluate_dir_path, f'adv_image_{iter_str}.png')
+                    config.evaluate_image_path, f'adv_image_{iter_str}.png')
 
                 pil_image = transforms.functional.to_pil_image(adv_image[0])
                 pil_image.save(output_image_path)
