@@ -21,6 +21,7 @@ from loss import total_loss
 from util import clustering
 from imageutil import imgdraw, imgseg
 from dataset import coco
+from box import boxio
 
 
 def get_image_from_file(image_path):
@@ -173,7 +174,7 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
                 # psnrが閾値以下
                 break
 
-    return background_image.clone().cpu()
+    return background_image.clone().cpu(), detections, background_patch_boxes
 
 
 @ hydra.main(version_base=None, config_path="../conf/", config_name="train")
@@ -205,21 +206,26 @@ def main(cfg: DictConfig):
             tbx_writer = SummaryWriter(config.output_dir)
 
             with torch.autograd.detect_anomaly():
-                adv_image = train_adversarial_image(
+                adv_image, _, _ = train_adversarial_image(
                     model, image, config.train_adversarial_image, class_names=class_names, tbx_writer=tbx_writer)
 
             tbx_writer.close()
 
-            output_image_path = os.path.join(
+            output_adv_path = os.path.join(
                 config.output_dir, "adv_image.png")
 
             pil_image = transforms.functional.to_pil_image(adv_image[0])
-            pil_image.save(output_image_path)
+            pil_image.save(output_adv_path)
             print("finished!")
 
         case "evaluate":
             iterate_num = 2000
             iterate_digit = len(str(iterate_num))
+
+            os.mkdir(config.evaluate_orig_path)
+            os.mkdir(config.evaluate_image_path)
+            os.mkdir(config.evaluate_detection_path)
+            os.mkdir(config.evaluate_patch_path)
 
             coco_path = os.path.join(orig_wd_path, config.dataset.data_path)
             coco_annfile_path = os.path.join(
@@ -236,16 +242,32 @@ def main(cfg: DictConfig):
             for image_idx, (image, _) in tqdm(enumerate(train_loader), total=iterate_num):
                 if image_idx >= iterate_num:
                     break
-                adv_image = train_adversarial_image(
+                adv_image, detections, background_patch_boxes = train_adversarial_image(
                     model, image, config.train_adversarial_image)
 
+                # 結果の保存
                 iter_str = str(image_idx).zfill(iterate_digit)
-                os.mkdir(config.evaluate_dir_path)
-                output_image_path = os.path.join(
-                    config.evaluate_dir_path, f'adv_image_{iter_str}.png')
 
-                pil_image = transforms.functional.to_pil_image(adv_image[0])
-                pil_image.save(output_image_path)
+                output_orig_path = os.path.join(
+                    config.evaluate_orig_path, f'{iter_str}.png')
+                output_adv_path = os.path.join(
+                    config.evaluate_image_path, f'{iter_str}.png')
+                output_detections_path = os.path.join(
+                    config.evaluate_detections_path, f'{iter_str}.txt')
+                output_patch_path = os.path.join(
+                    config.evaluate_patch_path, f'{iter_str}.txt')
+
+                orig_pil_image = transforms.functional.to_pil_image(image[0])
+                orig_pil_image.save(output_orig_path)
+                adv_pil_image = transforms.functional.to_pil_image(
+                    adv_image[0])
+                adv_pil_image.save(output_adv_path)
+                detstr = boxio.format_boxes(detections.xyxy)
+                with open(output_detections_path, 'w') as f:
+                    f.write(detstr)
+                bpstr = boxio.format_boxes(background_patch_boxes)
+                with open(output_patch_path, 'w') as f:
+                    f.write(bpstr)
 
         case _:
             raise Exception('modeが想定されていない値です')
