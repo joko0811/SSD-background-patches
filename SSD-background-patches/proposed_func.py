@@ -5,42 +5,6 @@ from omegaconf import DictConfig
 from box import condition, seek, transform
 
 
-def calc_z(class_scores, iou_scores, config: DictConfig):
-    """calc z param
-    zの要素数はクラス数と等しい
-    Args:
-      class_score:
-        GroundTruthesに対応する検出の攻撃対象クラスのクラススコア
-      iou_score:
-        Ground Truthesに対応する検出とGroundTruthesのIoUスコア
-    """
-    class_score_threshold = config.class_score_threshold  # default 0.1
-    iou_score_threshold = config.iou_score_threshold  # default 0.5
-
-    z = torch.logical_and((class_scores > class_score_threshold),
-                          (iou_scores > iou_score_threshold))
-    return z.long()
-
-
-def calc_r(iou_scores, detection_boxes, ground_truth_boxes, config: DictConfig):
-    """calc r param
-    rの要素数はクラス数と等しい
-    Args:
-      iou_score:
-        検出と背景パッチのIoUスコア
-      predict_boxes:
-        検出全て
-      target_boxes:
-        ground truthのボックス全て
-    """
-    iou_score_threshold = config.iou_score_threshold  # default 0.1
-    iou_flag = iou_scores > iou_score_threshold
-    overlap_flag = torch.logical_not(condition.are_overlap_list(
-        detection_boxes, ground_truth_boxes))
-    r = torch.logical_and(iou_flag, overlap_flag)
-    return r.long()
-
-
 def calculate_search_area(image, boxes, config: DictConfig):
     """計算量削減のため、画像からスライディングウインドウで探索する領域を抽出する
     """
