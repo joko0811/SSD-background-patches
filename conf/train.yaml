@@ -17,7 +17,7 @@ dataset: # 使用データセットの設定
 train_main: # 敵対的画像生成時の設定
   mode: "monitor"
   output_dir: ${output_dir}
-  monitor_image_path: "data/bathroom.jpg"
+  monitor_image_path: "data/dog.jpg"
   evaluate_orig_path: ${train_main.output_dir}orig_image/
   evaluate_image_path: ${train_main.output_dir}image/
   evaluate_detection_path: ${train_main.output_dir}detection/
@@ -26,7 +26,7 @@ train_main: # 敵対的画像生成時の設定
   dataset: ${dataset.coco}
   train_adversarial_image: # 敵対的画像生成時の設定
     n_b: ${n_b}
-    max_iter: 250 # 一枚の画像ごとに摂動を加える最大回数
+    max_iter: 300 # 一枚の画像ごとに摂動を加える最大回数
     psnr_threshold: 35 # psnrが閾値以下の場合生成終了
     loss: ${train_main.loss}
     dataset_class_names: ${dataset.coco.class_names}
