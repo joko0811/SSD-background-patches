@@ -1,37 +1,7 @@
-import cv2
-import numpy as np
+from PIL import ImageDraw, ImageFont
 
-from torchvision import transforms
 from matplotlib import pyplot as plt
-from PIL import Image, ImageDraw, ImageFont
-
-
-def save_tensor_image(image, image_path):
-    pil_img = transforms.functional.to_pil_image(image[0])
-    pil_img.save(image_path)
-
-
-def pil2cv(pil_image):
-    new_image = np.array(pil_image, dtype=np.uint8)
-    if new_image.ndim == 2:
-        pass
-    elif new_image.shape[2] == 3:
-        new_image = cv2.cvtColor(new_image, cv2.COLOR_RGB2BGR)
-    elif new_image.shape[2] == 4:
-        new_image = cv2.cvtColor(new_image, cv2.COLOR_RGBA2BGRA)
-    return new_image
-
-
-def cv2pil(image):
-    new_image = image.copy()
-    if new_image.ndim == 2:
-        pass
-    elif new_image.shape[2] == 3:
-        new_image = cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB)
-    elif new_image.shape[2] == 4:
-        new_image = cv2.cvtColor(new_image, cv2.COLOR_BGRA2RGBA)
-    new_image = Image.fromarray(new_image)
-    return new_image
+from torchvision import transforms
 
 
 def tensor2annotation_image(image, detections, class_names):
@@ -69,19 +39,19 @@ def draw_annotations(img, boxes, class_labeles, confidences, class_names):
     font = ImageFont.truetype(fontname, size=fontsize)
 
     for i in range(len(boxes)):
-        # 色を取得する。
+        # 色を取得する
         color = cmap(int(class_labeles[i].item()), bytes=True)
 
         # ラベル
         caption = class_names[class_labeles[i].int()]
         caption += f" {confidences[i]:.0%}"
 
-        # 矩形を描画する。
+        # 矩形を描画する
         draw.rectangle(
             boxes[i].tolist(), outline=color, width=3
         )
 
-        # ラベルを描画する。
+        # ラベルを描画する
         text_w, text_h = draw.textsize(caption, font=font)
         text_x2 = boxes[i, 0] + text_w - 1
         text_y2 = boxes[i, 1] + text_h - 1
@@ -106,7 +76,7 @@ def draw_boxes(img, boxes):
 
     for i in range(len(boxes)):
 
-        # 矩形を描画する。
+        # 矩形を描画する
         draw.rectangle(
             boxes[i].tolist(), width=3
         )

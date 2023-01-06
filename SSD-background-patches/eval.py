@@ -10,26 +10,7 @@ from tqdm import tqdm
 from model import yolo, yolo_util
 from dataset.coco import load_class_names
 from dataset.simple import DirectoryImageDataset
-from evaluation.detection import list_iou, calc_class_TP, calc_class_FP, calc_class_FN
-
-
-def format_detections(detections, det_idx, label_names, image_hw):
-    label = label_names[detections.class_labels[det_idx]]
-    conf = detections.confidences[det_idx]
-    box = detections.xyxy[det_idx]
-
-    return label+" "+str(conf.item())+" "+str(int(box[0].item()))+" "+str(int(box[1].item()))+" "+str(int(box[2].item()))+" "+str(int(box[3].item()))
-
-
-def format_yolo(detections, det_idx, label_names, image_hw):
-    label_idx = detections.class_labels[det_idx]
-    box = detections.xywh[det_idx]
-    yolo_x = box[0].item()/image_hw[1]
-    yolo_y = box[1].item()/image_hw[0]
-    yolo_w = box[2].item()/image_hw[1]
-    yolo_h = box[3].item()/image_hw[0]
-
-    return str(label_idx.item())+" "+str(yolo_x)+" "+str(yolo_y)+" "+str(yolo_w)+" "+str(yolo_h)
+from box.boxio import format_detections, format_yolo
 
 
 def save_detections(model_out, class_names, image_path, format, image_wh):
@@ -88,6 +69,7 @@ def evaluation_yolo(out_path):
                         image_name+".txt", format_detections, image.shape[-2:])
 
 
+# TODO: 検出の保存は学習時にやる
 def evaluation(path):
 
     out_path = path+"box/"
