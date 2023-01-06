@@ -6,6 +6,7 @@ from model.yolo_util import detections_ground_truth, detections_loss
 from box.seek import find_nearest_box
 from box.condition import are_overlap_list
 from evaluation.detection import iou
+from loss import gt_based_loss
 
 
 def tpc(z, max_class_scores):
@@ -48,38 +49,6 @@ def normalized_tps(z, detections: detections_loss, ground_truthes: detections_gr
         (detections.xywh-ground_truthes.xywh[detections.nearest_gt_idx])/dist_div).pow(2)
 
     tps_score = torch.exp(-1*torch.sum(torch.sum(dist[:, :2], dim=1)))
-
-    return tps_score
-
-
-def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
-    """True Positive Shape Loss
-    """
-    # ground truth検出毎に一番近い検出を抽出
-    dt_nearest_gt_idx = find_nearest_box(ground_truthes.xywh, detections.xywh)
-    dt_nearest_gt = detections.xywh[dt_nearest_gt_idx]
-
-    dist = torch.sum(z*torch.sum(torch.abs(
-        dt_nearest_gt-ground_truthes.xywh), dim=1))
-
-    """
-    dist = torch.abs(
-        detections.xywh-ground_truthes.xywh+1e-5)
-    z_sum = z*torch.sum(dist, dim=1)
-    unique_labels, labels_count = detections.nearest_gt_idx.unique(
-        return_counts=True)
-    # nearest_gt_idxに出現しないラベルを含めた除算用のラベル毎集計変数を作成
-    labels_count_per_class = torch.ones(torch.max(
-        unique_labels)+1, device=z_sum.device, dtype=labels_count.dtype).scatter(0, unique_labels, labels_count)
-    # 一番近いGround Truthのインデックスでラベル付し、ラベルに属する検出のz_sumの平均をとる
-    average_by_gt = torch.zeros(torch.max(unique_labels)+1, device=z_sum.device, dtype=z_sum.dtype).scatter_add(
-        0, detections.nearest_gt_idx, z_sum)/labels_count_per_class
-    tps_score = torch.exp(-1*torch.sum(average_by_gt))
-    """
-
-    sum_dist = sum(z*dist) if sum(z *
-                                  dist) != 0 else torch.tensor(1e-5, device=dist.device)
-    tps_score = torch.exp(-1*sum_dist)
 
     return tps_score
 
@@ -142,10 +111,13 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
     tps_weight = config.tps_weight  # default 1
     fpc_weight = config.fpc_weight  # default 1
 
+    gt_z = gt_based_loss.calc_z(detections, ground_truthes, config.calc_z)
+    tps_loss = gt_based_loss.mean_tps(
+        gt_z, detections, ground_truthes, image_hw)
+
     tpc_loss = tpc(z, max_class_scores)*tpc_weight
-    # tps_loss = mean_tps(z, detections, ground_truthes)
-    tps_loss = normalized_tps(
-        z, detections, ground_truthes, image_hw, config.nomalized_tps)*tps_weight
+    # tps_loss = normalized_tps(
+    #     z, detections, ground_truthes, image_hw, config.nomalized_tps)*tps_weight
     fpc_loss = fpc(r, max_class_scores)*fpc_weight
 
     return (tpc_loss, tps_loss, fpc_loss, end_flag_z)

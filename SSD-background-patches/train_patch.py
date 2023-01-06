@@ -1,3 +1,5 @@
+# This file is a reproduction implementation of
+# Exploring the Vulnerability of Single Shot Module in Object Detectors via Imperceptible Background Patches
 import os
 
 from PIL import Image
