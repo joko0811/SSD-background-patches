@@ -1,6 +1,4 @@
 import os
-import time
-import argparse
 
 from PIL import Image
 import numpy as np
@@ -19,42 +17,57 @@ from tqdm import tqdm
 
 import proposed_func as pf
 from model import yolo, yolo_util
-from loss import total_loss
-from util import img, clustering
+from loss.dt_based_loss import total_loss
+from util import clustering
+from imageutil import imgdraw, imgseg
 from dataset import coco
+from box import boxio
 
 
 def get_image_from_file(image_path):
     pil_image = Image.open(image_path)
     yolo_transforms = transforms.Compose([
-        transforms.ToTensor(),
         transforms.Resize((416, 416)),
     ])
-    tensor_image = yolo_transforms(pil_image).unsqueeze(0)
+    tensor_image = yolo_transforms(pil_image)
     return tensor_image
 
 
-def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=None, tbx_writer=None):
+def train_adversarial_image(model, orig_img, config: DictConfig, class_names=None, tbx_writer=None):
 
     perturbate_iter = 0  # initialize
     max_perturbate_iter = config.max_iter  # default 250
     psnr_threshold = config.psnr_threshold  # default 35
+    # グループ毎に割り当てられるパッチ枚数
+    n_b = config.n_b  # default 3
 
-    if torch.cuda.is_available():
-        ground_truth_image = orig_img.to(
-            device='cuda:0', dtype=torch.float)
-        adv_image = ground_truth_image.clone()
-        adv_image.requires_grad = True
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+    # 元画像 更新なし
+    ground_truth_image = transforms.functional.to_tensor(
+        orig_img).to(device=device, dtype=torch.float)
+    if ground_truth_image.dim() == 3:
+        ground_truth_image = ground_truth_image.unsqueeze(0)
+
+    # 敵対的背景 更新あり
+    background_image = torch.zeros(ground_truth_image.shape, device=device)
+    # マスク 更新なし PIL
+    mask_image = imgseg.gen_mask_image(orig_img)
+    # 前景 更新なし
+    foreground_image = imgseg.wrap_composite_image(
+        ground_truth_image[0], background_image[0], mask_image).unsqueeze(0)
+
+    # 敵対的画像 更新あり
+    adv_image = imgseg.wrap_composite_image(
+        ground_truth_image[0], background_image[0], mask_image).unsqueeze(0)
 
     with torch.no_grad():
         # 素の画像を物体検出器にかけた時の出力をground truthとする
         gt_yolo_out = model(adv_image)
         gt_nms_out = yolo_util.nms(gt_yolo_out)
-
         if gt_nms_out[0].nelement() == 0:
             # 元画像の検出がない場合は敵対的画像を生成できない
-            return adv_image
-
+            return background_image
         ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
 
         # ground truthesをクラスタリング
@@ -63,11 +76,9 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
         ground_truthes.set_group_info(torch.from_numpy(
             group_labels.astype(np.float32)).to(ground_truth_image.device))
 
-    # グループ毎に割り当てられるパッチ枚数
-    n_b = config.n_b  # default 3
-
     background_patch_boxes = torch.zeros(
-        (ground_truthes.total_group*n_b, 4), device=adv_image.device)
+        (ground_truthes.total_group*n_b, 4), device=device)
+
     # TODO:最適化は使っていないので置き換える(optimizer.zero_gradは使っているので注意)
     optimizer = optim.Adam([adv_image])
 
@@ -75,13 +86,13 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
 
         adv_image.requires_grad = True
 
-        # perturbate_iter回目のパッチ適用画像から物体検出する
+        # perturbate_iter回目の敵対的画像から物体検出する
         output = model(adv_image)
         nms_out = yolo_util.nms(output)
         detections = yolo_util.detections_loss(nms_out[0])
         if nms_out[0].nelement() == 0:
             # 検出がない場合は終了
-            return adv_image
+            return background_image
 
         tpc_loss, tps_loss, fpc_loss, end_flag = total_loss(
             detections, ground_truthes, background_patch_boxes, adv_image.shape[2:], config.loss)
@@ -119,12 +130,16 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
                 perturbated_image, config.perturbation_normalization)
             # make_box_image(perturbated_image, background_patch_boxes)
             # adv_image-perturbated_imageの計算結果を[0,255]にクリップする
-            adv_image = pf.update_i_with_pixel_clipping(
-                adv_image, nomalized_perturbated_image)
+            background_image = pf.update_i_with_pixel_clipping(
+                background_image, nomalized_perturbated_image)
+
+            # 敵対的背景の合成
+            adv_image = imgseg.wrap_composite_image(
+                ground_truth_image[0], background_image[0], mask_image).unsqueeze(0)
 
             # psnr評価用の画像を切り出す
             psnr_truth_image = pf.perturbation_in_background_patches(
-                ground_truth_image, background_patch_boxes).detach().cpu().numpy()
+                foreground_image, background_patch_boxes).detach().cpu().numpy()
             psnr_eval_image = pf.perturbation_in_background_patches(
                 adv_image, background_patch_boxes).detach().cpu().numpy()
 
@@ -145,12 +160,12 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
 
                 if perturbate_iter % 10 == 0:
 
-                    det_image = transforms.functional.to_tensor(img.tensor2annotation_image(
+                    adv_anno_image = transforms.functional.to_tensor(imgdraw.tensor2annotation_image(
                         adv_image, detections, class_names))
                     tbx_writer.add_image(
-                        "adversarial_image", det_image, perturbate_iter)
+                        "adversarial_image", adv_anno_image, perturbate_iter)
 
-                    bp_image = transforms.functional.to_tensor(img.tensor2box_annotation_image(
+                    bp_image = transforms.functional.to_tensor(imgdraw.tensor2box_annotation_image(
                         nomalized_perturbated_image, background_patch_boxes))
                     tbx_writer.add_image(
                         "background_patch_boxes", bp_image, perturbate_iter)
@@ -159,10 +174,10 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
                 # psnrが閾値以下
                 break
 
-    return adv_image.clone().cpu()
+    return background_image.clone().cpu(), detections, background_patch_boxes
 
 
-@hydra.main(version_base=None, config_path="../conf/", config_name="config")
+@ hydra.main(version_base=None, config_path="../conf/", config_name="train")
 def main(cfg: DictConfig):
     config = cfg.train_main
 
@@ -176,13 +191,7 @@ def main(cfg: DictConfig):
         annfile_path)
     model.eval()
 
-    arg_parser = argparse.ArgumentParser(
-        description="generate adversarial image")
-    arg_parser.add_argument("-m", "--mode", type=str,
-                            default="monitor", help="Select execution mode")
-    args = arg_parser.parse_args()
-
-    mode = args.mode
+    mode = config.mode
 
     match mode:
         case "monitor":
@@ -197,28 +206,32 @@ def main(cfg: DictConfig):
             tbx_writer = SummaryWriter(config.output_dir)
 
             with torch.autograd.detect_anomaly():
-                adv_image = train_adversarial_image(
+                adv_image, _, _ = train_adversarial_image(
                     model, image, config.train_adversarial_image, class_names=class_names, tbx_writer=tbx_writer)
 
             tbx_writer.close()
 
-            output_image_path = os.path.join(
+            output_adv_path = os.path.join(
                 config.output_dir, "adv_image.png")
 
             pil_image = transforms.functional.to_pil_image(adv_image[0])
-            pil_image.save(output_image_path)
+            pil_image.save(output_adv_path)
             print("finished!")
 
         case "evaluate":
             iterate_num = 2000
             iterate_digit = len(str(iterate_num))
 
+            os.mkdir(config.evaluate_orig_path)
+            os.mkdir(config.evaluate_image_path)
+            os.mkdir(config.evaluate_detection_path)
+            os.mkdir(config.evaluate_patch_path)
+
             coco_path = os.path.join(orig_wd_path, config.dataset.data_path)
             coco_annfile_path = os.path.join(
                 orig_wd_path, config.dataset.annfile_path)
 
             yolo_transforms = transforms.Compose([
-                transforms.ToTensor(),
                 transforms.Resize((416, 416)),
             ])
 
@@ -229,16 +242,32 @@ def main(cfg: DictConfig):
             for image_idx, (image, _) in tqdm(enumerate(train_loader), total=iterate_num):
                 if image_idx >= iterate_num:
                     break
-                adv_image = train_adversarial_image(
+                adv_image, detections, background_patch_boxes = train_adversarial_image(
                     model, image, config.train_adversarial_image)
 
+                # 結果の保存
                 iter_str = str(image_idx).zfill(iterate_digit)
-                os.mkdir(config.evaluate_dir_path)
-                output_image_path = os.path.join(
-                    config.evaluate_dir_path, f'adv_image_{iter_str}.png')
 
-                pil_image = transforms.functional.to_pil_image(adv_image[0])
-                pil_image.save(output_image_path)
+                output_orig_path = os.path.join(
+                    config.evaluate_orig_path, f'{iter_str}.png')
+                output_adv_path = os.path.join(
+                    config.evaluate_image_path, f'{iter_str}.png')
+                output_detections_path = os.path.join(
+                    config.evaluate_detections_path, f'{iter_str}.txt')
+                output_patch_path = os.path.join(
+                    config.evaluate_patch_path, f'{iter_str}.txt')
+
+                orig_pil_image = transforms.functional.to_pil_image(image[0])
+                orig_pil_image.save(output_orig_path)
+                adv_pil_image = transforms.functional.to_pil_image(
+                    adv_image[0])
+                adv_pil_image.save(output_adv_path)
+                detstr = boxio.format_boxes(detections.xyxy)
+                with open(output_detections_path, 'w') as f:
+                    f.write(detstr)
+                bpstr = boxio.format_boxes(background_patch_boxes)
+                with open(output_patch_path, 'w') as f:
+                    f.write(bpstr)
 
         case _:
             raise Exception('modeが想定されていない値です')

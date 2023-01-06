@@ -4,8 +4,8 @@ from omegaconf import DictConfig
 
 from model.yolo_util import detections_ground_truth, detections_loss
 from box.seek import find_nearest_box
+from box.condition import are_overlap_list
 from evaluation.detection import iou
-from proposed_func import calc_r, calc_z
 
 
 def tpc(z, max_class_scores):
@@ -55,10 +55,17 @@ def normalized_tps(z, detections: detections_loss, ground_truthes: detections_gr
 def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
     """True Positive Shape Loss
     """
-    dist = torch.abs(
-        detections.xywh[:, :2]-ground_truthes.xywh[detections.nearest_gt_idx, :2]+1e-5)
-    z_sum = z*torch.sum(dist, dim=1)
+    # ground truth検出毎に一番近い検出を抽出
+    dt_nearest_gt_idx = find_nearest_box(ground_truthes.xywh, detections.xywh)
+    dt_nearest_gt = detections.xywh[dt_nearest_gt_idx]
 
+    dist = torch.sum(z*torch.sum(torch.abs(
+        dt_nearest_gt-ground_truthes.xywh), dim=1))
+
+    """
+    dist = torch.abs(
+        detections.xywh-ground_truthes.xywh+1e-5)
+    z_sum = z*torch.sum(dist, dim=1)
     unique_labels, labels_count = detections.nearest_gt_idx.unique(
         return_counts=True)
     # nearest_gt_idxに出現しないラベルを含めた除算用のラベル毎集計変数を作成
@@ -67,8 +74,12 @@ def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_t
     # 一番近いGround Truthのインデックスでラベル付し、ラベルに属する検出のz_sumの平均をとる
     average_by_gt = torch.zeros(torch.max(unique_labels)+1, device=z_sum.device, dtype=z_sum.dtype).scatter_add(
         0, detections.nearest_gt_idx, z_sum)/labels_count_per_class
-
     tps_score = torch.exp(-1*torch.sum(average_by_gt))
+    """
+
+    sum_dist = sum(z*dist) if sum(z *
+                                  dist) != 0 else torch.tensor(1e-5, device=dist.device)
+    tps_score = torch.exp(-1*sum_dist)
 
     return tps_score
 
@@ -132,11 +143,48 @@ def total_loss(detections: detections_loss, ground_truthes: detections_ground_tr
     fpc_weight = config.fpc_weight  # default 1
 
     tpc_loss = tpc(z, max_class_scores)*tpc_weight
+    # tps_loss = mean_tps(z, detections, ground_truthes)
     tps_loss = normalized_tps(
         z, detections, ground_truthes, image_hw, config.nomalized_tps)*tps_weight
     fpc_loss = fpc(r, max_class_scores)*fpc_weight
 
     return (tpc_loss, tps_loss, fpc_loss, end_flag_z)
+
+
+def calc_z(class_scores, iou_scores, config: DictConfig):
+    """calc z param
+    zの要素数はクラス数と等しい
+    Args:
+      class_score:
+        GroundTruthesに対応する検出の攻撃対象クラスのクラススコア
+      iou_score:
+        Ground Truthesに対応する検出とGroundTruthesのIoUスコア
+    """
+    class_score_threshold = config.class_score_threshold  # default 0.1
+    iou_score_threshold = config.iou_score_threshold  # default 0.5
+
+    z = torch.logical_and((class_scores > class_score_threshold),
+                          (iou_scores > iou_score_threshold))
+    return z.long()
+
+
+def calc_r(iou_scores, detection_boxes, ground_truth_boxes, config: DictConfig):
+    """calc r param
+    rの要素数はクラス数と等しい
+    Args:
+      iou_score:
+        検出と背景パッチのIoUスコア
+      predict_boxes:
+        検出全て
+      target_boxes:
+        ground truthのボックス全て
+    """
+    iou_score_threshold = config.iou_score_threshold  # default 0.1
+    iou_flag = iou_scores > iou_score_threshold
+    overlap_flag = torch.logical_not(are_overlap_list(
+        detection_boxes, ground_truth_boxes))
+    r = torch.logical_and(iou_flag, overlap_flag)
+    return r.long()
 
 
 def get_max_scores_without_correct_class(detections: detections_loss, ground_truthes: detections_ground_truth):
