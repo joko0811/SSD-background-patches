@@ -1,18 +1,10 @@
 # プロジェクト全体で用いる設定
+defaults:
+  - model: yolo # 使用モデルの設定
+  - dataset: ted_woman_test # 使用データセットの設定
+output_dir: ${hydra:runtime.output_dir}
 iou_threshold: 0.5
 n_b: 3 # クラスタリングしたグループ毎に割り当てられるパッチの枚数
-output_dir: ${hydra:runtime.output_dir}
-
-model: # 使用モデルの設定
-  yolo:
-    setting_path: "weights/yolov3.cfg"
-    weight_path: "weights/yolov3.weights"
-
-dataset: # 使用データセットの設定
-  coco:
-    class_names: "coco2014/coco.names"
-    data_path: "coco2014/images/train2014/"
-    annfile_path: "coco2014/annotations/instances_train2014.json"
 
 train_main: # 敵対的画像生成時の設定
   mode: "monitor"
@@ -22,8 +14,8 @@ train_main: # 敵対的画像生成時の設定
   evaluate_image_path: ${train_main.output_dir}image/
   evaluate_detection_path: ${train_main.output_dir}detection/
   evaluate_patch_path: ${train_main.output_dir}patch/
-  model: ${model.yolo}
-  dataset: ${dataset.coco}
+  model: ${model}
+  dataset: ${dataset}
   train_adversarial_image: # 敵対的画像生成時の設定
     n_b: ${n_b}
     max_iter: 300 # 一枚の画像ごとに摂動を加える最大回数

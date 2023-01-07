@@ -177,7 +177,7 @@ def train_adversarial_image(model, orig_img, config: DictConfig, class_names=Non
     return background_image.clone().cpu(), detections, background_patch_boxes
 
 
-@ hydra.main(version_base=None, config_path="../conf/", config_name="train")
+@ hydra.main(version_base=None, config_path="../conf/", config_name="train_background")
 def main(cfg: DictConfig):
     config = cfg.train_main
 

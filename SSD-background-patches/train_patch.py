@@ -163,7 +163,7 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
     return adv_image.clone().cpu()
 
 
-@hydra.main(version_base=None, config_path="../conf/", config_name="train")
+@hydra.main(version_base=None, config_path="../conf/", config_name="train_patch")
 def main(cfg: DictConfig):
     config = cfg.train_main
 
