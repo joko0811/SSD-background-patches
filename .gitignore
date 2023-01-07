@@ -1,10 +1,8 @@
 # Project
 .vscode/
 weights/
-testdata/
 outputs/
-coco2014/
-coco2014
+datasets/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
