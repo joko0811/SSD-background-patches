@@ -1,6 +1,5 @@
 import os
 
-from PIL import Image
 import hydra
 from omegaconf import DictConfig
 
@@ -15,54 +14,47 @@ from tqdm import tqdm
 from model import yolo, yolo_util
 from dataset.simple import DirectoryImageDataset
 from loss.dt_based_loss import total_loss
-from imageutil import imgseg
+from imageutil import imgseg, imgconv
 from dataset import coco
 from box import boxio
 
 
-def get_image_from_file(image_path):
-    pil_image = Image.open(image_path)
-    yolo_transforms = transforms.Compose([
-        transforms.Resize((416, 416)),
-    ])
-    tensor_image = yolo_transforms(pil_image)
-    return tensor_image
-
-
-def train_adversarial_image(model, image_set, batch_size, config: DictConfig, class_names=None, tbx_writer=None):
+def train_adversarial_image(model, image_loader, config: DictConfig, class_names=None, tbx_writer=None):
 
     max_epoch = config.max_epoch  # default 250
-    batch_size = config.batch_size
-    # グループ毎に割り当てられるパッチ枚数
-    n_b = config.n_b  # default 3
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     # 敵対的背景
-    adv_background_image = torch.zeros((416, 416), device=device)
-
-    image_loader = torch.utils.data.DataLoader(
-        image_set, batch_size=batch_size)
+    adv_background_image = torch.zeros((3, 416, 416), device=device)
 
     # TODO:最適化は使っていないので置き換える(optimizer.zero_gradは使っているので注意)
     optimizer = optim.Adam([adv_background_image])
 
     for epoch in tqdm(range(max_epoch)):
-        for image_list in tqdm(image_loader):
+        for image_list, _ in tqdm(image_loader):
 
-            # PIL image
-            mask_image_list = imgseg.gen_mask_image(image_list)
-            # tensor
-            adv_image_list = imgseg.wrap_composite_image(
-                image_list, adv_background_image, mask_image_list)
+            adv_background_image.requires_grad = True
 
-            gpu_image_list = transforms.functional.to_tensor(
-                image_list).to(device=device, dtype=torch.float)
+            # Preprocessing
+            # Set to no_grad since the process is not needed for gradient calculation.
+            with torch.no_grad():
+                gpu_image_list = image_list.to(
+                    device=device, dtype=torch.float)
+                mask_image_list = imgseg.gen_mask_image(gpu_image_list)
 
-            gt_output = model(gpu_image_list)
-            gt_nms_out = yolo_util.nms(gt_output)
-            gt_detections_list = yolo_util.detections_loss(gt_nms_out[0])
+            adv_image_list = imgseg.composite_image(
+                gpu_image_list, adv_background_image, mask_image_list)
 
+            # Set to no_grad since the process is not needed for gradient calculation.
+            with torch.no_grad():
+                # Detection from unprocessed images
+                # Detection of unprocessed images as Groundtruth
+                gt_output = model(gpu_image_list)
+                gt_nms_out = yolo_util.nms(gt_output)
+                gt_detections_list = yolo_util.detections_loss(gt_nms_out[0])
+
+            # Detection from adversarial images
             adv_output = model(adv_image_list)
             adv_nms_out = yolo_util.nms(adv_output)
             adv_detections_list = yolo_util.detections_loss(adv_nms_out[0])
@@ -77,6 +69,7 @@ def train_adversarial_image(model, image_set, batch_size, config: DictConfig, cl
 
             optimizer.zero_grad()
             loss.backward()
+            # The Adversarial background image is updated here
             optimizer.step()
 
         with torch.no_grad():
@@ -98,7 +91,6 @@ def train_adversarial_image(model, image_set, batch_size, config: DictConfig, cl
 def main(cfg: DictConfig):
     config = cfg.train_main
 
-    print("change working directory"+os.getcwd())
     orig_wd_path = os.getcwd()
 
     setting_path = os.path.join(orig_wd_path, config.model.setting_path)
@@ -109,6 +101,7 @@ def main(cfg: DictConfig):
     model.eval()
 
     yolo_transforms = transforms.Compose([
+        transforms.ToTensor(),
         transforms.Resize((416, 416)),
     ])
 
@@ -116,16 +109,11 @@ def main(cfg: DictConfig):
 
     match mode:
         case "monitor":
-
-            # input_image_path = os.path.join(
-            #     orig_wd_path, config.monitor_image_path)
-            # image = get_image_from_file(input_image_path)
-
             image_set_path = os.path.join(
                 orig_wd_path, config.dataset.data_path)
             image_set = DirectoryImageDataset(
                 image_set_path, transform=yolo_transforms)
-            image_loader = torch.utils.data.DataLoader(image_set)
+            image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
 
             class_names_path = os.path.join(
                 orig_wd_path, config.dataset.class_names)

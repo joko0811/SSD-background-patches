@@ -167,7 +167,6 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
 def main(cfg: DictConfig):
     config = cfg.train_main
 
-    print("change working directory"+os.getcwd())
     orig_wd_path = os.getcwd()
 
     setting_path = os.path.join(orig_wd_path, config.model.setting_path)
