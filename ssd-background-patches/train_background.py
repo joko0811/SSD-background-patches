@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from model import yolo, yolo_util
 from dataset.simple import DirectoryImageDataset
-from loss.li2019 import total_loss
+from loss import proposed
 from imageutil import imgseg, imgconv
 from dataset import coco
 from box import boxio
@@ -32,7 +32,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
     optimizer = optim.Adam([adv_background_image])
 
     for epoch in tqdm(range(max_epoch)):
-        for image_list, _ in tqdm(image_loader):
+        for image_list, _ in tqdm(image_loader, leave=False):
 
             adv_background_image.requires_grad = True
 
@@ -52,20 +52,56 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                 # Detection of unprocessed images as Groundtruth
                 gt_output = model(gpu_image_list)
                 gt_nms_out = yolo_util.nms(gt_output)
-                gt_detections_list = yolo_util.detections_loss(gt_nms_out[0])
+                gt_detections_list = list()
+                for gt_det in gt_nms_out:
+                    gt_detections_list.append(
+                        yolo_util.detections_loss(gt_det))
 
             # Detection from adversarial images
             adv_output = model(adv_image_list)
             adv_nms_out = yolo_util.nms(adv_output)
-            adv_detections_list = yolo_util.detections_loss(adv_nms_out[0])
+            adv_detections_list = list()
+            for adv_det in adv_nms_out:
+                if adv_det.nelement() != 0:
+                    adv_detections_list.append(
+                        yolo_util.detections_loss(adv_det))
+                else:
+                    adv_detections_list.append(None)
 
-            tpc_loss, tps_loss, fpc_loss, end_flag = total_loss()
-            loss = tpc_loss+tps_loss+fpc_loss
+            tpc_loss_list = torch.zeros(
+                image_loader.batch_size, device=device)
+            tps_loss_list = torch.zeros(
+                image_loader.batch_size, device=device)
+            fpc_loss_list = torch.zeros(
+                image_loader.batch_size, device=device)
 
-            if end_flag:
-                # 損失計算時に条件を満たした場合終了(zの要素がすべて0の場合)
-                # 原因は特定していないがzの要素が全て0の場合勾配画像がバグるので
-                break
+            for i in range(image_loader.batch_size):
+                if adv_det is None:
+                    tpc_loss_list[i] += 0
+                    tps_loss_list[i] += 0
+                    fpc_loss_list[i] += 0
+                    continue
+
+                tpc_loss, tps_loss, fpc_loss, end_flag = proposed.total_loss(
+                    adv_detections_list[i], gt_detections_list[i], (416, 416), config.loss)
+
+                if end_flag:
+                    tpc_loss_list[i] += 0
+                    tps_loss_list[i] += 0
+                    fpc_loss_list[i] += 0
+                else:
+                    tpc_loss_list[i] += tpc_loss
+                    tps_loss_list[i] += tps_loss
+                    fpc_loss_list[i] += fpc_loss
+
+            max_tpc = torch.max(tpc_loss_list)
+            max_tps = torch.max(tps_loss_list)
+            max_fpc = torch.max(fpc_loss_list)
+
+            loss = max_tpc+max_tps+max_fpc
+
+            if loss == 0:
+                return adv_background_image.clone().cpu()
 
             optimizer.zero_grad()
             loss.backward()
@@ -73,16 +109,15 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
             optimizer.step()
 
         with torch.no_grad():
-
             if tbx_writer is not None:
                 tbx_writer.add_scalar(
                     "total_loss", loss, epoch)
                 tbx_writer.add_scalar(
-                    "tpc_loss", tpc_loss, epoch)
+                    "tpc_loss", max_tpc, epoch)
                 tbx_writer.add_scalar(
-                    "tps_loss", tps_loss, epoch)
+                    "tps_loss", max_tps, epoch)
                 tbx_writer.add_scalar(
-                    "fpc_loss", fpc_loss, epoch)
+                    "fpc_loss", max_fpc, epoch)
 
     return adv_background_image.clone().cpu()
 
@@ -105,15 +140,16 @@ def main(cfg: DictConfig):
         transforms.Resize((416, 416)),
     ])
 
+    image_set_path = os.path.join(
+        orig_wd_path, config.dataset.data_path)
+    image_set = DirectoryImageDataset(
+        image_set_path, transform=yolo_transforms)
+    image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
+
     mode = config.mode
 
     match mode:
         case "monitor":
-            image_set_path = os.path.join(
-                orig_wd_path, config.dataset.data_path)
-            image_set = DirectoryImageDataset(
-                image_set_path, transform=yolo_transforms)
-            image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
 
             class_names_path = os.path.join(
                 orig_wd_path, config.dataset.class_names)
@@ -121,15 +157,15 @@ def main(cfg: DictConfig):
             tbx_writer = SummaryWriter(config.output_dir)
 
             with torch.autograd.detect_anomaly():
-                adv_image, _, _ = train_adversarial_image(
+                adv_background_image = train_adversarial_image(
                     model, image_loader, config.train_adversarial_image, class_names=class_names, tbx_writer=tbx_writer)
 
             tbx_writer.close()
 
             output_adv_path = os.path.join(
-                config.output_dir, "adv_image.png")
+                config.output_dir, "adv_background_image.png")
 
-            pil_image = transforms.functional.to_pil_image(adv_image[0])
+            pil_image = imgconv.tensor2pil(adv_background_image)
             pil_image.save(output_adv_path)
             print("finished!")
 
@@ -140,45 +176,35 @@ def main(cfg: DictConfig):
             os.mkdir(config.evaluate_orig_path)
             os.mkdir(config.evaluate_image_path)
             os.mkdir(config.evaluate_detection_path)
-            os.mkdir(config.evaluate_patch_path)
 
-            coco_path = os.path.join(orig_wd_path, config.dataset.data_path)
-            coco_annfile_path = os.path.join(
-                orig_wd_path, config.dataset.annfile_path)
+            adv_image = train_adversarial_image(
+                model, image_loader, config.train_adversarial_image)
 
-            train_set = CocoDetection(root=coco_path,
-                                      annFile=coco_annfile_path, transform=yolo_transforms)
-            train_loader = torch.utils.data.DataLoader(train_set)
+            output_adv_path = os.path.join(
+                config.output_dir, "adv_background_image.png")
 
-            for image_idx, (image, _) in tqdm(enumerate(train_loader), total=iterate_num):
-                if image_idx >= iterate_num:
-                    break
-                adv_image, detections, background_patch_boxes = train_adversarial_image(
-                    model, image, config.train_adversarial_image)
+            pil_image = imgconv.tensor2pil(adv_background_image)
+            pil_image.save(output_adv_path)
+            print("finished!")
 
-                # 結果の保存
-                iter_str = str(image_idx).zfill(iterate_digit)
+            """
+            # 結果の保存
+            output_orig_path = os.path.join(
+                config.evaluate_orig_path, f'{iter_str}.png')
+            output_adv_path = os.path.join(
+                config.evaluate_image_path, f'{iter_str}.png')
+            output_detections_path = os.path.join(
+                config.evaluate_detections_path, f'{iter_str}.txt')
 
-                output_orig_path = os.path.join(
-                    config.evaluate_orig_path, f'{iter_str}.png')
-                output_adv_path = os.path.join(
-                    config.evaluate_image_path, f'{iter_str}.png')
-                output_detections_path = os.path.join(
-                    config.evaluate_detections_path, f'{iter_str}.txt')
-                output_patch_path = os.path.join(
-                    config.evaluate_patch_path, f'{iter_str}.txt')
-
-                orig_pil_image = transforms.functional.to_pil_image(image[0])
-                orig_pil_image.save(output_orig_path)
-                adv_pil_image = transforms.functional.to_pil_image(
-                    adv_image[0])
-                adv_pil_image.save(output_adv_path)
-                detstr = boxio.format_boxes(detections.xyxy)
-                with open(output_detections_path, 'w') as f:
-                    f.write(detstr)
-                bpstr = boxio.format_boxes(background_patch_boxes)
-                with open(output_patch_path, 'w') as f:
-                    f.write(bpstr)
+            orig_pil_image = transforms.functional.to_pil_image(image[0])
+            orig_pil_image.save(output_orig_path)
+            adv_pil_image = transforms.functional.to_pil_image(
+                adv_image[0])
+            adv_pil_image.save(output_adv_path)
+            detstr = boxio.format_boxes(detections.xyxy)
+            with open(output_detections_path, 'w') as f:
+                f.write(detstr)
+            """
 
         case _:
             raise Exception('modeが想定されていない値です')
