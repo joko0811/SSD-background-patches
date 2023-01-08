@@ -1,5 +1,8 @@
 import numpy as np
 
+import torch
+from torchvision import transforms
+
 import cv2
 from PIL import Image
 
@@ -50,4 +53,5 @@ def pil2cv(image):
     return new_image
 
 
-video2image()
+def pil2tensor(image, device):
+    return transforms.functional.to_tensor(image).to(device=device, dtype=torch.float)
