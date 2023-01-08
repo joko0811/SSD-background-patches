@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 import proposed_func as pf
 from model import yolo, yolo_util
-from loss.dt_based_loss import total_loss
+from loss.li2019 import total_loss
 from util import clustering
 from imageutil import imgdraw
 from dataset import coco

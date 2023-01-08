@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from model import yolo, yolo_util
 from dataset.simple import DirectoryImageDataset
-from loss.dt_based_loss import total_loss
+from loss.li2019 import total_loss
 from imageutil import imgseg, imgconv
 from dataset import coco
 from box import boxio
