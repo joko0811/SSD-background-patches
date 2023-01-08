@@ -55,3 +55,7 @@ def pil2cv(image):
 
 def pil2tensor(image, device):
     return transforms.functional.to_tensor(image).to(device=device, dtype=torch.float)
+
+
+def tensor2pil(image):
+    return transforms.functional.to_pil_image(image)

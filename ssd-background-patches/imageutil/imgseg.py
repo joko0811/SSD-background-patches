@@ -1,40 +1,51 @@
 import rembg  # tool to remove images background
 
 import torch
-from torchvision import transforms
+
+from imageutil import imgconv
 
 
-def gen_mask_image(image):
-    return rembg.remove(image, only_mask=True)
-
-
-def composite_image(foreground_image, background_image, mask_image, pos):
-    """PIL画像の合成
-    """
-    im = background_image.copy()
-    im.paste(foreground_image, pos, mask_image)
-    return im
-
-
-def wrap_composite_image(foreground_image, background_image, mask_image, pos=None):
-    """合成位置中心固定
+def gen_mask_image(image: torch.Tensor):
+    """Returns the mask image of image
     Args:
-        foreground_image: tensor image
-        background_image: tensor image
-        mask_image: pil image
-    Return:
-        im: tensor image
+        image: 4D tensor N*H*W*C or 3D tensor H*W*C.
+    Return: tensor of the same shape as the input
     """
-    fg = transforms.functional.to_pil_image(foreground_image)
-    bg = transforms.functional.to_pil_image(background_image)
+    device = image.device
 
-    x = abs(int(background_image.shape[1]/2 - foreground_image.shape[1]/2))
-    y = abs(int(background_image.shape[0]/2 - foreground_image.shape[0]/2))
-    if pos is None:
-        pos = [x, y]
+    if image.dim() == 3:
+        # This conversion is done because rembg input is a pil image
+        pil_image = imgconv.tensor2pil(image)
+        return imgconv.pil2tensor(rembg.remove(pil_image, only_mask=True), device)
+
+    mask_image_list = torch.zeros(
+        image.shape, device=device, dtype=torch.float)
+    for image_iter, img in enumerate(image):
+        pil_image = imgconv.tensor2pil(img)
+        mask_image = rembg.remove(pil_image, only_mask=True)
+        mask_image_list[image_iter] = imgconv.pil2tensor(
+            mask_image, device)
+
+    return mask_image_list
+
+
+def composite_image(foreground_image: torch.Tensor, background_image: torch.Tensor, mask_image: torch.Tensor):
+    """Compose an image based on a mask image
+
+    Args:
+        foreground_image: 4D tensor N*H*W*C or 3D tensor H*W*C. Same shape as mask_image
+        background_image: 4D tensor N*H*W*C or 3D tensor H*W*C
+        mask_image: 4D tensor N*H*W*C or 3D tensor H*W*C. Same shape as foreground_image. Background is (0,0,0)
+    Return: 4D tensor N*H*W*C or 3D tensor H*W*C
+    """
+
+    # Match the shape of background_image
+    if background_image.dim() == 3:
+        composite_background_image = background_image.tile(
+            (foreground_image.shape[0], 1, 1, 1))
     else:
-        pos[0] += x
-        pos[1] += y
+        composite_background_image = background_image.clone()
 
-    im = composite_image(fg, bg, mask_image, pos)
-    return transforms.functional.to_tensor(im).to(device=foreground_image.device, dtype=torch.float)
+    composite_image = torch.where(
+        mask_image > 0, foreground_image, composite_background_image)
+    return composite_image
