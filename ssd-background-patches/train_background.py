@@ -43,10 +43,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                 # Detection of unprocessed images as Groundtruth
                 gt_output = model(gpu_image_list)
                 gt_nms_out = yolo_util.nms(gt_output)
-                gt_detections_list = list()
-                for gt_det in gt_nms_out:
-                    gt_detections_list.append(
-                        yolo_util.detections_loss(gt_det))
+                gt_detections_list = yolo_util.make_detections_list(gt_nms_out)
 
             adv_background_image.requires_grad = True
             adv_image_list = bgutil.background_applyer(
@@ -55,13 +52,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
             # Detection from adversarial images
             adv_output = model(adv_image_list)
             adv_nms_out = yolo_util.nms(adv_output)
-            adv_detections_list = list()
-            for adv_det in adv_nms_out:
-                if adv_det.nelement() != 0:
-                    adv_detections_list.append(
-                        yolo_util.detections_loss(adv_det))
-                else:
-                    adv_detections_list.append(None)
+            adv_detections_list = yolo_util.make_detections_list(adv_nms_out)
 
             tpc_loss_list = torch.zeros(
                 image_loader.batch_size, device=device)
@@ -71,7 +62,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                 image_loader.batch_size, device=device)
 
             for i in range(image_loader.batch_size):
-                if adv_det is None:
+                if adv_detections_list[i] is None:
                     tpc_loss_list[i] += 0
                     tps_loss_list[i] += 0
                     fpc_loss_list[i] += 0

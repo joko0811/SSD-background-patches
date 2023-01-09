@@ -145,6 +145,18 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     return output
 
 
+def make_detections_list(data_list, is_nms=True):
+    detections_list = list()
+    for data in data_list:
+        if data.nelement() != 0:
+            detections_list.append(
+                detections_base(data, is_nms))
+        else:
+            detections_list.append(None)
+
+    return detections_list
+
+
 class detections_base:
     # yolo_out=[x,y,w,h,confidence_score,class_scores...]
     # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
