@@ -6,7 +6,6 @@ from omegaconf import DictConfig
 import torch
 import torch.optim as optim
 from torchvision import transforms
-from torchvision.datasets.coco import CocoDetection
 
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
@@ -14,9 +13,9 @@ from tqdm import tqdm
 from model import yolo, yolo_util
 from dataset.simple import DirectoryImageDataset
 from loss import proposed
-from imageutil import imgseg, imgconv
+from imageutil import imgconv
 from dataset import coco
-from box import boxio
+from util import bgutil
 
 
 def train_adversarial_image(model, image_loader, config: DictConfig, class_names=None, tbx_writer=None):
@@ -34,20 +33,12 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
     for epoch in tqdm(range(max_epoch)):
         for image_list, _ in tqdm(image_loader, leave=False):
 
-            adv_background_image.requires_grad = True
-
             # Preprocessing
             # Set to no_grad since the process is not needed for gradient calculation.
             with torch.no_grad():
                 gpu_image_list = image_list.to(
                     device=device, dtype=torch.float)
-                mask_image_list = imgseg.gen_mask_image(gpu_image_list)
 
-            adv_image_list = imgseg.composite_image(
-                gpu_image_list, adv_background_image, mask_image_list)
-
-            # Set to no_grad since the process is not needed for gradient calculation.
-            with torch.no_grad():
                 # Detection from unprocessed images
                 # Detection of unprocessed images as Groundtruth
                 gt_output = model(gpu_image_list)
@@ -56,6 +47,10 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                 for gt_det in gt_nms_out:
                     gt_detections_list.append(
                         yolo_util.detections_loss(gt_det))
+
+            adv_background_image.requires_grad = True
+            adv_image_list = bgutil.background_applyer(
+                gpu_image_list, adv_background_image)
 
             # Detection from adversarial images
             adv_output = model(adv_image_list)
