@@ -43,7 +43,8 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                 # Detection of unprocessed images as Groundtruth
                 gt_output = model(gpu_image_list)
                 gt_nms_out = yolo_util.nms(gt_output)
-                gt_detections_list = yolo_util.make_detections_list(gt_nms_out)
+                gt_detections_list = yolo_util.make_detections_list(
+                    gt_nms_out, yolo_util.detections_base)
 
             adv_background_image.requires_grad = True
             adv_image_list = bgutil.background_applyer(
@@ -52,7 +53,8 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
             # Detection from adversarial images
             adv_output = model(adv_image_list)
             adv_nms_out = yolo_util.nms(adv_output)
-            adv_detections_list = yolo_util.make_detections_list(adv_nms_out)
+            adv_detections_list = yolo_util.make_detections_list(
+                adv_nms_out, yolo_util.detections_loss)
 
             tpc_loss_list = torch.zeros(
                 image_loader.batch_size, device=device)
@@ -107,7 +109,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                 if (epoch % 10 == 0):
                     for i, (adv_image, adv_detections) in enumerate(zip(adv_image_list, adv_detections_list)):
                         anno_adv_image = imgdraw.draw_annotations(
-                            adv_image, adv_detections)
+                            adv_image, adv_detections, class_names)
                         tbx_writer.add_image(
                             "adversarial_image_"+str(i), anno_adv_image, epoch)
     return adv_background_image.clone().cpu()

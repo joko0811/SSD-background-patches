@@ -145,12 +145,12 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     return output
 
 
-def make_detections_list(data_list, is_nms=True):
+def make_detections_list(data_list, detection_class, is_nms=True):
     detections_list = list()
     for data in data_list:
         if data.nelement() != 0:
             detections_list.append(
-                detections_base(data, is_nms))
+                detection_class(data, is_nms))
         else:
             detections_list.append(None)
 

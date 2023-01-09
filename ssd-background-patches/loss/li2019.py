@@ -206,8 +206,8 @@ def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_t
 
     image_hw_gpu = torch.tensor(image_hw, device=calc_det.device)
     distance_div = torch.cat([image_hw_gpu, image_hw_gpu])
-    distance = (torch.abs(calc_gt - calc_det) /
-                distance_div).sum(dim=2)*z
+    # distance = (torch.abs(calc_gt - calc_det) / distance_div)[..., :2].sum(dim=2)*z
+    distance = (torch.abs(calc_gt - calc_det) / distance_div).sum(dim=2)*z
     calc_distance = distance[distance > 0] if distance.nonzero(
     ).nelement() != 0 else torch.tensor(1e-5, device=distance.device)
     tps_score = torch.exp(-1*torch.mean(calc_distance))
