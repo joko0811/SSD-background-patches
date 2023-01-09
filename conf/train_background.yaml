@@ -1,7 +1,8 @@
 # プロジェクト全体で用いる設定
 defaults:
   - model: yolo # 使用モデルの設定
-  - dataset: ted_woman_test # 使用データセットの設定
+  - dataset@monitor_dataset: ted_woman_test # 使用データセットの設定
+  - dataset@evaluate_dataset: coco # 使用データセットの設定
 output_dir: ${hydra:runtime.output_dir}
 iou_threshold: 0.5
 n_b: 3 # クラスタリングしたグループ毎に割り当てられるパッチの枚数
@@ -9,13 +10,11 @@ n_b: 3 # クラスタリングしたグループ毎に割り当てられるパ�
 train_main: # 敵対的画像生成時の設定
   mode: "monitor"
   output_dir: ${output_dir}
-  monitor_image_path: "data/dog.jpg"
-  evaluate_orig_path: ${train_main.output_dir}orig_image/
-  evaluate_image_path: ${train_main.output_dir}image/
-  evaluate_detection_path: ${train_main.output_dir}detection/
-  evaluate_patch_path: ${train_main.output_dir}patch/
   model: ${model}
-  dataset: ${dataset}
+  monitor_mode:
+    dataset: ${monitor_dataset}
+  evaluate_mode:
+    dataset: ${evaluate_dataset}
   train_adversarial_image: # 敵対的画像生成時の設定
     max_epoch: 300 # 一枚の画像ごとに摂動を加える最大回数
     loss: ${train_main.loss}

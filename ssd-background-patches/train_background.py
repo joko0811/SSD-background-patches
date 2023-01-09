@@ -133,19 +133,20 @@ def main(cfg: DictConfig):
         transforms.Resize((416, 416)),
     ])
 
-    image_set_path = os.path.join(
-        orig_wd_path, config.dataset.data_path)
-    image_set = DirectoryImageDataset(
-        image_set_path, transform=yolo_transforms)
-    image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
-
     mode = config.mode
 
     match mode:
         case "monitor":
+            mode_config = config.monitor_mode
+
+            image_set_path = os.path.join(
+                orig_wd_path, mode_config.dataset.data_path)
+            image_set = DirectoryImageDataset(
+                image_set_path, transform=yolo_transforms)
+            image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
 
             class_names_path = os.path.join(
-                orig_wd_path, config.dataset.class_names)
+                orig_wd_path, mode_config.dataset.class_names)
             class_names = coco.load_class_names(class_names_path)
             tbx_writer = SummaryWriter(config.output_dir)
 
@@ -163,14 +164,15 @@ def main(cfg: DictConfig):
             print("finished!")
 
         case "evaluate":
-            iterate_num = 2000
-            iterate_digit = len(str(iterate_num))
+            mode_config = config.evaluate_mode
 
-            os.mkdir(config.evaluate_orig_path)
-            os.mkdir(config.evaluate_image_path)
-            os.mkdir(config.evaluate_detection_path)
+            image_set_path = os.path.join(
+                orig_wd_path, mode_config.dataset.data_path)
+            image_set = DirectoryImageDataset(
+                image_set_path, transform=yolo_transforms)
+            image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
 
-            adv_image = train_adversarial_image(
+            adv_background_image = train_adversarial_image(
                 model, image_loader, config.train_adversarial_image)
 
             output_adv_path = os.path.join(
@@ -179,25 +181,6 @@ def main(cfg: DictConfig):
             pil_image = imgconv.tensor2pil(adv_background_image)
             pil_image.save(output_adv_path)
             print("finished!")
-
-            """
-            # 結果の保存
-            output_orig_path = os.path.join(
-                config.evaluate_orig_path, f'{iter_str}.png')
-            output_adv_path = os.path.join(
-                config.evaluate_image_path, f'{iter_str}.png')
-            output_detections_path = os.path.join(
-                config.evaluate_detections_path, f'{iter_str}.txt')
-
-            orig_pil_image = transforms.functional.to_pil_image(image[0])
-            orig_pil_image.save(output_orig_path)
-            adv_pil_image = transforms.functional.to_pil_image(
-                adv_image[0])
-            adv_pil_image.save(output_adv_path)
-            detstr = boxio.format_boxes(detections.xyxy)
-            with open(output_detections_path, 'w') as f:
-                f.write(detstr)
-            """
 
         case _:
             raise Exception('modeが想定されていない値です')
