@@ -1,5 +1,7 @@
 import time
 
+from PIL import Image
+
 import numpy as np
 import torch
 from torchvision import transforms, ops
@@ -8,6 +10,18 @@ from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from pytorchyolo.utils import utils
 
 from .yolo import load_model
+
+
+YOLO_TRANSFORMS = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((416, 416)),
+])
+
+
+def get_yolo_format_image_from_file(image_path):
+    pil_image = Image.open(image_path)
+    tensor_image = YOLO_TRANSFORMS(pil_image).unsqueeze(0)
+    return tensor_image
 
 
 def image_setup(img):

@@ -25,16 +25,6 @@ from imageutil import imgdraw
 from dataset import coco
 
 
-def get_image_from_file(image_path):
-    pil_image = Image.open(image_path)
-    yolo_transforms = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((416, 416)),
-    ])
-    tensor_image = yolo_transforms(pil_image).unsqueeze(0)
-    return tensor_image
-
-
 def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=None, tbx_writer=None):
 
     perturbate_iter = 0  # initialize
@@ -183,7 +173,7 @@ def main(cfg: DictConfig):
 
             input_image_path = os.path.join(
                 orig_wd_path, config.monitor_image_path)
-            image = get_image_from_file(input_image_path)
+            image = yolo_util.get_yolo_format_image_from_file(input_image_path)
 
             class_names_path = os.path.join(
                 orig_wd_path, config.dataset.class_names)
