@@ -27,6 +27,7 @@ def save_detections(model_out, class_names, image_path, format, image_wh):
         f.write(det_str)
 
 
+# Operation not verified
 def evaluation_yolo(out_path):
     if not os.path.exists(out_path):
         os.makedirs(out_path)
@@ -70,7 +71,7 @@ def evaluation_yolo(out_path):
 
 
 # TODO: 検出の保存は学習時にやる
-def evaluation(path):
+def generate_data(path):
 
     out_path = path+"box/"
     gt_out_path = out_path+"groundtruths/"
