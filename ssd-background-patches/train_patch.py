@@ -136,13 +136,13 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
 
                 if perturbate_iter % 10 == 0:
 
-                    det_image = transforms.functional.to_tensor(imgdraw.tensor2annotation_image(
-                        adv_image, detections, class_names))
+                    det_image = imgdraw.draw_annotations(
+                        adv_image[0], detections, class_names)
                     tbx_writer.add_image(
                         "adversarial_image", det_image, perturbate_iter)
 
-                    bp_image = transforms.functional.to_tensor(imgdraw.tensor2box_annotation_image(
-                        nomalized_perturbated_image, background_patch_boxes))
+                    bp_image = imgdraw.draw_boxes(
+                        nomalized_perturbated_image[0], background_patch_boxes)
                     tbx_writer.add_image(
                         "background_patch_boxes", bp_image, perturbate_iter)
 

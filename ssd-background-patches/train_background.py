@@ -13,7 +13,7 @@ from tqdm import tqdm
 from model import yolo, yolo_util
 from dataset.simple import DirectoryImageDataset
 from loss import proposed
-from imageutil import imgconv
+from imageutil import imgconv, imgdraw
 from dataset import coco
 from util import bgutil
 
@@ -104,7 +104,12 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                     "tps_loss", max_tps, epoch)
                 tbx_writer.add_scalar(
                     "fpc_loss", max_fpc, epoch)
-
+                if (epoch % 10 == 0):
+                    for i, (adv_image, adv_detections) in enumerate(zip(adv_image_list, adv_detections_list)):
+                        anno_adv_image = imgdraw.draw_annotations(
+                            adv_image, adv_detections)
+                        tbx_writer.add_image(
+                            "adversarial_image_"+str(i), anno_adv_image, epoch)
     return adv_background_image.clone().cpu()
 
 
