@@ -1,5 +1,7 @@
 import time
 
+from PIL import Image
+
 import numpy as np
 import torch
 from torchvision import transforms, ops
@@ -8,6 +10,18 @@ from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from pytorchyolo.utils import utils
 
 from .yolo import load_model
+
+
+YOLO_TRANSFORMS = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((416, 416)),
+])
+
+
+def get_yolo_format_image_from_file(image_path):
+    pil_image = Image.open(image_path)
+    tensor_image = YOLO_TRANSFORMS(pil_image).unsqueeze(0)
+    return tensor_image
 
 
 def image_setup(img):
@@ -129,6 +143,18 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
             break  # time limit eclass_extract_xceeded
 
     return output
+
+
+def make_detections_list(data_list, detection_class, is_nms=True):
+    detections_list = list()
+    for data in data_list:
+        if data.nelement() != 0:
+            detections_list.append(
+                detection_class(data, is_nms))
+        else:
+            detections_list.append(None)
+
+    return detections_list
 
 
 class detections_base:
