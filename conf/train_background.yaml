@@ -1,14 +1,15 @@
 # プロジェクト全体で用いる設定
 defaults:
   - model: yolo # 使用モデルの設定
-  - dataset@monitor_dataset: ted_woman_test # 使用データセットの設定
-  - dataset@evaluate_dataset: coco # 使用データセットの設定
+  - dataset@monitor_dataset: casiagaitb_test # 使用データセットの設定
+  - dataset@evaluate_dataset:  casiagaitb_test # 使用データセットの設定
 output_dir: ${hydra:runtime.output_dir}
 iou_threshold: 0.5
 n_b: 3 # クラスタリングしたグループ毎に割り当てられるパッチの枚数
+mode: "monitor"
 
 train_main: # 敵対的画像生成時の設定
-  mode: "monitor"
+  mode: ${mode}
   output_dir: ${output_dir}
   model: ${model}
   monitor_mode:

@@ -11,11 +11,10 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from model import yolo, yolo_util
-from dataset.simple import DirectoryImageDataset
+from dataset.mask import DirectoryImageWithMaskDataset
 from loss import proposed
-from imageutil import imgconv, imgdraw
+from imageutil import imgseg, imgconv, imgdraw
 from dataset import coco
-from util import bgutil
 
 
 def train_adversarial_image(model, image_loader, config: DictConfig, class_names=None, tbx_writer=None):
@@ -31,12 +30,14 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
     optimizer = optim.Adam([adv_background_image])
 
     for epoch in tqdm(range(max_epoch)):
-        for image_list, _ in tqdm(image_loader, leave=False):
+        for image_list, mask_image_list, _, _ in tqdm(image_loader, leave=False):
 
             # Preprocessing
             # Set to no_grad since the process is not needed for gradient calculation.
             with torch.no_grad():
                 gpu_image_list = image_list.to(
+                    device=device, dtype=torch.float)
+                gpu_mask_image_list = mask_image_list.to(
                     device=device, dtype=torch.float)
 
                 # Detection from unprocessed images
@@ -47,8 +48,9 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                     gt_nms_out, yolo_util.detections_base)
 
             adv_background_image.requires_grad = True
-            adv_image_list = bgutil.background_applyer(
-                gpu_image_list, adv_background_image)
+            # adv_image_list = bgutil.background_applyer(gpu_image_list, adv_background_image)
+            adv_image_list = imgseg.composite_image(
+                gpu_image_list, adv_background_image, gpu_mask_image_list)
 
             # Detection from adversarial images
             adv_output = model(adv_image_list)
@@ -89,7 +91,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
             loss = max_tpc+max_tps+max_fpc
 
             if loss == 0:
-                return adv_background_image.clone().cpu()
+                break
 
             optimizer.zero_grad()
             loss.backward()
@@ -108,10 +110,11 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                     "fpc_loss", max_fpc, epoch)
                 if (epoch % 10 == 0):
                     for i, (adv_image, adv_detections) in enumerate(zip(adv_image_list, adv_detections_list)):
-                        anno_adv_image = imgdraw.draw_annotations(
-                            adv_image, adv_detections, class_names)
-                        tbx_writer.add_image(
-                            "adversarial_image_"+str(i), anno_adv_image, epoch)
+                        if adv_detections is not None:
+                            anno_adv_image = imgdraw.draw_annotations(
+                                adv_image, adv_detections, class_names)
+                            tbx_writer.add_image(
+                                "adversarial_image_"+str(i), anno_adv_image, epoch)
     return adv_background_image.clone().cpu()
 
 
@@ -141,9 +144,12 @@ def main(cfg: DictConfig):
 
             image_set_path = os.path.join(
                 orig_wd_path, mode_config.dataset.data_path)
-            image_set = DirectoryImageDataset(
-                image_set_path, transform=yolo_transforms)
-            image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
+            mask_image_set_path = os.path.join(
+                orig_wd_path, mode_config.dataset.mask_data_path)
+            image_set = DirectoryImageWithMaskDataset(
+                image_set_path, mask_image_set_path, transform=yolo_transforms)
+            image_loader = torch.utils.data.DataLoader(
+                image_set, batch_size=6)
 
             class_names_path = os.path.join(
                 orig_wd_path, mode_config.dataset.class_names)
@@ -168,8 +174,10 @@ def main(cfg: DictConfig):
 
             image_set_path = os.path.join(
                 orig_wd_path, mode_config.dataset.data_path)
-            image_set = DirectoryImageDataset(
-                image_set_path, transform=yolo_transforms)
+            mask_image_set_path = os.path.join(
+                orig_wd_path, mode_config.dataset.mask_data_path)
+            image_set = DirectoryImageWithMaskDataset(
+                image_set_path, mask_image_set_path, transform=yolo_transforms)
             image_loader = torch.utils.data.DataLoader(image_set, batch_size=2)
 
             adv_background_image = train_adversarial_image(
