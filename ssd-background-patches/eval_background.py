@@ -7,12 +7,15 @@ from omegaconf import DictConfig
 import torch
 
 from tqdm import tqdm
+from tensorboardX import SummaryWriter
 
 from model import yolo, yolo_util
 from dataset.simple import DirectoryImageDataset
 
 from box import boxio
 from util import bgutil, evalutil
+from dataset import coco
+from imageutil import imgdraw
 
 
 def save_detection(adv_background_image, model, image_loader, config: DictConfig):
@@ -56,6 +59,34 @@ def save_detection(adv_background_image, model, image_loader, config: DictConfig
             adv_bg_image_list, adv_bg_det_path_list, model, boxio.format_yolo, optional=image_hw)
 
 
+def tbx_monitor(adv_background_image, model, image_loader, config):
+
+    model.eval()
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    gpu_adv_bg_image = adv_background_image.to(device)
+
+    class_names = coco.load_class_names(config.class_names_path)
+    tbx_writer = SummaryWriter(config.output_dir)
+
+    for batch_iter, (image_list,  _) in enumerate(tqdm(image_loader, leave=False)):
+        gpu_image_list = image_list.to(device)
+        adv_image_list = bgutil.background_applyer(
+            gpu_image_list, gpu_adv_bg_image)
+
+        adv_output = model(adv_image_list)
+        adv_nms_out = yolo_util.nms(adv_output)
+        adv_detections_list = yolo_util.make_detections_list(
+            adv_nms_out, yolo_util.detections_loss)
+
+        for i, adv_image in enumerate(adv_image_list):
+            if adv_detections_list[i] is not None:
+                anno_adv_image = imgdraw.draw_annotations(
+                    adv_image, adv_detections_list[i], class_names)
+                tbx_writer.add_image("adversarial_image",
+                                     anno_adv_image, batch_iter)
+    return
+
+
 @ hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
 def main(cfg: DictConfig):
 
@@ -84,8 +115,8 @@ def main(cfg: DictConfig):
         image_set_path, transform=yolo_util.YOLO_TRANSFORMS)
     image_loader = torch.utils.data.DataLoader(image_set)
 
-    save_detection(adv_bg_image, model, image_loader,
-                   config.save_detection)
+    # save_detection(adv_bg_image, model, image_loader, config.save_detection)
+    tbx_monitor(adv_bg_image, model, image_loader, config.tbx_monitor)
 
 
 if __name__ == "__main__":
