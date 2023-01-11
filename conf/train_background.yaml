@@ -1,8 +1,8 @@
 # プロジェクト全体で用いる設定
 defaults:
   - model: yolo # 使用モデルの設定
-  - dataset@monitor_dataset: casiagaitb_test # 使用データセットの設定
-  - dataset@evaluate_dataset:  casiagaitb_test # 使用データセットの設定
+  - dataset@monitor_dataset: gait_test1 # 使用データセットの設定
+  - dataset@evaluate_dataset:  gait_test1 # 使用データセットの設定
 output_dir: ${hydra:runtime.output_dir}
 iou_threshold: 0.5
 n_b: 3 # クラスタリングしたグループ毎に割り当てられるパッチの枚数
