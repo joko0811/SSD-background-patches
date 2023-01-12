@@ -170,7 +170,7 @@ class detections_yolo(detections_base):
             self.confidences = self.data[:, 8]
             self.class_scores = self.data[:, 10:]
             super().__init__(self.data[:, 9].to(
-                torch.int64), self.data[:, 4:8])
+                torch.int64), self.data[:, 4:8], is_xywh=False)
             # self.class_labels = self.data[:, 9].to(torch.int64)
             # self.xyxy = self.data[:, 4:8]
 
@@ -179,7 +179,7 @@ class detections_yolo(detections_base):
             self.class_scores = self.data[:, 5:]
 
             class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
-            super().__init__(class_labels, self.data[:, :4], is_xywh=True)
+            super().__init__(class_labels, self.data[:, :4])
             # self.xyxy = utils.xywh2xyxy(self.xywh)
 
 
