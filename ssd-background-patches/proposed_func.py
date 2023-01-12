@@ -2,7 +2,7 @@ import torch
 
 from omegaconf import DictConfig
 
-from box import condition, seek, transform
+from box import boxconv, seek, transform
 
 
 def calculate_search_area(image, boxes, config: DictConfig):
@@ -107,7 +107,7 @@ def extract_sliding_windows(partial_image, x1y1_partial_image, sw_w, sw_h, n, ig
         extract_gradient_sum = windows_grad_sum[extract_idx[0],
                                                 extract_idx[1], extract_idx[2]]
 
-        if (not condition.is_overlap_list(extract_xyxy, output_box)) and (not condition.is_overlap_list(extract_xyxy, ignore_boxes)):
+        if (not boxconv.is_overlap_list(extract_xyxy, output_box)) and (not boxconv.is_overlap_list(extract_xyxy, ignore_boxes)):
             # 除外リストと一つも重ならない場合、返り値に含める
             output_box[extract_counter] = extract_xyxy
             output_gradient_sum[extract_counter] = extract_gradient_sum
@@ -186,7 +186,7 @@ def expanded_background_patches(bp_boxes, ground_truthes, gradient_image, config
 
     for i, bp_box in enumerate(bp_boxes):
 
-        bp_box_wh = condition.xyxy2xywh(bp_box)[2:]
+        bp_box_wh = boxconv.xyxy2xywh(bp_box)[2:]
         bp_box_area = bp_box_wh[0]*bp_box_wh[1]
         if bp_box_area > bp_area_threshold:
             continue
@@ -232,7 +232,7 @@ def expanded_background_patches(bp_boxes, ground_truthes, gradient_image, config
                     (new_bp_boxes[:i], new_bp_boxes[i+1:]))
                 # パッチ領域が除外対象の領域と重ならない場合更新
                 ignore_boxes = torch.cat((ground_truthes.xyxy, compare_boxes))
-                if (not condition.is_overlap_list(expand_bp_box, ignore_boxes)):
+                if (not boxconv.is_overlap_list(expand_bp_box, ignore_boxes)):
                     max_gradient_sum = gradient_sum
                     new_bp_boxes[i] = expand_bp_box
 

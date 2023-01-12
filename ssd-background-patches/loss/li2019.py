@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 
 from model.yolo_util import detections_yolo_ground_truth, detections_yolo_loss
 from box.seek import find_nearest_box
-from box.condition import are_overlap_list
+from box.boxconv import are_overlap_list
 from evaluation.detection import iou, list_iou
 
 

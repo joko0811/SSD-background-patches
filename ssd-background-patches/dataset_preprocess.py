@@ -16,7 +16,7 @@ import proposed_func as pf
 from model import yolo, yolo_util
 from util.clustering import object_grouping
 
-from box import condition
+from box import boxconv
 
 
 def is_extractable_patch_for_image(detections, image):
@@ -54,7 +54,7 @@ def is_extractable_patch_for_group(x1y1_partial_image, hw_partial_image, group_x
         # [h,w,4]->[w*h,4]
         window_box_list = window_box_map.reshape(
             (window_box_map.shape[0]*window_box_map.shape[1], 4))
-        overlap_table = condition.are_overlap_list(
+        overlap_table = boxconv.are_overlap_list(
             window_box_list, ignore_boxes)
 
         extractable_patch_num += overlap_table.nonzero().shape[0]
