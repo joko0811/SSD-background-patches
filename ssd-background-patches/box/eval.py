@@ -35,7 +35,7 @@ def format_yolo(detections, det_idx, label_names, image_hw):
 def save_detections(model_out, class_names, image_path, format, image_wh):
     nms_out = yolo_util.nms(model_out)
 
-    detections = yolo_util.detections_base(nms_out[0])
+    detections = yolo_util.detections_yolo(nms_out[0])
     det_str = ""
 
     for i in range(detections.total_det):

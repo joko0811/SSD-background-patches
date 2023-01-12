@@ -16,7 +16,7 @@ from box.boxio import format_detections, format_yolo
 def save_detections(model_out, class_names, image_path, format, image_wh):
     nms_out = yolo_util.nms(model_out)
 
-    detections = yolo_util.detections_base(nms_out[0])
+    detections = yolo_util.detections_yolo(nms_out[0])
     det_str = ""
 
     for i in range(detections.total_det):

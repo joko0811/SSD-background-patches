@@ -2,14 +2,14 @@ import torch
 
 from omegaconf import DictConfig
 
-from model.yolo_util import detections_ground_truth, detections_loss
+from model.yolo_util import detections_yolo_ground_truth, detections_yolo_loss
 from box.seek import find_nearest_box
 from box.condition import are_overlap_list
 from evaluation.detection import iou
 from loss import li2019
 
 
-def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, image_hw, config: DictConfig):
+def total_loss(detections: detections_yolo_loss, ground_truthes: detections_yolo_ground_truth, image_hw, config: DictConfig):
     """Returns the total loss
     Args:
       detections:

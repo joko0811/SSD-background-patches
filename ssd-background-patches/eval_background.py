@@ -76,7 +76,7 @@ def tbx_monitor(adv_background_image, model, image_loader, config):
         adv_output = model(adv_image_list)
         adv_nms_out = yolo_util.nms(adv_output)
         adv_detections_list = yolo_util.make_detections_list(
-            adv_nms_out, yolo_util.detections_loss)
+            adv_nms_out, yolo_util.detections_yolo_loss)
 
         for i, adv_image in enumerate(adv_image_list):
             if adv_detections_list[i] is not None:

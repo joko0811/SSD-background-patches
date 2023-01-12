@@ -157,7 +157,7 @@ def make_detections_list(data_list, detection_class, is_nms=True):
     return detections_list
 
 
-class detections_base:
+class detections_yolo:
     # yolo_out=[x,y,w,h,confidence_score,class_scores...]
     # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
     def __init__(self, data, is_nms=True):
@@ -177,12 +177,12 @@ class detections_base:
             self.class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
 
 
-class detections_ground_truth(detections_base):
+class detections_yolo_ground_truth(detections_yolo):
     def set_group_info(self, labels):
         self.group_labels = labels
         self.total_group = int(self.group_labels.max().item())+1
 
 
-class detections_loss(detections_base):
+class detections_yolo_loss(detections_yolo):
     def set_loss_info(self, nearest_gt_idx):
         self.nearest_gt_idx = nearest_gt_idx

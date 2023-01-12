@@ -30,7 +30,7 @@ def main():
         gpu_image = image.to(device=device, dtype=torch.float)
         gt_output = model(gpu_image)
         gt_nms_out = yolo_util.nms(gt_output)
-        gt_detections = yolo_util.detections_base(gt_nms_out[0])
+        gt_detections = yolo_util.detections_yolo(gt_nms_out[0])
 
         if gt_detections.total_det == 0:
             os.remove(image_path[0])

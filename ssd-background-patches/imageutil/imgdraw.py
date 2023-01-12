@@ -3,11 +3,11 @@ from PIL import ImageDraw, ImageFont
 from matplotlib import pyplot as plt
 from torchvision import transforms
 
-from model.yolo_util import detections_base
+from model.yolo_util import detections_yolo
 
 
 # https://pystyle.info/pillow-draw-object-detection-results-on-an-image/
-def draw_annotations(image, detections: detections_base, class_names):
+def draw_annotations(image, detections: detections_yolo, class_names):
     """画像に対してアノテーションを追加する
 
     Args:

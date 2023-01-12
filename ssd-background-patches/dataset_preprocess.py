@@ -103,7 +103,7 @@ def gen_subset_with_sufficient_background_area(dataloader, model):
         # 検出・整形
         output = model(gt_image)
         nms_out = yolo_util.nms(output)
-        detections = yolo_util.detections_ground_truth(nms_out[0])
+        detections = yolo_util.detections_yolo_ground_truth(nms_out[0])
 
         if nms_out[0].nelement() == 0:
             # 検出が存在しない画像はサブセットに含めない

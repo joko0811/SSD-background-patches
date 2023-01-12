@@ -45,7 +45,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
                 gt_output = model(gpu_image_list)
                 gt_nms_out = yolo_util.nms(gt_output)
                 gt_detections_list = yolo_util.make_detections_list(
-                    gt_nms_out, yolo_util.detections_base)
+                    gt_nms_out, yolo_util.detections_yolo)
 
             adv_background_image.requires_grad = True
             # adv_image_list = bgutil.background_applyer(gpu_image_list, adv_background_image)
@@ -56,7 +56,7 @@ def train_adversarial_image(model, image_loader, config: DictConfig, class_names
             adv_output = model(adv_image_list)
             adv_nms_out = yolo_util.nms(adv_output)
             adv_detections_list = yolo_util.make_detections_list(
-                adv_nms_out, yolo_util.detections_loss)
+                adv_nms_out, yolo_util.detections_yolo_loss)
 
             tpc_loss_list = torch.zeros(
                 image_loader.batch_size, device=device)
