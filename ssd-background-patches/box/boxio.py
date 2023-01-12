@@ -59,3 +59,15 @@ def format_yolo(detections, image_hw):
         )
 
     return det_str
+
+
+class detections_base:
+    def __init__(self, label_list, box_list, is_xywh=True):
+        self.class_labels = label_list
+        self.total_det = len(self.class_labels)
+        if is_xywh:
+            self.xywh = box_list
+            self.xyxy = boxconv.xywh2xyxy(self.xywh)
+        else:
+            self.xyxy = box_list
+            self.xywh = boxconv.xyxy2xywh(self.xyxy)

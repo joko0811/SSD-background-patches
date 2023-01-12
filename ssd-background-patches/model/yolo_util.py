@@ -10,6 +10,7 @@ from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from pytorchyolo.utils import utils
 
 from .yolo import load_model
+from box.boxio import detections_base
 
 
 YOLO_TRANSFORMS = transforms.Compose([
@@ -157,24 +158,29 @@ def make_detections_list(data_list, detection_class, is_nms=True):
     return detections_list
 
 
-class detections_yolo:
+class detections_yolo(detections_base):
     # yolo_out=[x,y,w,h,confidence_score,class_scores...]
     # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
     def __init__(self, data, is_nms=True):
         self.data = data
         self.total_det = len(self.data)
-        self.xywh = self.data[:, :4]
         self.is_mns = is_nms
+        # self.xywh = self.data[:, :4]
         if is_nms:
-            self.xyxy = self.data[:, 4:8]
             self.confidences = self.data[:, 8]
-            self.class_labels = self.data[:, 9].to(torch.int64)
             self.class_scores = self.data[:, 10:]
+            super().__init__(self.data[:, 9].to(
+                torch.int64), self.data[:, 4:8])
+            # self.class_labels = self.data[:, 9].to(torch.int64)
+            # self.xyxy = self.data[:, 4:8]
+
         else:
-            self.xyxy = utils.xywh2xyxy(self.xywh)
             self.confidences = self.data[:, 4]
             self.class_scores = self.data[:, 5:]
-            self.class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
+
+            class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
+            super().__init__(class_labels, self.data[:, :4], is_xywh=True)
+            # self.xyxy = utils.xywh2xyxy(self.xywh)
 
 
 class detections_yolo_ground_truth(detections_yolo):
