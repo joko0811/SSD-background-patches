@@ -3,11 +3,11 @@ from PIL import ImageDraw, ImageFont
 from matplotlib import pyplot as plt
 from torchvision import transforms
 
-from model.yolo_util import detections_yolo
+from box.boxio import detections_base
 
 
 # https://pystyle.info/pillow-draw-object-detection-results-on-an-image/
-def draw_annotations(image, detections: detections_yolo, class_names):
+def draw_annotations(image, detections: detections_base, class_names, in_confidences=True):
     """画像に対してアノテーションを追加する
 
     Args:
@@ -38,7 +38,8 @@ def draw_annotations(image, detections: detections_yolo, class_names):
 
         # ラベル
         caption = class_names[detections.class_labels[i].int()]
-        caption += f" {detections.confidences[i]:.0%}"
+        if in_confidences:
+            caption += f" {detections.confidences[i]:.0%}"
 
         # 矩形を描画する
         draw.rectangle(
