@@ -4,6 +4,9 @@ weights/
 outputs/
 datasets/
 
+# other project
+S3FD.pytorch
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
