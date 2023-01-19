@@ -5,7 +5,7 @@ outputs/
 datasets/
 
 # other project
-S3FD.pytorch
+ssd-background-patches/model/S3FD
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
