@@ -108,9 +108,9 @@ def parse_yolo(path, image_hw):
 
 
 class detections_base:
-    def __init__(self, label_list, box_list, is_xywh=True):
-        self.class_labels = label_list.to(torch.int64)
-        self.total_det = len(self.class_labels)
+    def __init__(self, conf_list, box_list, is_xywh=True):
+        self.class_confs = conf_list.to(torch.int64)
+        self.total_det = len(self.class_confs)
         if is_xywh:
             self.xywh = box_list
             self.xyxy = boxconv.xywh2xyxy(self.xywh)
