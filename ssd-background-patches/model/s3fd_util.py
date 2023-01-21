@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 import cv2
+from PIL import Image
 from torchvision import transforms
 
 from model.S3FD import s3fd
@@ -12,78 +13,106 @@ S3FD_TRANSFORMS = transforms.Compose([
     transforms.Resize((416, 416)),
 ])
 
+# caffe model nomalization?
+S3FD_NOMALIZATION_NDARRAY = np.array([123., 117., 104.])[
+    :, np.newaxis, np.newaxis].astype('float32')
 
-def load_model(weights_path):
+
+def load_model(weight_path):
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
     # Select device for inference
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = s3fd.build_s3fd('test', 2)
-    model.load_state_dict(torch.load(weights_path))
+    model.load_state_dict(torch.load(weight_path))
 
     return model.to(device)
 
 
-def image_setup(img):
+def image_list_encode(pil_image_list):
+    """image_encode wrap supporting list encoding.
+    Args:
+        pil_image_list: list of pil image
+    Return:
+        tensor_image: Tensor list of s3fd input representation
+    """
+    setuped_image_list = list()
+    scale_list = list()
+    for pil_image in pil_image_list:
+        image, scale = image_encode(pil_image)
+        setuped_image_list.append(image.squeeze(0))
+        scale_list.append(scale)
+
+    return torch.cat(setuped_image_list).contiguous(), torch.cat(scale).contiguous()
+
+
+def image_encode(pil_image):
+    """I don't understand pre-processing.
+    Args:
+        pil_image: a pil image
+    Return:
+        tensor_image: Tensor of s3fd input representation
+    """
+
+    # pil to ndarray
+    if pil_image.mode == 'L':
+        pil_image = pil_image.convert('RGB')
+    np_image = np.array(pil_image)
+
+    # resize
+    height, width, _ = np_image.shape
+    max_im_shrink = np.sqrt(
+        1700 * 1200 / (height * width))
+    resize_image = cv2.resize(np_image, None, None, fx=max_im_shrink,
+                              fy=max_im_shrink, interpolation=cv2.INTER_LINEAR)
+
+    # HWC to CHW
+    chw_image = hwc2chw(resize_image).astype('float32')
+
+    # nomalization
+    nomalized_image = chw_image-S3FD_NOMALIZATION_NDARRAY
+
+    # numpy to tensor
+    tensor_image = torch.from_numpy(nomalized_image).unsqueeze(0)
+
+    # old width height array
+    scale = torch.Tensor([width, height,
+                          width, height])
+
+    return tensor_image, scale
+
+
+def image_decode(tensor_image: torch.Tensor, scale):
     """
     Args:
-        img: pil image
+        tensor_image: Tensor of s3fd input representation
+        scale: image_encode() output
     Return:
-        x: tensor
+        image: pil image
     """
-    # I don't understand pre-processing.
-    # TODO:Find minimum requirements
-    # TODO:Eliminate numpy implementations
 
-    if img.mode == 'L':
-        img = img.convert('RGB')
+    np_image = tensor_image.detach().cpu().resolve_conj().resolve_neg().numpy()
+    before_nomalized_image = np_image+S3FD_NOMALIZATION_NDARRAY
 
-    img = np.array(img)
-    height, width, _ = img.shape
-    max_im_shrink = np.sqrt(
-        1700 * 1200 / (img.shape[0] * img.shape[1]))
-    image = cv2.resize(img, None, None, fx=max_im_shrink,
-                       fy=max_im_shrink, interpolation=cv2.INTER_LINEAR)
-    #image = cv2.resize(img, (640, 640))
+    # CHW to HWC
+    hwc_image = chw2hwc(before_nomalized_image)
 
-    if len(image.shape) == 3:
-        image = np.swapaxes(image, 1, 2)
-        image = np.swapaxes(image, 1, 0)
-    # RBG to BGR
-    x = image[[2, 1, 0], :, :]
+    max_im_shrink = float(
+        1/np.sqrt(1700*1200/(scale[0].item() * scale[1].item())))
+    resize_image = cv2.resize(hwc_image, None, None, fx=max_im_shrink,
+                              fy=max_im_shrink, interpolation=cv2.INTER_LINEAR).astype('uint8')
+    pil_image = Image.fromarray(resize_image)
 
-    x = x.astype('float32')
-    x -= np.array([104., 117., 123.])[:, np.newaxis,
-                                      np.newaxis].astype('float32')
-    x = x[[2, 1, 0], :, :]
-
-    x = torch.from_numpy(x).unsqueeze(0)
-
-    scale = torch.Tensor([img.shape[1], img.shape[0],
-                          img.shape[1], img.shape[0]])
-
-    return x, scale
+    return pil_image
 
 
-"""
-    def image_setup(image):
-        max_im_shrink = math.sqrt(1700*1200/(image.shape[0]*image.shape[1]))
-        transform_image = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize(
-                (int(image.shape[0]*max_im_shrink), int(image.shape[1]*max_im_shrink)), interpolation=transforms.InterpolationMode.BILINEAR
-            )
-        ])(image)
+def hwc2chw(np_image):
+    return np.swapaxes(np.swapaxes(np_image, 1, 2), 0, 1)
 
-        # HWC to CHW and RBG to BGR
-        input_image = transform_image.permute((2, 0, 1)).flip(2).contiguous()
-        input_image.permute((2, 1, 0))
 
-        return input_image.to(dtype=torch.float)
-
-        # np.array([104., 117., 123.])[:, np.newaxis, np.newaxis].astype('float32')
-"""
+def chw2hwc(np_image):
+    return np.swapaxes(np.swapaxes(np_image, 0, 1), 1, 2)
 
 
 class detections_s3fd(detections_base):

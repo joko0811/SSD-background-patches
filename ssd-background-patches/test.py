@@ -11,13 +11,13 @@ def s3fd_demo():
     thresh = 0.6
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    image = Image.open("datasets/gait_test2/image/image055.png")
+    image = Image.open("data/test.jpg")
     gpu_image = transforms.functional.to_tensor(
         image).to(device=device, dtype=torch.float)
 
     model = s3fd_util.load_model("weights/s3fd.pth")
 
-    s3fd_image, scale = s3fd_util.image_setup(image)
+    s3fd_image, scale = s3fd_util.image_encode(image)
     s3fd_image = s3fd_image.to(device)
 
     model.eval()
@@ -32,8 +32,15 @@ def s3fd_demo():
     return
 
 
+def test_ende():
+    in_image = Image.open("data/test.jpg")
+    data, scale = s3fd_util.image_encode(in_image)
+    out_image = s3fd_util.image_decode(data[0], scale)
+    out_image.save("out.jpg")
+
+
 def main():
-    s3fd_demo()
+    test_ende()
 
 
 if __name__ == '__main__':
