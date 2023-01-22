@@ -1,5 +1,25 @@
 import torch
+import glob
 from box import boxconv
+
+
+def generate_integrated_xyxy_list(path, max_iter=None):
+    path_list = sorted(glob.glob("%s/*.*" % path))
+    if max_iter is not None:
+        path_list = path_list[:max_iter]
+
+    conf_list = list()
+    xyxy_list = list()
+
+    for path in path_list:
+        parse_tuple = parse_detections(path)
+        if parse_tuple is not None:
+            conf_l, xyxy_l = parse_tuple
+            for conf, xyxy in zip(conf_l, xyxy_l):
+                conf_list.append(conf)
+                xyxy_list.append(xyxy.unsqueeze(0))
+
+    return torch.tensor(conf_list).contiguous(), torch.cat(xyxy_list).contiguous()
 
 
 def format_boxes(boxes, **kargs):
@@ -20,16 +40,14 @@ def format_boxes(boxes, **kargs):
     return box_str
 
 
-def format_detections(detections, label_names):
+def format_detections(detections):
     det_str = ""
 
     for det_idx in range(detections.total_det):
-        label = label_names[detections.class_labels[det_idx]]
-        conf = detections.confidences[det_idx]
+        conf = detections.conf[det_idx]
         box = detections.xyxy[det_idx]
 
         det_str += (
-            label + " " +
             str(conf.item()) + " " +
             str(box[0].item()) + " " +
             str(box[1].item()) + " " +
@@ -44,22 +62,25 @@ def parse_detections(path):
     with open(path, "r") as f:
         det_str_list = f.readlines()
 
-    label_list = list()
+    if len(det_str_list) == 0:
+        return None
+
+    conf_list = list()
     xyxy_list = list()
 
     for det_str in det_str_list:
         det_info = det_str.split()
 
-        label = det_info[0]
-        x1 = det_info[1]
-        y1 = det_info[2]
-        x2 = det_info[3]
-        y2 = det_info[4]
+        conf = float(det_info[0])
+        x1 = float(det_info[1])
+        y1 = float(det_info[2])
+        x2 = float(det_info[3])
+        y2 = float(det_info[4])
 
-        label_list.append(label)
-        xyxy_list.append([x1, y1, x2, y2])
+        conf_list.append(torch.tensor(conf))
+        xyxy_list.append(torch.tensor([x1, y1, x2, y2]).unsqueeze(0))
 
-    return label_list, xyxy_list
+    return torch.tensor(conf_list).contiguous(), torch.cat(xyxy_list).contiguous()
 
 
 def format_yolo(detections, image_hw):
@@ -109,8 +130,8 @@ def parse_yolo(path, image_hw):
 
 class detections_base:
     def __init__(self, conf_list, box_list, is_xywh=True):
-        self.class_confs = conf_list.to(torch.int64)
-        self.total_det = len(self.class_confs)
+        self.conf = conf_list
+        self.total_det = len(self.conf)
         if is_xywh:
             self.xywh = box_list
             self.xyxy = boxconv.xywh2xyxy(self.xywh)

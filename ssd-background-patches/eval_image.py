@@ -8,7 +8,7 @@ from torchvision import transforms
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 
-from model import yolo, yolo_util
+from model import s3fd_util
 from dataset.coco import load_class_names
 from dataset.simple import DirectoryImageDataset
 from dataset.detection import DirectoryImageWithDetectionDataset
@@ -20,39 +20,38 @@ def generate_data(path):
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-    out_path = os.path.join(path, "box/")
+    out_path = os.path.join(path, "detect/")
     image_dir_path = os.path.join(path, "image")
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
-    # class_names = load_class_names("./coco2014/coco.names")
-
-    yolo_transforms = transforms.Compose([
+    transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Resize((416, 416)),
     ])
 
     image_set = DirectoryImageDataset(
-        image_dir_path, transform=yolo_transforms)
+        image_dir_path, transform=transform)
     image_loader = torch.utils.data.DataLoader(image_set)
 
-    model = yolo.load_model(
-        "weights/yolov3.cfg",
-        "weights/yolov3.weights")
+    model = s3fd_util.load_model(
+        "weights/s3fd.pth")
     model.eval()
 
+    thresh = 0.6
     for (image, image_path) in tqdm(image_loader):
+        pil_image = transforms.functional.to_pil_image(image[0])
 
-        if torch.cuda.is_available():
-            gpu_image = image.to(
-                device=device, dtype=torch.float)
+        s3fd_image, scale = s3fd_util.image_encode(
+            pil_image)
 
-        output = model(gpu_image)
-        nms_out = yolo_util.nms(output)
-        detections = yolo_util.detections_yolo(nms_out[0])
+        gpu_s3fd_image = s3fd_image.to(device=device)
 
-        det_str = boxio.format_yolo(detections, image.shape[-2:])
+        output = model(gpu_s3fd_image)
+        extract_output = output[output[..., 0] >= thresh]
+        detections = s3fd_util.detections_s3fd(extract_output, scale)
+
+        det_str = boxio.format_detections(detections)
 
         image_name = os.path.basename(image_path[0]).split(".")[0]
         det_file_path = os.path.join(out_path, image_name+".txt")
@@ -94,9 +93,9 @@ def tbx_monitor(path):
 
 def main():
     # path = sys.argv[1]
-    path = "datasets/gait_test1/"
+    path = "datasets/gait_test1"
     generate_data(path)
-    tbx_monitor(path)
+    # tbx_monitor(path)
 
 
 if __name__ == "__main__":

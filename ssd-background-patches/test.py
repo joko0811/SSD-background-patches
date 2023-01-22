@@ -6,7 +6,6 @@ from imageutil import imgdraw
 
 
 def s3fd_demo():
-    # これがないとモデルが動作しない
 
     thresh = 0.6
 
@@ -33,14 +32,15 @@ def s3fd_demo():
 
 
 def test_ende():
-    in_image = Image.open("data/test.jpg")
+    in_image = Image.open(
+        "datasets/casiagait_b_video90/image/001-bg-01-090-036.png")
     data, scale = s3fd_util.image_encode(in_image)
     out_image = s3fd_util.image_decode(data[0], scale)
     out_image.save("out.jpg")
 
 
 def main():
-    test_ende()
+    s3fd_demo()
 
 
 if __name__ == '__main__':
