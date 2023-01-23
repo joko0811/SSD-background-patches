@@ -114,9 +114,6 @@ def train_adversarial_image(model, image_loader, ground_truthes, config: DictCon
 
             loss = mean_tpc+mean_tps+mean_fpc
 
-            if loss == 0:
-                continue
-
             optimizer.zero_grad()
             loss.backward()
             # The Adversarial background image is updated here
