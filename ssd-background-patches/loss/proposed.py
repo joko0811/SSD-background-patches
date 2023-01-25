@@ -36,7 +36,7 @@ def total_loss(detections: detections_s3fd_loss, ground_truthes: detections_s3fd
     fpc_score = fpc_weight*fpc_loss(bar_z, detections)
     tv_score = tv_weight*tv_loss(image_list)
 
-    return (tpc_loss, tps_loss, fpc_loss, tv_score)
+    return (tpc_score, tps_score, fpc_score, tv_score)
 
 
 def calc_z(dt_gt_iou_scores, config):
