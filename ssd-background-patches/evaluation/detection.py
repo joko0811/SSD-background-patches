@@ -91,7 +91,7 @@ def data_utility_quority(ground_truth_det_num, tp, fp):
     return tp-fp/ground_truth_det_num
 
 
-def calc_class_TP(det_boxes, gt_boxes, iou_threshold=0.5):
+def calc_det_TP(det_boxes, gt_boxes, iou_threshold=0.5):
 
     tp_binary = (list_iou(det_boxes, gt_boxes) >=
                  iou_threshold).any(dim=1).long()
@@ -102,7 +102,7 @@ def calc_class_TP(det_boxes, gt_boxes, iou_threshold=0.5):
     return tp_sum
 
 
-def calc_class_FP(det_boxes, gt_boxes, iou_threshold=0.5):
+def calc_det_FP(det_boxes, gt_boxes, iou_threshold=0.5):
     """ground truthesと同じラベルを持ち、かつiouが閾値未満のdetectionの数をクラス別に集計する
     """
     fp_binary = (list_iou(det_boxes, gt_boxes) <
