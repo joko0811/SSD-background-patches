@@ -24,5 +24,6 @@ train_main: # 敵対的画像生成時の設定
     tpc_weight: 0.2
     tps_weight: 1
     fpc_weight: 1
+    tv_weight: 0.1
     calc_z: # 損失計算に必要なパラメータ計算の設定
       iou_threshold: ${iou_threshold} # 値が閾値以上であるか判定する
