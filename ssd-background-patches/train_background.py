@@ -114,6 +114,9 @@ def train_adversarial_image(model, image_loader, ground_truthes, config: DictCon
 
             loss = mean_tpc+mean_tps+mean_fpc
 
+            if loss == 0:
+                continue
+
             optimizer.zero_grad()
             loss.backward()
             # The Adversarial background image is updated here
@@ -147,25 +150,29 @@ def train_adversarial_image(model, image_loader, ground_truthes, config: DictCon
                     "tps_loss", epoch_mean_tps, epoch)
                 tbx_writer.add_scalar(
                     "fpc_loss", epoch_mean_fpc, epoch)
-                if (epoch % 10 == 0):
-                    # s3fd_adv_background_image = imgconv.image_clamp(s3fd_adv_background_image, min=s3fd_util.S3FD_IMAGE_MIN, max=s3fd_util.S3FD_IMAGE_MAX)
-                    """
-                    if not (c_s3fd_adv_background_image == s3fd_adv_background_image).all():
-                        print(
-                            c_s3fd_adv_background_image[c_s3fd_adv_background_image != s3fd_adv_background_image])
-                    """
-                    if adv_detections_list[0] is not None:
-                        pil_adv_image = s3fd_util.image_decode(
-                            s3fd_adv_image_list[0], scale_list[0])
-                        anno_adv_image = transforms.functional.to_tensor(imgdraw.draw_boxes(
-                            pil_adv_image, adv_detections_list[0].get_image_xyxy()))
-                        tbx_writer.add_image(
-                            "adversarial_image", anno_adv_image, epoch)
-                    else:
-                        anno_adv_image = transforms.functional.to_tensor(s3fd_util.image_decode(
-                            s3fd_adv_image_list[0], scale_list[0]))
-                        tbx_writer.add_image(
-                            "adversarial_image", anno_adv_image, epoch)
+                # s3fd_adv_background_image = imgconv.image_clamp(s3fd_adv_background_image, min=s3fd_util.S3FD_IMAGE_MIN, max=s3fd_util.S3FD_IMAGE_MAX)
+                """
+                if not (c_s3fd_adv_background_image == s3fd_adv_background_image).all():
+                    print(
+                        c_s3fd_adv_background_image[c_s3fd_adv_background_image != s3fd_adv_background_image])
+                """
+                pil_adv_background_image = transforms.functional.to_tensor(
+                    s3fd_util.image_decode(s3fd_adv_background_image))
+                tbx_writer.add_image(
+                    "adversarial_background_image", pil_adv_background_image, epoch)
+
+                if adv_detections_list[0] is not None:
+                    pil_adv_image = s3fd_util.image_decode(
+                        s3fd_adv_image_list[0], scale_list[0])
+                    anno_adv_image = transforms.functional.to_tensor(imgdraw.draw_boxes(
+                        pil_adv_image, adv_detections_list[0].get_image_xyxy()))
+                    tbx_writer.add_image(
+                        "adversarial_image", anno_adv_image, epoch)
+                else:
+                    anno_adv_image = transforms.functional.to_tensor(s3fd_util.image_decode(
+                        s3fd_adv_image_list[0], scale_list[0]))
+                    tbx_writer.add_image(
+                        "adversarial_image", anno_adv_image, epoch)
     return s3fd_adv_background_image.clone().cpu()
 
 
