@@ -1,6 +1,7 @@
 defaults:
-  - model: yolo # 使用モデルの設定
-  - dataset: gait_test2 # 使用データセットの設定
+  - model: s3fd # 使用モデルの設定
+  - dataset: casia_gait_b_test # 使用データセットの設定
+#  - dataset: gait_test2 # 使用データセットの設定
 
 path: ""
 
@@ -15,6 +16,5 @@ main:
   tbx_monitor:
     class_names_path: ${dataset.class_names}
     output_dir: ${hydra:runtime.output_dir}
-
-
-
+  evaluate_background:
+    model_thresh: 0.6

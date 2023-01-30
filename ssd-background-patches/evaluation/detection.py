@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from sklearn.metrics import label_ranking_average_precision_score
+from sklearn.metrics import average_precision_score
 
 
 def ap(gt_box_list, det_box_list, det_conf, iou_threshold=0.5):
@@ -13,15 +13,18 @@ def ap(gt_box_list, det_box_list, det_conf, iou_threshold=0.5):
     """
     # box=xywh
 
-    tp_binary_list = list()
+    tp_binary_list = np.array([])
+    max_det = 0
     for i, (gt_boxes, det_boxes) in enumerate(zip(gt_box_list, det_box_list)):
+
+        max_det = max(max_det, len(det_conf))
+
         tp_binary = (list_iou(det_boxes, gt_boxes) >= iou_threshold).any(
             dim=1).long()
-        tp_binary_list.append(tp_binary.detach(
-        ).cpu().resolve_conj().resolve_neg().tolist())
+        tp_binary_list = np.append(tp_binary_list, tp_binary.detach(
+        ).cpu().resolve_conj().resolve_neg().numpy())
 
-    ap_score = label_ranking_average_precision_score(tp_binary_list, det_conf)
-
+    ap_score = average_precision_score(tp_binary_list, det_conf)
     return ap_score
 
 
