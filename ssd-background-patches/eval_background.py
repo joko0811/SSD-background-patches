@@ -13,15 +13,15 @@ from tensorboardX import SummaryWriter
 
 from PIL import Image
 
-from model import yolo, yolo_util, s3fd_util
-from dataset.simple import DirectoryImageDataset
+from model import s3fd_util
 from dataset.mask import DirectoryImageWithMaskDataset
 
 from box import boxio
 from util import bgutil, evalutil
 from dataset import coco
 from imageutil import imgdraw, imgconv, imgseg
-from evaluation.detection import calc_det_FP, calc_det_TP, data_utility_quority, ap
+from evaluation.detection import data_utility_quority, list_iou
+from sklearn.metrics import average_precision_score
 
 
 def save_detection(adv_background_image, model, image_loader, config: DictConfig):
@@ -102,11 +102,17 @@ def tbx_monitor(adv_background_image, model, image_loader, config):
             adv_output, scale_list, s3fd_util.detections_s3fd, 0.6)
 
         for i, adv_image in enumerate(adv_image_list):
+
+            tbx_writer.add_image("original_image",
+                                 transforms.functional.to_tensor(pil_image_list[i]), batch_iter)
+            tbx_writer.add_image("mask_image",
+                                 transforms.functional.to_tensor(pil_mask_image_list[i]), batch_iter)
             if adv_detections_list[i] is not None:
                 anno_adv_image = imgdraw.draw_boxes(
                     s3fd_util.image_decode(adv_image, scale_list[i]), adv_detections_list[i].xyxy)
                 tbx_writer.add_image("adversarial_image",
                                      transforms.functional.to_tensor(anno_adv_image), batch_iter)
+
     return
 
 
@@ -124,12 +130,13 @@ def evaluate_background(adv_background_image, model, image_loader, config: DictC
     gt_total_det = 0
 
     adv_box_list = list()
-    adv_conf_list = np.array([])
+    adv_conf_array = np.array([])
+    adv_tp_binary_array = np.array([])
 
     adv_total_tp = 0
     adv_total_fp = 0
 
-    for image_list, mask_image_list, image_path_list, mask_image_path_list in tqdm(image_loader, leave=False):
+    for image_list, mask_image_list, image_path_list, mask_image_path_list in tqdm(image_loader):
 
         pil_image_list = imgconv.tensor2pil(image_list)
         encoded_tuple = s3fd_util.image_list_encode(
@@ -156,31 +163,58 @@ def evaluate_background(adv_background_image, model, image_loader, config: DictC
 
         for gt_det, adv_det in zip(gt_detections_list, adv_detections_list):
             # 画像毎
+            if (gt_det is None) and (adv_det is None):
+                continue
 
-            if adv_det is not None:
-                adv_box_list.append(adv_det.xyxy.detach(
-                ).cpu().resolve_conj().resolve_neg())
-                adv_conf_list = np.append(adv_conf_list, adv_det.conf.detach(
+            elif (gt_det is None) and (adv_det is not None):
+                adv_tp_binary_array = np.append(
+                    adv_tp_binary_array, np.zeros(adv_det.total_det))
+                adv_conf_array = np.append(adv_conf_array, adv_det.conf.detach(
                 ).cpu().resolve_conj().resolve_neg().numpy())
                 adv_total_fp += adv_det.total_det
+                continue
 
-            if gt_det is not None:
-                gt_box_list.append(gt_det.xyxy.detach(
-                ).cpu().resolve_conj().resolve_neg())
+            elif (gt_det is not None) and (adv_det is None):
                 gt_total_det += gt_det.total_det
-            elif adv_det is not None:
-                gt_box_list.append(torch.zeros((adv_det.total_det, 4)).to(
-                    device='cpu', dtype=torch.float))
+                continue
 
-            if (adv_det is not None) and (gt_det is not None):
-                adv_total_tp += calc_det_TP(adv_det.xyxy,
-                                            gt_det.xyxy, iou_thresh)
-                adv_total_fp += calc_det_FP(adv_det.xyxy,
-                                            gt_det.xyxy, iou_thresh)
+            elif (gt_det is not None) and (adv_det is not None):
+                gt_total_det += gt_det.total_det
 
-    ap_score = ap(gt_box_list, adv_box_list, adv_conf_list, iou_thresh)
+                adv_tp_binary = (list_iou(adv_det.xyxy, gt_det.xyxy)
+                                 >= iou_thresh).any(dim=1).long()
+
+                adv_total_tp += adv_tp_binary.nonzero().shape[0]
+                adv_total_fp += adv_tp_binary.shape[0] - \
+                    adv_tp_binary.nonzero().shape[0]
+
+                adv_tp_binary_array = np.append(
+                    adv_tp_binary_array, adv_tp_binary.detach(
+                    ).cpu().resolve_conj().resolve_neg().numpy())
+                adv_conf_array = np.append(adv_conf_array, adv_det.conf.detach(
+                ).cpu().resolve_conj().resolve_neg().numpy())
+
+                continue
+
+    np.save(os.path.join(config.output_dir, "y_true.npy"), adv_tp_binary_array)
+    np.save(os.path.join(config.output_dir, "y_score.npy"), adv_conf_array)
+
+    # ap_score = ap(gt_box_list, adv_box_list, adv_conf_list, iou_thresh)
+    # ap_score = average_precision_score(tp_binary_list, adv_conf_list)
+    # precision, recall, thresh = precision_recall_curve(tp_binary_list, adv_conf_list)
+    # disp = PrecisionRecallDisplay(precision=precision, recall=recall)
+    # disp.plot()
+    # plt.show()
+
     duq_score = data_utility_quority(gt_total_det, adv_total_tp, adv_total_fp)
-    print('AP: %f, DUQ: %f' % (ap_score, duq_score))
+    ap_score = average_precision_score(adv_tp_binary_array, adv_conf_array)
+
+    print("GT_FACES: "+str(gt_total_det))
+    print("TP: "+str(adv_total_tp))
+    print("FP: "+str(adv_total_fp))
+
+    print("DUQ: "+str(duq_score))
+    print("AP: "+str(ap_score))
 
 
 @ hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
@@ -214,14 +248,14 @@ def main(cfg: DictConfig):
     mask_image_set_path = os.path.join(
         orig_wd_path, config.dataset.mask_data_path)
     image_set = DirectoryImageWithMaskDataset(
-        image_set_path, mask_image_set_path, max_iter=6000, transform=transform)
+        image_set_path, mask_image_set_path, max_iter=30, transform=transform)
     image_loader = torch.utils.data.DataLoader(image_set)
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        # tbx_monitor(adv_bg_image, model, image_loader, config.tbx_monitor)
-        evaluate_background(adv_bg_image, model, image_loader,
-                            config.evaluate_background)
+        tbx_monitor(adv_bg_image, model, image_loader, config.tbx_monitor)
+        # evaluate_background(adv_bg_image, model, image_loader,
+        #                     config.evaluate_background)
 
 
 if __name__ == "__main__":
