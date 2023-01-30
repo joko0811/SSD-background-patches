@@ -1,31 +1,4 @@
 import torch
-import numpy as np
-from sklearn.metrics import average_precision_score
-
-
-def ap(gt_box_list, det_box_list, det_conf, iou_threshold=0.5):
-    """
-    Args:
-        gt_box_list: List of M_g*4 2D tensor. The number of elements in the list is equal to the number of images N. M is the number of ground truth detections per image.
-        det_box_list: List of M_d*4 2D tensor. The number of elements in the list is equal to the number of images N. M is the number of detections per image.
-        det_conf: N*M_d 2D tensor.
-        iou_thresh: Threshold for determining TP.
-    """
-    # box=xywh
-
-    tp_binary_list = np.array([])
-    max_det = 0
-    for i, (gt_boxes, det_boxes) in enumerate(zip(gt_box_list, det_box_list)):
-
-        max_det = max(max_det, len(det_conf))
-
-        tp_binary = (list_iou(det_boxes, gt_boxes) >= iou_threshold).any(
-            dim=1).long()
-        tp_binary_list = np.append(tp_binary_list, tp_binary.detach(
-        ).cpu().resolve_conj().resolve_neg().numpy())
-
-    ap_score = average_precision_score(tp_binary_list, det_conf)
-    return ap_score
 
 
 def iou(boxA, boxB):
@@ -91,7 +64,7 @@ def recall(tp, fn):
 
 
 def data_utility_quority(ground_truth_det_num, tp, fp):
-    return tp-fp/ground_truth_det_num
+    return (tp-fp)/ground_truth_det_num
 
 
 def calc_det_TP(det_boxes, gt_boxes, iou_threshold=0.5):
