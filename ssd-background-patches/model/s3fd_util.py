@@ -48,7 +48,7 @@ def image_list_encode(pil_image_list: Image.Image, is_mask=False) -> Tuple[torch
     for pil_image in pil_image_list:
         image, scale = image_encode(pil_image, is_mask)
         setuped_image_list.append(image)
-        scale_list.append(scale.unsqueeze(0))
+        scale_list.append(scale)
 
     return torch.cat(setuped_image_list).contiguous(), torch.cat(scale_list).contiguous()
 
@@ -87,7 +87,7 @@ def image_encode(pil_image, is_mask=False):
 
     # old width height array
     scale = torch.Tensor([width, height,
-                          width, height])
+                          width, height]).unsqueeze(0)
 
     return tensor_image, scale
 
@@ -141,7 +141,7 @@ def make_detections_list(data_list, scale_list, detection_class, thresh):
 
 class detections_s3fd(detections_base):
     def __init__(self, data, scale):
-        xyxy = data[..., 1:]*scale
+        xyxy = data[..., 1:]
         self.scale = scale
 
         super().__init__(data[..., 0], xyxy, is_xywh=False)
@@ -149,8 +149,11 @@ class detections_s3fd(detections_base):
     def get_image_xyxy(self):
         return self.xyxy*self.scale
 
-    def get_image_xywh(self):
-        return self.xywh*self.scale
+
+class detections_s3fd_ground_truth(detections_s3fd):
+    def set_group_info(self, labels):
+        self.group_labels = labels
+        self.total_group = int(self.group_labels.max().item())+1
 
 
 class detections_s3fd_loss(detections_s3fd):

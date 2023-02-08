@@ -109,7 +109,7 @@ def tbx_monitor(adv_background_image, model, image_loader, config):
                                  transforms.functional.to_tensor(pil_mask_image_list[i]), batch_iter)
             if adv_detections_list[i] is not None:
                 anno_adv_image = imgdraw.draw_boxes(
-                    s3fd_util.image_decode(adv_image, scale_list[i]), adv_detections_list[i].xyxy)
+                    s3fd_util.image_decode(adv_image, scale_list[i]), adv_detections_list[i].xyxy*scale_list[i])
                 tbx_writer.add_image("adversarial_image",
                                      transforms.functional.to_tensor(anno_adv_image), batch_iter)
 

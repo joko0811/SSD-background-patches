@@ -1,0 +1,43 @@
+# プロジェクト全体で用いる設定
+defaults:
+  - model: s3fd # 使用モデルの設定
+output_dir: ${hydra:runtime.output_dir}
+iou_threshold: 0.5
+n_b: 3 # クラスタリングしたグループ毎に割り当てられるパッチの枚数
+mode: "monitor"
+
+train_main: # 敵対的画像生成時の設定
+  image_path: "datasets/casiagait_b_video90/train/001-bg-01-090-062.png"
+  mask_image_path: "datasets/casiagait_b_video90/mask_train/001-bg-01-090-062.png"
+  mode: ${mode}
+  output_dir: ${output_dir}
+  train_adversarial_image: # 敵対的画像生成時の設定
+    model: ${model}
+    n_b: ${n_b}
+    max_epoch: 3000 # 一枚の画像ごとに摂動を加える最大回数
+    model_thresh: 0.6
+    loss: ${train_main.loss}
+    initial_background_patches: ${train_main.initial_background_patches}
+    expanded_background_patches: ${train_main.expanded_background_patches}
+    perturbation_normalization: ${train_main.perturbation_normalization}
+  loss:
+    tpc_weight: 0
+    tps_weight: 1
+    fpc_weight: 1
+    calc_z: # 損失計算に必要なパラメータ計算の設定
+      iou_threshold: ${iou_threshold} # 値が閾値以上であるか判定する
+    calc_r: # 損失計算に必要なパラメータ計算の設定
+      background_iou: 0
+      patch_iou: 0.1
+
+  initial_background_patches: # 背景パッチ初期化処理の設定
+    n_b: ${n_b}
+    calculate_search_area: # 計算量削減のための探索領域絞り込み処理の設定
+      largest_dist_rate: 0.2 # 対象物体の間のオフセット算出
+    calculate_window_wh: # スライディングウインドウのサイズを決定する処理の設定
+      initialize_size_rate: 0.2 # スライディングウインドウの面積比
+  expanded_background_patches: # 背景パッチ拡張処理の設定
+    stride_rate: 0.02 # 拡大率に関するパラメータ
+    bp_area_threshold_rate: 100 # 背景パッチ領域の上限を決める
+  perturbation_normalization: # 摂動画像正規化処理の設定
+    l2_norm_lambda: 100 # l2norm計算時のパラメータ
