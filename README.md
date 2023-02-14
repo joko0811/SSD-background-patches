@@ -4,3 +4,8 @@ This branch is a reproduction code of the following study.
 
 # Evaluation
 - [rafaelpadilla/review_object_detection_metrics](https://github.com/rafaelpadilla/review_object_detection_metrics)
+
+# Install
+```
+$ git clone git@github.com:joko0811/S3FD.pytorch.git ssd-background-patches/model/S3FD
+```

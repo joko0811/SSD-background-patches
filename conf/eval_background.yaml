@@ -1,8 +1,10 @@
 defaults:
-  - model: yolo # 使用モデルの設定
-  - dataset: ted_woman_test # 使用データセットの設定
+  - model: s3fd # 使用モデルの設定
+  - dataset: casia_gait_b_test # 使用データセットの設定
+#  - dataset: gait_test2 # 使用データセットの設定
 
 path: ""
+output_dir: ${hydra:runtime.output_dir}
 
 main:
   adv_bg_image_path: ${path}
@@ -12,6 +14,9 @@ main:
     adv_bg_image_path: ${main.adv_bg_image_path}
     gt_det_save_dir: "ground_truth_detection/"
     adv_bg_det_save_dir: "adversarial_background_detection/"
-
-
-
+  tbx_monitor:
+    class_names_path: ${dataset.class_names}
+    output_dir: ${hydra:runtime.output_dir}
+  evaluate_background:
+    model_thresh: 0.6
+    output_dir: ${output_dir}

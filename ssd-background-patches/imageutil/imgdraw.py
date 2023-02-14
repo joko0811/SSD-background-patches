@@ -3,11 +3,11 @@ from PIL import ImageDraw, ImageFont
 from matplotlib import pyplot as plt
 from torchvision import transforms
 
-from model.yolo_util import detections_base
+from model.yolo_util import detections_yolo
 
 
 # https://pystyle.info/pillow-draw-object-detection-results-on-an-image/
-def draw_annotations(image, detections: detections_base, class_names):
+def draw_annotations(image, detections: detections_yolo, class_names, in_confidences=True):
     """画像に対してアノテーションを追加する
 
     Args:
@@ -20,15 +20,14 @@ def draw_annotations(image, detections: detections_base, class_names):
         pil type image:
             アノテーションを追加した画像
     """
-    pil_image = transforms.functional.to_pil_image(image.clone().detach())
 
-    draw = ImageDraw.Draw(pil_image, mode="RGBA")
+    draw = ImageDraw.Draw(image, mode="RGBA")
 
     # 色の一覧を作成する。
     cmap = plt.cm.get_cmap("hsv", len(class_names) + 1)
 
     # フォントを作成する。
-    fontsize = max(15, int(0.03 * min(pil_image.size)))
+    fontsize = max(15, int(0.03 * min(image.size)))
     fontname = "DejaVuSerif-Bold"
     font = ImageFont.truetype(fontname, size=fontsize)
 
@@ -38,7 +37,8 @@ def draw_annotations(image, detections: detections_base, class_names):
 
         # ラベル
         caption = class_names[detections.class_labels[i].int()]
-        caption += f" {detections.confidences[i]:.0%}"
+        if in_confidences:
+            caption += f" {detections.confidences[i]:.0%}"
 
         # 矩形を描画する
         draw.rectangle(
@@ -55,19 +55,29 @@ def draw_annotations(image, detections: detections_base, class_names):
         draw.text((detections.xyxy[i, 0].item(), detections.xyxy[i, 1].item()),
                   caption, fill="black", font=font)
 
-    return transforms.functional.to_tensor(pil_image)
+    return image
 
 
 def draw_boxes(image, boxes):
-    pil_image = transforms.functional.to_pil_image(image.clone().detach())
+    """
+    Args:
+        img:
+            PIL type image
+        boxes:
+            xyxy
 
-    draw = ImageDraw.Draw(pil_image, mode="RGBA")
+    Returns:
+        pil type image:
+            アノテーションを追加した画像
+    """
+
+    draw = ImageDraw.Draw(image, mode="RGBA")
 
     for i in range(len(boxes)):
 
         # 矩形を描画する
         draw.rectangle(
-            boxes[i].tolist(), width=3
+            boxes[i].tolist(), width=2
         )
 
-    return transforms.functional.to_tensor(pil_image)
+    return image

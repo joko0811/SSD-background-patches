@@ -1,0 +1,3 @@
+data_path: "datasets/gait_test1/image/"
+mask_data_path: "datasets/gait_test1/mask/"
+ground_truthes_detection_path: "datasets/gait_test1/detect/"

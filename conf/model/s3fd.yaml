@@ -1,0 +1,2 @@
+weight_path: "weights/s3fd.pth"
+threshold: 0.6

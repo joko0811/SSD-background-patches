@@ -46,7 +46,7 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
             # 元画像の検出がない場合は敵対的画像を生成できない
             return adv_image
 
-        ground_truthes = yolo_util.detections_ground_truth(gt_nms_out[0])
+        ground_truthes = yolo_util.detections_yolo_ground_truth(gt_nms_out[0])
 
         # ground truthesをクラスタリング
         group_labels = clustering.object_grouping(
@@ -69,7 +69,7 @@ def train_adversarial_image(model, orig_img, config: DictConfig,  class_names=No
         # perturbate_iter回目のパッチ適用画像から物体検出する
         output = model(adv_image)
         nms_out = yolo_util.nms(output)
-        detections = yolo_util.detections_loss(nms_out[0])
+        detections = yolo_util.detections_yolo_loss(nms_out[0])
         if nms_out[0].nelement() == 0:
             # 検出がない場合は終了
             return adv_image

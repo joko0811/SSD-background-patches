@@ -2,7 +2,7 @@ import torch
 
 from omegaconf import DictConfig
 
-from box import condition, seek, transform
+from box import boxconv, seek, transform
 
 
 def calculate_search_area(image, boxes, config: DictConfig):
@@ -23,7 +23,7 @@ def calculate_search_area(image, boxes, config: DictConfig):
         box_outermost, search_offset)
     # 領域を画像サイズに収める
     search_area = transform.box_clamp(
-        before_clamp_area, image.shape[2], image.shape[3])
+        before_clamp_area, image.shape[-2], image.shape[-1])
 
     # 画像から探索領域を切り出す
     search_image = transform.image_crop_by_box(
@@ -107,7 +107,7 @@ def extract_sliding_windows(partial_image, x1y1_partial_image, sw_w, sw_h, n, ig
         extract_gradient_sum = windows_grad_sum[extract_idx[0],
                                                 extract_idx[1], extract_idx[2]]
 
-        if (not condition.is_overlap_list(extract_xyxy, output_box)) and (not condition.is_overlap_list(extract_xyxy, ignore_boxes)):
+        if (not boxconv.is_overlap_list(extract_xyxy, output_box)) and (not boxconv.is_overlap_list(extract_xyxy, ignore_boxes)):
             # 除外リストと一つも重ならない場合、返り値に含める
             output_box[extract_counter] = extract_xyxy
             output_gradient_sum[extract_counter] = extract_gradient_sum
@@ -117,7 +117,10 @@ def extract_sliding_windows(partial_image, x1y1_partial_image, sw_w, sw_h, n, ig
     return output_box, output_gradient_sum
 
 
-def initial_background_patches(ground_truthes, gradient_image: torch.tensor, config: DictConfig):
+def initial_background_patches(ground_truthes, gradient_image: torch.tensor, config: DictConfig, scale=None):
+    if scale is None:
+        scale = torch.tensor([1, 1, 1, 1]).to(device=gradient_image.device)
+
     # グループごとのパッチ最大数
     n_b = config.n_b  # default 3
 
@@ -134,10 +137,9 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor, con
             n_b, device=bp_grad_sumes.device)*(-1*float('inf'))
 
         # グループに属するboxの抽出
-        group_xywh = (
-            ground_truthes.xywh[ground_truthes.group_labels == group_idx])
         group_xyxy = (
-            ground_truthes.xyxy[ground_truthes.group_labels == group_idx])
+            ground_truthes.xyxy[ground_truthes.group_labels == group_idx])*scale
+        group_xywh = boxconv.xyxy2xywh(group_xyxy)
 
         # 探索対象領域の決定
         search_grad_img, search_area = calculate_search_area(
@@ -152,7 +154,7 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor, con
             x1y1_search_area = search_area[:2]
 
             ignore_boxes = torch.cat(
-                (ground_truthes.xyxy, group_bp_boxes, bp_boxes.view(1, -1, bp_boxes.shape[-1]).squeeze(0)))
+                (ground_truthes.xyxy*scale, group_bp_boxes, bp_boxes.view(1, -1, bp_boxes.shape[-1]).squeeze(0)))
             ex_boxes, ex_grad_sumes = extract_sliding_windows(
                 search_grad_img, x1y1_search_area, int(window_w.item()), int(window_h.item()), n_b, ignore_boxes)
 
@@ -169,24 +171,30 @@ def initial_background_patches(ground_truthes, gradient_image: torch.tensor, con
         bp_boxes[group_idx] = group_bp_boxes
         bp_grad_sumes[group_idx] = group_bp_grad_sum
 
-    return bp_boxes.reshape((ground_truthes.total_group*n_b, 4))
+    return bp_boxes.reshape((ground_truthes.total_group*n_b, 4))/scale
 
 
-def expanded_background_patches(bp_boxes, ground_truthes, gradient_image, config: DictConfig):
+def expanded_background_patches(bp_boxes, ground_truthes, gradient_image, config: DictConfig, scale=None):
+    if scale is None:
+        scale = torch.tensor([1, 1, 1, 1]).to(device=bp_boxes.device)
+
+    scaled_gt_xywh = boxconv.xyxy2xywh(ground_truthes.xyxy*scale)
+
     stride_rate = config.stride_rate  # default 0.02
     image_h, image_w = gradient_image.shape[2:4]
     # stride = stride_rate*max(image_h, image_w)
-    stride = stride_rate*ground_truthes.xywh[:, 2:].max()
+    stride = stride_rate*scaled_gt_xywh[:, 2:].max()
 
     bp_area_threshold_rate = config.bp_area_threshold_rate  # default 0.02
-    max_gt_area = (ground_truthes.xywh[:, 2]*ground_truthes.xywh[:, 3]).max()
+    max_gt_area = (scaled_gt_xywh[:, 2]*scaled_gt_xywh[:, 3]).max()
     bp_area_threshold = max_gt_area*bp_area_threshold_rate
 
-    new_bp_boxes = bp_boxes.clone()
+    scaled_bp_boxes = bp_boxes*scale
+    new_bp_boxes = scaled_bp_boxes.clone()
 
-    for i, bp_box in enumerate(bp_boxes):
+    for i, bp_box in enumerate(scaled_bp_boxes):
 
-        bp_box_wh = condition.xyxy2xywh(bp_box)[2:]
+        bp_box_wh = boxconv.xyxy2xywh(bp_box)[2:]
         bp_box_area = bp_box_wh[0]*bp_box_wh[1]
         if bp_box_area > bp_area_threshold:
             continue
@@ -231,12 +239,13 @@ def expanded_background_patches(bp_boxes, ground_truthes, gradient_image, config
                 compare_boxes = torch.cat(
                     (new_bp_boxes[:i], new_bp_boxes[i+1:]))
                 # パッチ領域が除外対象の領域と重ならない場合更新
-                ignore_boxes = torch.cat((ground_truthes.xyxy, compare_boxes))
-                if (not condition.is_overlap_list(expand_bp_box, ignore_boxes)):
+                ignore_boxes = torch.cat(
+                    (ground_truthes.xyxy*scale, compare_boxes))
+                if (not boxconv.is_overlap_list(expand_bp_box, ignore_boxes)):
                     max_gradient_sum = gradient_sum
                     new_bp_boxes[i] = expand_bp_box
 
-    return new_bp_boxes
+    return new_bp_boxes/scale
 
 
 def perturbation_in_background_patches(gradient_image, bp_boxes):
@@ -247,7 +256,7 @@ def perturbation_in_background_patches(gradient_image, bp_boxes):
 
 def perturbation_normalization(perturbation_image, config: DictConfig):
     l2_norm_lambda = config.l2_norm_lambda  # default 0.03=1/30
-    return (l2_norm_lambda/(torch.linalg.norm(perturbation_image))) * perturbation_image
+    return (l2_norm_lambda/(torch.linalg.norm(perturbation_image)+1e-5)) * perturbation_image
 
 
 def update_i_with_pixel_clipping(image, perturbated_image):

@@ -4,6 +4,9 @@ weights/
 outputs/
 datasets/
 
+# other project
+ssd-background-patches/model/S3FD
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -16,7 +16,7 @@ import proposed_func as pf
 from model import yolo, yolo_util
 from util.clustering import object_grouping
 
-from box import condition
+from box import boxconv
 
 
 def is_extractable_patch_for_image(detections, image):
@@ -54,7 +54,7 @@ def is_extractable_patch_for_group(x1y1_partial_image, hw_partial_image, group_x
         # [h,w,4]->[w*h,4]
         window_box_list = window_box_map.reshape(
             (window_box_map.shape[0]*window_box_map.shape[1], 4))
-        overlap_table = condition.are_overlap_list(
+        overlap_table = boxconv.are_overlap_list(
             window_box_list, ignore_boxes)
 
         extractable_patch_num += overlap_table.nonzero().shape[0]
@@ -103,7 +103,7 @@ def gen_subset_with_sufficient_background_area(dataloader, model):
         # 検出・整形
         output = model(gt_image)
         nms_out = yolo_util.nms(output)
-        detections = yolo_util.detections_ground_truth(nms_out[0])
+        detections = yolo_util.detections_yolo_ground_truth(nms_out[0])
 
         if nms_out[0].nelement() == 0:
             # 検出が存在しない画像はサブセットに含めない

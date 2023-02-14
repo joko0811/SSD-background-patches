@@ -2,9 +2,9 @@ import torch
 
 from omegaconf import DictConfig
 
-from model.yolo_util import detections_ground_truth, detections_loss
+from model.yolo_util import detections_yolo_ground_truth, detections_yolo_loss
 from box.seek import find_nearest_box
-from box.condition import are_overlap_list
+from box.boxconv import are_overlap_list
 from evaluation.detection import iou, list_iou
 
 
@@ -18,7 +18,7 @@ def tpc(z, max_class_scores):
     return tpc_score
 
 
-def tps(z, detections: detections_loss, ground_truthes: detections_ground_truth):
+def tps(z, detections: detections_yolo_loss, ground_truthes: detections_yolo_ground_truth):
     """True Positive Shape Loss
     """
 
@@ -41,7 +41,7 @@ def fpc(r, max_class_scores):
     return fpc_score
 
 
-def total_loss(detections: detections_loss, ground_truthes: detections_ground_truth, background_patch_boxes, image_hw, config: DictConfig):
+def total_loss(detections: detections_yolo_loss, ground_truthes: detections_yolo_ground_truth, background_patch_boxes, image_hw, config: DictConfig):
     """Returns the total loss
     Args:
       detections:
@@ -137,7 +137,7 @@ def calc_r(iou_scores, detection_boxes, ground_truth_boxes, config: DictConfig):
     return r.long()
 
 
-def get_max_scores_without_correct_class(detections: detections_loss, ground_truthes: detections_ground_truth):
+def get_max_scores_without_correct_class(detections: detections_yolo_loss, ground_truthes: detections_yolo_ground_truth):
     # detections.class_scoresで、計算対象外のクラスのクラススコアを0にしたtensorであるmasked_class_scoresを作成する
     # 検出ごとに一番近いground truthのクラスラベルを抽出
     gt_labels_for_nearest_dt = ground_truthes.class_labels[detections.nearest_gt_idx].unsqueeze(
@@ -167,7 +167,7 @@ def get_max_scores_without_correct_class(detections: detections_loss, ground_tru
 # ---The following is for verification---
 
 
-def normalized_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth, image_hw, config: DictConfig):
+def normalized_tps(z, detections: detections_yolo_loss, ground_truthes: detections_yolo_ground_truth, image_hw, config: DictConfig):
     """True Positive Shape Loss
     """
     # xyは画像サイズで割る　[0,1]区間に正規化
@@ -188,7 +188,7 @@ def normalized_tps(z, detections: detections_loss, ground_truthes: detections_gr
     return tps_score
 
 
-def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_truth, image_hw):
+def mean_tps(z, detections: detections_yolo_loss, ground_truthes: detections_yolo_ground_truth, image_hw):
     """True Positive Shape Loss
     Args:
         z:
@@ -215,7 +215,7 @@ def mean_tps(z, detections: detections_loss, ground_truthes: detections_ground_t
     return tps_score
 
 
-def mean_tps_calc_z(detections: detections_loss, ground_truthes: detections_ground_truth, config: DictConfig):
+def mean_tps_calc_z(detections: detections_yolo_loss, ground_truthes: detections_yolo_ground_truth, config: DictConfig):
     """calc z param
     The target element takes 1 when the following is true, and 0 otherwise
     (1) IoU is greater than the threshold value of 0.5
