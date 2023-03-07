@@ -248,7 +248,7 @@ def main(cfg: DictConfig):
     mask_image_set_path = os.path.join(
         orig_wd_path, config.dataset.mask_data_path)
     image_set = DirectoryImageWithMaskDataset(
-        image_set_path, mask_image_set_path, max_iter=40, transform=transform)
+        image_set_path, mask_image_set_path, max_iter=config.image_num, transform=transform)
     image_loader = torch.utils.data.DataLoader(image_set)
 
     with torch.no_grad():
