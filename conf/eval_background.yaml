@@ -7,6 +7,7 @@ path: ""
 output_dir: ${hydra:runtime.output_dir}
 
 main:
+  image_num: 40
   adv_bg_image_path: ${path}
   model: ${model}
   dataset: ${dataset}
