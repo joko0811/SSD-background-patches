@@ -1,3 +1,0 @@
-class_names: "datasets/coco2014/coco.names"
-data_path: "datasets/ted_woman_test/image/"
-mask_data_path: "datasets/ted_woman_test/mask/"

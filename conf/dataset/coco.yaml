@@ -1,3 +1,5 @@
+_target_: torchvision.datasets.coco.CocoDetection
+root: "datasets/coco2014/images/train2014/"
+annFile: "datasets/coco2014/annotations/instances_train2014.json"
+
 class_names: "datasets/coco2014/coco.names"
-data_path: "datasets/coco2014/images/train2014/"
-annfile_path: "datasets/coco2014/annotations/instances_train2014.json"

@@ -1,4 +1,3 @@
-
-
-data_path: "datasets/casiagait_b_video90/test/"
-mask_data_path: "datasets/casiagait_b_video90/mask_test/"
+_target_: dataset.mask.DirectoryImageWithMaskDataset
+image_path: "datasets/casiagait_b_video90/test/"
+mask_image_path: "datasets/casiagait_b_video90/mask_test/"

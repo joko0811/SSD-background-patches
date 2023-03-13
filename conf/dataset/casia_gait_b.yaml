@@ -1,4 +1,5 @@
+_target_: dataset.mask.DirectoryImageWithMaskDataset
+image_path: "datasets/casiagait_b_video90/train/"
+mask_image_path: "datasets/casiagait_b_video90/mask_train/"
 
-data_path: "datasets/casiagait_b_video90/train/"
-mask_data_path: "datasets/casiagait_b_video90/mask_train/"
 ground_truthes_detection_path: "datasets/casiagait_b_video90/detect_train/"

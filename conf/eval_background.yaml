@@ -1,7 +1,6 @@
 defaults:
   - model: s3fd # 使用モデルの設定
   - dataset: casia_gait_b_test # 使用データセットの設定
-#  - dataset: gait_test2 # 使用データセットの設定
 
 path: ""
 output_dir: ${hydra:runtime.output_dir}
