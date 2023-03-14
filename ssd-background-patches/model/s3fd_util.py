@@ -12,16 +12,16 @@ from box.boxio import detections_base
 from typing import Tuple
 
 S3FD_TRANSFORMS = transforms.Compose([
-    transforms.Resize((416, 416)),
+    transforms.Resize((1700, 1200)),
+    transforms.PILToTensor(),
 ])
 
 # caffe model RGB nomalization?
-S3FD_MASIC_NUMBER = np.array([123., 117., 104.]).astype('float32')
-S3FD_NOMALIZED_ARRAY = S3FD_MASIC_NUMBER[
+S3FD_MASIC_NUMBER = torch.tensor([123., 117., 104.], dtype=torch.float)
+S3FD_NOMALIZED_ARRAY = S3FD_MASIC_NUMBER.detach().cpu().resolve_conj().resolve_neg().numpy()[
     :, np.newaxis, np.newaxis].astype('float32')
-S3FD_IMAGE_MIN = (np.array([0., 0., 0.])-S3FD_MASIC_NUMBER).astype('float32')
-S3FD_IMAGE_MAX = (np.array([255., 255., 255.]) -
-                  S3FD_MASIC_NUMBER).astype('float32')
+S3FD_IMAGE_MIN = torch.tensor([0., 0., 0.])-S3FD_MASIC_NUMBER
+S3FD_IMAGE_MAX = torch.tensor([255., 255., 255.]) - S3FD_MASIC_NUMBER
 
 
 def load_model(weight_path):
@@ -63,6 +63,7 @@ def image_encode(pil_image, is_mask=False):
 
     # pil to ndarray
     if pil_image.mode == 'L':
+        # 8-bit pixels, black and white
         pil_image = pil_image.convert('RGB')
     np_image = np.array(pil_image)
 
