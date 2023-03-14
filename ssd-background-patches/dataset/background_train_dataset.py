@@ -27,8 +27,9 @@ class BackGroundTrainDataset(Dataset):
 
         if max_iter is not None:
             self.max_iter = max_iter
-            self.files = self.files[:self.max_iter]
+            self.face_files = self.face_files[:self.max_iter]
             self.mask_files = self.mask_files[:self.max_iter]
+            self.detect_files = self.detect_files[:self.max_iter]
 
         self.transform = transform
 

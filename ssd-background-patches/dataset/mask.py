@@ -4,22 +4,22 @@ from torch.utils.data import Dataset
 
 
 class DirectoryImageWithMaskDataset(Dataset):
-    def __init__(self, image_path, mask_image_path, max_iter=None, transform=None):
-        self.image_path = image_path
-        self.mask_image_path = mask_image_path
-        self.files = sorted(glob.glob("%s/*.*" % self.image_path))
-        self.mask_files = sorted(glob.glob("%s/*.*" % self.mask_image_path))
+    def __init__(self, face_path, mask_path, max_iter=None, transform=None):
+        self.face_path = face_path
+        self.mask_path = mask_path
+        self.face_files = sorted(glob.glob("%s/*.*" % self.face_path))
+        self.mask_files = sorted(glob.glob("%s/*.*" % self.mask_path))
 
         if max_iter is not None:
             self.max_iter = max_iter
-            self.files = self.files[:self.max_iter]
+            self.face_files = self.face_files[:self.max_iter]
             self.mask_files = self.mask_files[:self.max_iter]
 
         self.transform = transform
         # TODO: Check if the names of image and mask match
 
     def __getitem__(self, index):
-        image_path = self.files[index % len(self.files)]
+        image_path = self.face_files[index % len(self.face_files)]
         image = Image.open(image_path)
 
         mask_image_path = self.mask_files[index % len(self.mask_files)]
@@ -32,4 +32,4 @@ class DirectoryImageWithMaskDataset(Dataset):
         return image, mask_image, image_path, mask_image_path
 
     def __len__(self):
-        return len(self.files)
+        return len(self.face_files)
