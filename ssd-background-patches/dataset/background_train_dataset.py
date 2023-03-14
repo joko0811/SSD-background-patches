@@ -56,6 +56,10 @@ class BackGroundTrainDataset(Dataset):
         mask_image = Image.open(mask_path)
         conf, xyxy_list = boxio.parse_detections(detect_path)
 
+        if self.transform is not None:
+            face_image = self.transform(face_image)
+            mask_image = self.transform(mask_image)
+
         return ((face_image, mask_image), (conf, xyxy_list))
 
     def __len__(self):
