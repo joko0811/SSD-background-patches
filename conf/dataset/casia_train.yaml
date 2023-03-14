@@ -1,4 +1,4 @@
 _target_: dataset.background_train_dataset.BackGroundTrainDataset
-face_path: "datasets/casiagait_b_video90/train/face/"
-mask_path: "datasets/casiagait_b_video90/train/mask/"
-detect_path: "datasets/casiagait_b_video90/train/detect/"
+face_path: "datasets/casia/train/face/"
+mask_path: "datasets/casia/train/mask/"
+detect_path: "datasets/casia/train/detect/"
