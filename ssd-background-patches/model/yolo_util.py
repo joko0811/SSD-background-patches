@@ -6,56 +6,72 @@ import numpy as np
 import torch
 from torchvision import transforms, ops
 
-from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 from pytorchyolo.utils import utils
 
-from .yolo import load_model
+from model import yolo
 from box.boxio import detections_base
+from model.base_util import BaseUtilizer
 
 
-YOLO_TRANSFORMS = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Resize((416, 416)),
-])
+class detections_yolo(detections_base):
+    # yolo_out=[x,y,w,h,confidence_score,class_scores...]
+    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
+    def __init__(self, data, is_nms=True):
+        self.data = data
+        self.total_det = len(self.data)
+        self.is_mns = is_nms
+        # self.xywh = self.data[:, :4]
+        if is_nms:
+            self.confidences = self.data[:, 8]
+            self.class_scores = self.data[:, 10:]
+            super().__init__(self.data[:, 9].to(
+                torch.int64), self.data[:, 4:8], is_xywh=False)
+            # self.class_labels = self.data[:, 9].to(torch.int64)
+            # self.xyxy = self.data[:, 4:8]
+
+        else:
+            self.confidences = self.data[:, 4]
+            self.class_scores = self.data[:, 5:]
+
+            class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
+            super().__init__(class_labels, self.data[:, :4])
+            # self.xyxy = utils.xywh2xyxy(self.xywh)
 
 
-def get_yolo_format_image_from_file(image_path):
-    pil_image = Image.open(image_path)
-    tensor_image = YOLO_TRANSFORMS(pil_image).unsqueeze(0)
-    return tensor_image
+class detections_yolo_ground_truth(detections_yolo):
+    def set_group_info(self, labels):
+        self.group_labels = labels
+        self.total_group = int(self.group_labels.max().item())+1
 
 
-def image_setup(img):
-    input_img = transforms.Compose([
-        DEFAULT_TRANSFORMS,
-        Resize(416)])(
-            (img, np.zeros((1, 5))))[0].unsqueeze(0)
-    return input_img
+class detections_yolo_loss(detections_yolo):
+    def set_loss_info(self, nearest_gt_idx):
+        self.nearest_gt_idx = nearest_gt_idx
 
 
-def detect(img):
-    model = load_model(
-        "weights/yolov3.cfg",
-        "weights/yolov3.weights")
+class YoloUtilizer(BaseUtilizer):
 
-    model.eval()  # Set model to evaluation mode
+    YOLO_TRANSFORMS = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((416, 416)),
+    ])
 
-    # Get detections
-    with torch.no_grad():
-        # yolo_out=[center_x,center_y,w,h,confidence_score,class_scores...]
-        yolo_out = model(img)
+    def get_transform(self):
+        return self.YOLO_TRANSFORMS
 
-        # yolo_out=[left_x,top_y,right_x,bottom_y,class_scores...]
-        return yolo_out
+    def load_model(self, weight_path, model_path):
+        return yolo.load_model(model_path=model_path, weights_path=weight_path)
 
+    def make_detections_list(self, data_list, detection_class, is_nms=True):
+        detections_list = list()
+        for data in data_list:
+            if data.nelement() != 0:
+                detections_list.append(
+                    detection_class(data, is_nms))
+            else:
+                detections_list.append(None)
 
-def detect_with_grad(img):
-    model = load_model(
-        "weights/yolov3.cfg",
-        "weights/yolov3.weights")
-    model.train()
-    yolo_out = model(img)
-    return yolo_out
+        return detections_list
 
 
 def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
@@ -144,51 +160,3 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
             break  # time limit eclass_extract_xceeded
 
     return output
-
-
-def make_detections_list(data_list, detection_class, is_nms=True):
-    detections_list = list()
-    for data in data_list:
-        if data.nelement() != 0:
-            detections_list.append(
-                detection_class(data, is_nms))
-        else:
-            detections_list.append(None)
-
-    return detections_list
-
-
-class detections_yolo(detections_base):
-    # yolo_out=[x,y,w,h,confidence_score,class_scores...]
-    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
-    def __init__(self, data, is_nms=True):
-        self.data = data
-        self.total_det = len(self.data)
-        self.is_mns = is_nms
-        # self.xywh = self.data[:, :4]
-        if is_nms:
-            self.confidences = self.data[:, 8]
-            self.class_scores = self.data[:, 10:]
-            super().__init__(self.data[:, 9].to(
-                torch.int64), self.data[:, 4:8], is_xywh=False)
-            # self.class_labels = self.data[:, 9].to(torch.int64)
-            # self.xyxy = self.data[:, 4:8]
-
-        else:
-            self.confidences = self.data[:, 4]
-            self.class_scores = self.data[:, 5:]
-
-            class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
-            super().__init__(class_labels, self.data[:, :4])
-            # self.xyxy = utils.xywh2xyxy(self.xywh)
-
-
-class detections_yolo_ground_truth(detections_yolo):
-    def set_group_info(self, labels):
-        self.group_labels = labels
-        self.total_group = int(self.group_labels.max().item())+1
-
-
-class detections_yolo_loss(detections_yolo):
-    def set_loss_info(self, nearest_gt_idx):
-        self.nearest_gt_idx = nearest_gt_idx
