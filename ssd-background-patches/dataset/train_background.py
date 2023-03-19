@@ -36,10 +36,12 @@ class TrainBackGroundDataset(Dataset):
 
     def _check_dataset(self):
         """顔画像、マスク画像、検出の組がつくれるか検証"""
-        face_checker = [os.path.basename(ff) for ff in self.face_files]
-        mask_checker = [os.path.basename(mf) for mf in self.mask_files]
-        detection_checker = [os.path.basename(
-            df) for df in self.detection_files]
+        face_checker = [os.path.splitext(os.path.basename(ff))[
+            0] for ff in self.face_files]
+        mask_checker = [os.path.splitext(os.path.basename(mf))[
+            0] for mf in self.mask_files]
+        detection_checker = [os.path.splitext(os.path.basename(
+            df))[0] for df in self.detection_files]
 
         if not (len(face_checker) == len(mask_checker) == len(detection_checker)):
             raise Exception

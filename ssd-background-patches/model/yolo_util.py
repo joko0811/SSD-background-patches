@@ -1,8 +1,5 @@
 import time
 
-from PIL import Image
-
-import numpy as np
 import torch
 from torchvision import transforms, ops
 
@@ -10,7 +7,10 @@ from pytorchyolo.utils import utils
 
 from model import yolo
 from box.boxio import detections_base
-from model.base_util import BaseUtilizer
+
+from model.base_util import BaseTrainer
+import hydra
+from omegaconf import DictConfig
 
 
 class detections_yolo(detections_base):
@@ -49,18 +49,27 @@ class detections_yolo_loss(detections_yolo):
         self.nearest_gt_idx = nearest_gt_idx
 
 
-class YoloUtilizer(BaseUtilizer):
+class YoloTrainer(BaseTrainer):
 
     YOLO_TRANSFORMS = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((416, 416)),
     ])
 
+    def __init__(self, model_conf: DictConfig, dataset_conf: DictConfig):
+        self.model_conf = model_conf
+        dataset = hydra.utils.instantiate(
+            dataset_conf, transforms=self.YOLO_TRANSFORMS)
+        self.dataloader = torch.utils.data.DataLoader(dataset)
+
     def get_transform(self):
         return self.YOLO_TRANSFORMS
 
-    def load_model(self, weight_path, model_path):
-        return yolo.load_model(model_path=model_path, weights_path=weight_path)
+    def get_dataloader(self) -> torch.utils.data.DataLoader:
+        return self.dataloader
+
+    def load_model(self):
+        return yolo.load_model(model_path=self.model_conf.model_path, weights_path=self.model_conf.weights_path)
 
     def make_detections_list(self, data_list, detection_class, is_nms=True):
         detections_list = list()

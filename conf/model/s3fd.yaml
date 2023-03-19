@@ -1,2 +1,2 @@
+trainer: model.s3fd_util.S3fdTrainer
 weight_path: "weights/s3fd.pth"
-threshold: 0.6

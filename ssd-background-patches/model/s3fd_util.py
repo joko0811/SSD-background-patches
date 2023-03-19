@@ -5,7 +5,10 @@ from torchvision import transforms
 
 from model.S3FD import s3fd
 from box.boxio import detections_base
-from model.base_util import BaseUtilizer
+
+from model.base_util import BaseTrainer
+import hydra
+from omegaconf import DictConfig
 
 
 class detections_s3fd(detections_base):
@@ -43,29 +46,34 @@ class S3fdResize:
         return transforms.functional.resize(img=pic, size=out_size)
 
 
-class S3fdUtilizer(BaseUtilizer):
+class S3fdTrainer(BaseTrainer):
 
     S3FD_TRANSFORMS = transforms.Compose([
         S3fdResize(),
         transforms.PILToTensor(),
-
     ])
     # caffe model RGB nomalization?
     S3FD_MASIC_NUMBER = torch.tensor([123., 117., 104.], dtype=torch.float)
-    S3FD_NOMALIZED_ARRAY = S3FD_MASIC_NUMBER.detach().cpu().resolve_conj().resolve_neg().numpy()[
-        :, np.newaxis, np.newaxis].astype('float32')
+
+    def __init__(self, model_conf: DictConfig, dataset_factory):
+        self.model_conf = model_conf
+        dataset = dataset_factory(transform=self.S3FD_TRANSFORMS)
+        self.dataloader = torch.utils.data.DataLoader(dataset)
 
     def get_transform(self) -> transforms.Compose:
         return self.S3FD_TRANSFORMS
 
-    def load_model(self, weight_path):
+    def get_dataloader(self) -> torch.utils.data.DataLoader:
+        return self.dataloader
+
+    def load_model(self):
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
         # Select device for inference
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         model = s3fd.build_s3fd('test', 2)
-        model.load_state_dict(torch.load(weight_path))
+        model.load_state_dict(torch.load(self.model_conf.weight_path))
 
         return model.to(device)
 

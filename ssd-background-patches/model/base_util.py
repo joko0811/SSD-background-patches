@@ -2,9 +2,14 @@ from abc import ABCMeta, abstractclassmethod
 from torchvision.transforms import Compose
 
 
-class BaseUtilizer(metaclass=ABCMeta):
+class BaseTrainer(metaclass=ABCMeta):
+
     @abstractclassmethod
     def get_transform(self, *args, **kwargs) -> Compose:
+        pass
+
+    @abstractclassmethod
+    def get_dataloader(self, *args, **kwargs) -> Compose:
         pass
 
     @abstractclassmethod
