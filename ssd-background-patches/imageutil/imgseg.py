@@ -41,11 +41,16 @@ def composite_image(foreground_image: torch.Tensor, background_image: torch.Tens
 
     # Match the shape of background_image
     if background_image.dim() == 3:
-        composite_background_image = background_image.tile(
+        composite_background_image = background_image.repeat(
             (foreground_image.shape[0], 1, 1, 1))
     else:
         composite_background_image = background_image.clone()
 
+    if mask_image.shape[1] != 3:
+        composite_mask_image = mask_image.repeat(1, 3, 1, 1)
+    else:
+        composite_mask_image = mask_image.clone()
+
     composite_image = torch.where(
-        mask_image > 0, foreground_image, composite_background_image)
+        composite_mask_image == 1, foreground_image, composite_background_image)
     return composite_image

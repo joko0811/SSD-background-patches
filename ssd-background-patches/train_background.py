@@ -60,9 +60,11 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
             # Preprocessing
             # Set to no_grad since the process is not needed for gradient calculation.
             with torch.no_grad():
-                image_list = image_list.to(device=device, dtype=torch.float)
+
+                image_list = image_list.to(
+                    device=device, dtype=torch.float) - trainer.get
                 mask_image_list = mask_image_list.to(
-                    device=device, dtype=torch.float)
+                    device=device)
 
             s3fd_adv_background_image.requires_grad = True
             s3fd_adv_image_list = imgseg.composite_image(
@@ -91,7 +93,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                     continue
 
                 tpc_loss, tps_loss, fpc_loss, tv_loss = proposed.total_loss(
-                    adv_detections_list[i], ground_truthes, s3fd_adv_background_image, config.loss)
+                    adv_detections_list[i], ground_truthes, s3fd_adv_background_image.unsqueeze(0), config.loss)
 
                 tpc_loss_list[i] += tpc_loss
                 tps_loss_list[i] += tps_loss
@@ -147,9 +149,8 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                 tbx_writer.add_scalar(
                     "tv_loss", epoch_mean_tv, epoch)
 
-                tbx_ab_image = resize(s3fd_adv_background_image, hoge)
                 tbx_writer.add_image(
-                    "adversarial_background_image", tbx_ab_image, epoch)
+                    "adversarial_background_image", s3fd_adv_background_image, epoch)
 
                 if adv_detections_list[0] is not None:
                     tbx_anno_adv_image = to_tensor(imgdraw.draw_boxes(
@@ -157,8 +158,8 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
                 else:
-                    tbx_anno_adv_image = to_tensor(
-                        resize(s3fd_adv_image_list[0], scale_list[0]))
+                    tbx_anno_adv_image = resize(
+                        s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0]))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
     return s3fd_adv_background_image.clone().cpu()

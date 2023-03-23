@@ -1,6 +1,7 @@
 import glob
 import os
 from PIL import Image
+import torch
 from torch.utils.data import Dataset
 
 from box import boxio
@@ -59,8 +60,13 @@ class TrainBackGroundDataset(Dataset):
             self.detection_files)]
 
         face_image = Image.open(face_path)
-        mask_image = Image.open(mask_path)
-        conf, xyxy = boxio.parse_detections(detection_path)
+        mask_image = Image.open(mask_path).convert('1')
+        det = boxio.parse_detections(detection_path)
+        if det is not None:
+            conf, xyxy = det
+        else:
+            conf = torch.tensor([])
+            xyxy = torch.tensor([])
 
         width, height = face_image.size
 
