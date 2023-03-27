@@ -6,47 +6,11 @@ from torchvision import transforms, ops
 from pytorchyolo.utils import utils
 
 from model import yolo
-from box.boxio import detections_base
 
 from model.base_util import BaseTrainer
+from detection.detection_base import ObjectDetectionBase
 import hydra
 from omegaconf import DictConfig
-
-
-class detections_yolo(detections_base):
-    # yolo_out=[x,y,w,h,confidence_score,class_scores...]
-    # nms_out=[x1,y1,x2,y2,x,y,w,h,confidence_score,class_scores...]
-    def __init__(self, data, is_nms=True):
-        self.data = data
-        self.total_det = len(self.data)
-        self.is_mns = is_nms
-        # self.xywh = self.data[:, :4]
-        if is_nms:
-            self.confidences = self.data[:, 8]
-            self.class_scores = self.data[:, 10:]
-            super().__init__(self.data[:, 9].to(
-                torch.int64), self.data[:, 4:8], is_xywh=False)
-            # self.class_labels = self.data[:, 9].to(torch.int64)
-            # self.xyxy = self.data[:, 4:8]
-
-        else:
-            self.confidences = self.data[:, 4]
-            self.class_scores = self.data[:, 5:]
-
-            class_labels = self.class_scores.argmax(dim=1).to(torch.int64)
-            super().__init__(class_labels, self.data[:, :4])
-            # self.xyxy = utils.xywh2xyxy(self.xywh)
-
-
-class detections_yolo_ground_truth(detections_yolo):
-    def set_group_info(self, labels):
-        self.group_labels = labels
-        self.total_group = int(self.group_labels.max().item())+1
-
-
-class detections_yolo_loss(detections_yolo):
-    def set_loss_info(self, nearest_gt_idx):
-        self.nearest_gt_idx = nearest_gt_idx
 
 
 class YoloTrainer(BaseTrainer):
@@ -71,12 +35,13 @@ class YoloTrainer(BaseTrainer):
     def load_model(self):
         return yolo.load_model(model_path=self.model_conf.model_path, weights_path=self.model_conf.weights_path)
 
-    def make_detections_list(self, data_list, detection_class, is_nms=True):
+    def make_detections_list(self, data_list):
         detections_list = list()
         for data in data_list:
             if data.nelement() != 0:
                 detections_list.append(
-                    detection_class(data, is_nms))
+                    ObjectDetectionBase(data[:, 8], data[:, 4:8], data[:, 10:], is_xywh=False))
+                # detection_class(data, is_nms))
             else:
                 detections_list.append(None)
 

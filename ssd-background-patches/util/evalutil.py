@@ -16,8 +16,7 @@ def save_detection_text(image_list, path_list, model, format_func, optional=None
 
     output = model(image_list)
     nms_out = yolo_util.nms(output)
-    detection_list = yolo_util.make_detections_list(
-        nms_out, yolo_util.detections_yolo)
+    detection_list = yolo_util.make_detections_list(nms_out)
 
     for detection, path in zip(detection_list, path_list):
         det_str = format_func(detection, optional)

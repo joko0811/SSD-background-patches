@@ -239,7 +239,7 @@ def mean_tps_calc_z(detections: detections_yolo_loss, ground_truthes: detections
     # Determine if iou are above the threshold
     iou_score_flag = (iou_score_list > iou_score_threshold)
 
-    sc_idx = ground_truthes.class_labels.tile(detections.total_det, 1)
+    sc_idx = ground_truthes.class_labels.tile(len(detections), 1)
     # list of class score equal to Ground Truth label (N*M)
     class_score_list = detections.class_scores.gather(1, sc_idx).T
     # Determine if class_score are above the threshold

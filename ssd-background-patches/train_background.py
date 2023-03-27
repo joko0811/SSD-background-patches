@@ -17,6 +17,7 @@ from box import boxio
 from model import s3fd_util
 from loss import proposed
 from imageutil import imgseg, imgdraw
+from detection.detection_base import DetectionsBase
 
 
 def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, config: DictConfig,  tbx_writer=None):
@@ -72,7 +73,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
             # Detection from adversarial images
             adv_output = model(s3fd_adv_image_list)
             adv_detections_list = trainer.make_detections_list(
-                adv_output, scale_list, s3fd_util.detections_s3fd_loss, config.model_thresh)
+                adv_output, config.model_thresh)
 
             tpc_loss_list = torch.zeros(
                 image_loader.batch_size, device=device)
@@ -91,7 +92,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
                     continue
 
                 tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
-                    adv_detections_list[i], ground_truthes, s3fd_adv_background_image.unsqueeze(0), config.loss)
+                    adv_detections_list[i], ground_truthes, s3fd_adv_background_image.unsqueeze(0), config.loss, scale=scale_list[0])
 
                 tpc_loss_list[i] += tpc_loss
                 tps_loss_list[i] += tps_loss
@@ -151,7 +152,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
                 if adv_detections_list[0] is not None:
                     tbx_anno_adv_image = transforms.functional.to_tensor(imgdraw.draw_boxes(
                         trainer.transformed2pil(
-                            s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0])), adv_detections_list[0].get_image_xyxy()))
+                            s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0])), adv_detections_list[0].xyxy*scale_list[0]))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
                 else:
@@ -179,16 +180,15 @@ def main(cfg: DictConfig):
         case _:
             raise Exception('modeが想定されていない値です')
 
-    gt_conf_list, gt_box_list = boxio.generate_integrated_xyxy_list(
-        mode_config.dataset_factory.detection_path, max_iter=mode_config.dataset_factory.max_iter)
-    # TODO:be dynamic
-    ground_truthes = s3fd_util.detections_base(
-        gt_conf_list.to(device=device), gt_box_list.to(device=device), is_xywh=False)
-
-    tbx_writer = SummaryWriter(config.output_dir)
-
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
         mode_config)
+
+    gt_conf_list, gt_box_list = boxio.generate_integrated_xyxy_list(
+        mode_config.dataset_factory.detection_path, max_iter=mode_config.dataset_factory.max_iter)
+    ground_truthes = DetectionsBase(gt_conf_list.to(
+        device), gt_box_list.to(device), is_xywh=False)
+
+    tbx_writer = SummaryWriter(config.output_dir)
 
     torch.autograd.set_detect_anomaly(True)
     adv_background_image = train_adversarial_image(

@@ -44,10 +44,10 @@ def main():
             output = model(s3fd_image_list)
 
         detections_list = s3fd_util.make_detections_list(
-            output, scale_list, s3fd_util.detections_s3fd, 0.6)
+            output,  0.6)
 
         for i, detections in enumerate(detections_list):
-            if (detections is None) or (detections.total_det == 0):
+            if (detections is None) or (len(detections) == 0):
                 os.remove(image_path[i])
 
 

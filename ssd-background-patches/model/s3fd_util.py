@@ -4,32 +4,10 @@ import torch
 from torchvision import transforms
 
 from model.S3FD import s3fd
-from box.boxio import detections_base
 
 from model.base_util import BackgroundBaseTrainer
+from detection.detection_base import DetectionsBase
 from omegaconf import DictConfig
-
-
-class detections_s3fd(detections_base):
-    def __init__(self, data, scale):
-        xyxy = data[..., 1:]
-        self.scale = scale
-
-        super().__init__(data[..., 0], xyxy, is_xywh=False)
-
-    def get_image_xyxy(self):
-        return self.xyxy*self.scale
-
-
-class detections_s3fd_ground_truth(detections_s3fd):
-    def set_group_info(self, labels):
-        self.group_labels = labels
-        self.total_group = int(self.group_labels.max().item())+1
-
-
-class detections_s3fd_loss(detections_s3fd):
-    def set_loss_info(self, nearest_gt_idx):
-        self.nearest_gt_idx = nearest_gt_idx
 
 
 class S3fdResize:
@@ -71,13 +49,15 @@ class S3fdTrainer(BackgroundBaseTrainer):
 
         return model.to(device)
 
-    def make_detections_list(self, data_list, scale_list, detection_class: detections_s3fd, thresh):
+    def make_detections_list(self, data_list, thresh=0.6):
         detections_list = list()
-        for i, data in enumerate(data_list):
+        for data in data_list:
             extract_data = data[data[..., 0] >= thresh]
             if extract_data.nelement() != 0:
                 detections_list.append(
-                    detection_class(extract_data, scale_list[i]))
+                    DetectionsBase(
+                        extract_data[..., 0], extract_data[..., 1:], is_xywh=False))
+                # detection_class(extract_data, scale_list[i]))
             else:
                 detections_list.append(None)
 
