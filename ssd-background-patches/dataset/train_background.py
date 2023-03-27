@@ -75,8 +75,8 @@ class TrainBackGroundDataset(Dataset):
             mask_image = self.transform(mask_image)
 
         face_image_info = {}
-        face_image_info['width'] = width
-        face_image_info['height'] = height
+        face_image_info['width'] = torch.tensor([width])
+        face_image_info['height'] = torch.tensor([height])
         face_image_info['conf'] = conf
         face_image_info['xyxy'] = xyxy
 

@@ -55,7 +55,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
         for (image_list, mask_image_list), image_info in tqdm(image_loader, leave=False):
 
             scale_list = torch.cat([image_info['width'], image_info['height'],
-                                    image_info['width'], image_info['height']]).to(device=device, dtype=torch.float)
+                                    image_info['width'], image_info['height']]).T.to(device=device, dtype=torch.float)
 
             # Preprocessing
             # Set to no_grad since the process is not needed for gradient calculation.
