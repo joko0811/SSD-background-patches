@@ -5,7 +5,7 @@ from torchvision.transforms import Compose
 class BaseTrainer(metaclass=ABCMeta):
 
     @abstractclassmethod
-    def get_dataloader(self, *args, **kwargs) -> Compose:
+    def get_dataloader(self, *args, **kwargs):
         pass
 
     @abstractclassmethod
