@@ -50,7 +50,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
         epoch_tpc_list = list()
         epoch_tps_list = list()
         epoch_fpc_list = list()
-        epoch_tv_list = list()
+        # epoch_tv_list = list()
 
         for (image_list, mask_image_list), image_info in tqdm(image_loader, leave=False):
 
@@ -81,8 +81,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                 image_loader.batch_size, device=device)
             fpc_loss_list = torch.zeros(
                 image_loader.batch_size, device=device)
-            tv_loss_list = torch.zeros(
-                image_loader.batch_size, device=device)
+            # tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
 
             for i in range(image_loader.batch_size):
                 if adv_detections_list[i] is None:
@@ -98,14 +97,14 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                 tpc_loss_list[i] += tpc_loss
                 tps_loss_list[i] += tps_loss
                 fpc_loss_list[i] += fpc_loss
-                tv_loss_list[i] += tv_loss
+                # tv_loss_list[i] += tv_loss
 
             mean_tpc = torch.mean(tpc_loss_list)
             mean_tps = torch.mean(tps_loss_list)
             mean_fpc = torch.mean(fpc_loss_list)
-            mean_tv = torch.mean(tv_loss_list)
+            # mean_tv = torch.mean(tv_loss_list)
 
-            loss = mean_tpc+mean_tps+mean_fpc+mean_tv
+            loss = mean_tpc+mean_tps+mean_fpc  # +mean_tv
 
             if loss == 0:
                 continue
@@ -126,8 +125,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                 ).cpu().resolve_conj().resolve_neg().numpy())
                 epoch_fpc_list.append(mean_fpc.detach(
                 ).cpu().resolve_conj().resolve_neg().numpy())
-                epoch_tv_list.append(mean_tv.detach(
-                ).cpu().resolve_conj().resolve_neg().numpy())
+                # epoch_tv_list.append(mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy())
 
         with torch.no_grad():
             # tensorboard
@@ -135,7 +133,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
             epoch_mean_tpc = np.array(epoch_tpc_list).mean()
             epoch_mean_tps = np.array(epoch_tps_list).mean()
             epoch_mean_fpc = np.array(epoch_fpc_list).mean()
-            epoch_mean_tv = np.array(epoch_tv_list).mean()
+            # epoch_mean_tv = np.array(epoch_tv_list).mean()
 
             if tbx_writer is not None:
                 tbx_writer.add_scalar(
@@ -146,8 +144,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                     "tps_loss", epoch_mean_tps, epoch)
                 tbx_writer.add_scalar(
                     "fpc_loss", epoch_mean_fpc, epoch)
-                tbx_writer.add_scalar(
-                    "tv_loss", epoch_mean_tv, epoch)
+                # tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
 
                 tbx_writer.add_image(
                     "adversarial_background_image", s3fd_adv_background_image, epoch)
