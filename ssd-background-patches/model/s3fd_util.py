@@ -6,8 +6,7 @@ from torchvision import transforms
 from model.S3FD import s3fd
 from box.boxio import detections_base
 
-from model.base_util import BaseTrainer
-import hydra
+from model.base_util import BackgroundBaseTrainer
 from omegaconf import DictConfig
 
 
@@ -46,22 +45,17 @@ class S3fdResize:
         return transforms.functional.resize(img=pic, size=out_size)
 
 
-class S3fdTrainer(BaseTrainer):
+class S3fdTrainer(BackgroundBaseTrainer):
 
     S3FD_TRANSFORMS = transforms.Compose([
         S3fdResize(),
         transforms.PILToTensor(),
     ])
-    # caffe model RGB nomalization?
-    S3FD_MASIC_NUMBER = torch.tensor([123., 117., 104.], dtype=torch.float)
 
     def __init__(self, model_conf: DictConfig, dataset_factory):
         self.model_conf = model_conf
         dataset = dataset_factory(transform=self.S3FD_TRANSFORMS)
         self.dataloader = torch.utils.data.DataLoader(dataset)
-
-    def get_transform(self) -> transforms.Compose:
-        return self.S3FD_TRANSFORMS
 
     def get_dataloader(self) -> torch.utils.data.DataLoader:
         return self.dataloader
@@ -89,5 +83,6 @@ class S3fdTrainer(BaseTrainer):
 
         return detections_list
 
-    def get_masic_number(self):
-        return self.S3FD_NOMALIZED_ARRAY
+    def transformed2pil(self, pic, scale):
+        rs_pic = transforms.functional.resize(pic, scale)
+        return transforms.functional.to_pil_image(rs_pic/255)

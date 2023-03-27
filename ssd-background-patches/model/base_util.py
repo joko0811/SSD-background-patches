@@ -5,10 +5,6 @@ from torchvision.transforms import Compose
 class BaseTrainer(metaclass=ABCMeta):
 
     @abstractclassmethod
-    def get_transform(self, *args, **kwargs) -> Compose:
-        pass
-
-    @abstractclassmethod
     def get_dataloader(self, *args, **kwargs) -> Compose:
         pass
 
@@ -18,4 +14,9 @@ class BaseTrainer(metaclass=ABCMeta):
 
     @abstractclassmethod
     def make_detections_list(self, *args, **kwargs):
+        pass
+
+
+class BackgroundBaseTrainer(BaseTrainer):
+    def transformed2pil():
         pass

@@ -6,21 +6,20 @@ from omegaconf import DictConfig
 import torch
 import torch.optim as optim
 from torchvision import transforms
-from torchvision.transforms.functional import resize, to_tensor, to_pil_image
 
 import numpy as np
 
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-from model.base_util import BaseTrainer
+from model.base_util import BackgroundBaseTrainer
 from box import boxio
-from model import base_util, s3fd_util
+from model import s3fd_util
 from loss import proposed
 from imageutil import imgseg, imgdraw
 
 
-def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictConfig,  tbx_writer=None):
+def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, config: DictConfig,  tbx_writer=None):
     """
     Args:
         model: S3FD
@@ -62,7 +61,7 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
             with torch.no_grad():
 
                 image_list = image_list.to(
-                    device=device, dtype=torch.float) - trainer.get
+                    device=device, dtype=torch.float)
                 mask_image_list = mask_image_list.to(
                     device=device)
 
@@ -88,10 +87,10 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                     tpc_loss_list[i] += 0
                     tps_loss_list[i] += 0
                     fpc_loss_list[i] += 0
-                    tv_loss_list[i] += 0
+                    # tv_loss_list[i] += 0
                     continue
 
-                tpc_loss, tps_loss, fpc_loss, tv_loss = proposed.total_loss(
+                tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
                     adv_detections_list[i], ground_truthes, s3fd_adv_background_image.unsqueeze(0), config.loss)
 
                 tpc_loss_list[i] += tpc_loss
@@ -150,13 +149,14 @@ def train_adversarial_image(trainer: BaseTrainer, ground_truthes, config: DictCo
                     "adversarial_background_image", s3fd_adv_background_image, epoch)
 
                 if adv_detections_list[0] is not None:
-                    tbx_anno_adv_image = to_tensor(imgdraw.draw_boxes(
-                        resize(s3fd_adv_image_list[0], scale_list[0]).to_pil_image(), adv_detections_list[0].get_image_xyxy()))
+                    tbx_anno_adv_image = transforms.functional.to_tensor(imgdraw.draw_boxes(
+                        trainer.transformed2pil(
+                            s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0])), adv_detections_list[0].get_image_xyxy()))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
                 else:
-                    tbx_anno_adv_image = resize(
-                        s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0]))
+                    tbx_anno_adv_image = transforms.functional.to_tensor(trainer.transformed2pil(
+                        s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0])))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
     return s3fd_adv_background_image.clone().cpu()
@@ -187,9 +187,10 @@ def main(cfg: DictConfig):
 
     tbx_writer = SummaryWriter(config.output_dir)
 
-    trainer: BaseTrainer = hydra.utils.instantiate(
+    trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
         mode_config)
 
+    torch.autograd.set_detect_anomaly(True)
     adv_background_image = train_adversarial_image(
         trainer, ground_truthes, config.train_adversarial_image, tbx_writer=tbx_writer)
 
@@ -198,7 +199,7 @@ def main(cfg: DictConfig):
     output_adv_path = os.path.join(
         config.output_dir, "adv_background_image.png")
 
-    pil_image = s3fd_util.image_decode(adv_background_image)
+    pil_image = transforms.functional.to_pil_image(adv_background_image)
     pil_image.save(output_adv_path)
     print("finished!")
 
