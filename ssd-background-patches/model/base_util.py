@@ -20,3 +20,8 @@ class BaseTrainer(metaclass=ABCMeta):
 class BackgroundBaseTrainer(BaseTrainer):
     def transformed2pil():
         pass
+
+    # casia gait b dataset画像のの変形後のサイズ(HW)を返す
+    # TODO: 動的に取得するやり方を考える
+    def get_image_size():
+        pass

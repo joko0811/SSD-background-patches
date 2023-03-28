@@ -41,9 +41,13 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
 
     # 敵対的背景
     # (1237,1649) is size of dataset image in S3FD representation
-    s3fd_adv_background_image = torch.zeros((3, 1237, 1649), device=device)
+    # s3fd_dataset_image_format = (3, 1237, 1649)
+    # retina_dataset_image_format = (3, 840, 840)
 
-    optimizer = optim.Adam([s3fd_adv_background_image])
+    image_height, image_width = trainer.get_image_size()
+    dataset_image_format = (3, image_height, image_width)
+    adv_background_image = torch.zeros(dataset_image_format, device=device)
+    optimizer = optim.Adam([adv_background_image])
 
     for epoch in tqdm(range(max_epoch)):
         epoch_loss_list = list()
