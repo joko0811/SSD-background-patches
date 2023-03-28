@@ -1,6 +1,7 @@
 import torch
 import glob
-from box import boxconv
+
+from detection.detection_base import DetectionsBase, ObjectDetectionBase
 
 
 def generate_integrated_xyxy_list(path, max_iter=None):
@@ -40,10 +41,10 @@ def format_boxes(boxes, **kargs):
     return box_str
 
 
-def format_detections(detections):
+def format_detections(detections: DetectionsBase):
     det_str = ""
 
-    for det_idx in range(detections.total_det):
+    for det_idx in range(len(detections)):
         conf = detections.conf[det_idx]
         box = detections.xyxy[det_idx]
 
@@ -83,10 +84,10 @@ def parse_detections(path):
     return torch.tensor(conf_list).contiguous(), torch.cat(xyxy_list).contiguous()
 
 
-def format_yolo(detections, image_hw):
+def format_yolo(detections: ObjectDetectionBase, image_hw):
     det_str = ""
 
-    for det_idx in range(detections.total_det):
+    for det_idx in range(len(detections)):
         label_idx = detections.class_labels[det_idx]
         box = detections.xywh[det_idx]
         yolo_x = box[0].item()/image_hw[1]
@@ -126,15 +127,3 @@ def parse_yolo(path, image_hw):
         xywh_list.append([x, y, w, h])
 
     return label_list, xywh_list
-
-
-class detections_base:
-    def __init__(self, conf_list, box_list, is_xywh=True):
-        self.conf = conf_list
-        self.total_det = len(self.conf)
-        if is_xywh:
-            self.xywh = box_list
-            self.xyxy = boxconv.xywh2xyxy(self.xywh)
-        else:
-            self.xyxy = box_list
-            self.xywh = boxconv.xyxy2xywh(self.xyxy)

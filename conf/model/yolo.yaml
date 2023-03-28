@@ -1,2 +1,3 @@
-setting_path: "weights/yolov3.cfg"
-weight_path: "weights/yolov3.weights"
+trainer: model.yolo_util.YoloTrainer
+weights_path: "weights/yolov3.weights"
+model_path: "weights/yolov3.cfg"

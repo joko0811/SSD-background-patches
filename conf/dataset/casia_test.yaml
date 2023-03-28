@@ -1,0 +1,3 @@
+_target_: dataset.mask.DirectoryImageWithMaskDataset
+face_path: "datasets/casia/test/face/"
+mask_path: "datasets/casia/test/mask/"

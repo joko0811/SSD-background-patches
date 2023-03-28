@@ -55,7 +55,7 @@ def train_adversarial_image(image, mask_image, config: DictConfig, tbx_writer=No
 
         gt_output = model(s3fd_image)
         gt_detections = s3fd_util.make_detections_list(
-            gt_output, scale, s3fd_util.detections_s3fd_ground_truth, config.model_thresh)[0]
+            gt_output,  config.model_thresh)[0]
 
         if gt_detections is None:
             # 元画像の検出がない場合は敵対的画像を生成できない
@@ -84,7 +84,7 @@ def train_adversarial_image(image, mask_image, config: DictConfig, tbx_writer=No
         # perturbate_iter回目のパッチ適用画像から物体検出する
         output = model(s3fd_adv_image)
         detections = s3fd_util.make_detections_list(
-            output, scale, s3fd_util.detections_s3fd_loss, 0.6)[0]
+            output, 0.6)[0]
 
         if detections is None:
             # 検出がない場合は終了

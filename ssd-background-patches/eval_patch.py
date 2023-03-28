@@ -19,7 +19,7 @@ def save_detections(model_out, class_names, image_path, format, image_wh):
     detections = yolo_util.detections_yolo(nms_out[0])
     det_str = ""
 
-    for i in range(detections.total_det):
+    for i in range(len(detections)):
         det_str += format(
             detections, i, class_names, image_wh)+"\n"
 

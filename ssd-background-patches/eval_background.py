@@ -96,10 +96,8 @@ def tbx_monitor(adv_background_image, model, image_loader, config):
             s3fd_image_list, gpu_adv_bg_image, s3fd_mask_image_list)
 
         adv_output = model(adv_image_list)
-        # adv_nms_out = yolo_util.nms(adv_output)
-        # adv_detections_list = yolo_util.make_detections_list(adv_nms_out, yolo_util.detections_yolo_loss)
         adv_detections_list = s3fd_util.make_detections_list(
-            adv_output, scale_list, s3fd_util.detections_s3fd, 0.6)
+            adv_output,  0.6)
 
         for i, adv_image in enumerate(adv_image_list):
 
@@ -155,11 +153,11 @@ def evaluate_background(adv_background_image, model, image_loader, config: DictC
 
         gt_output = model(s3fd_image_list)
         gt_detections_list = s3fd_util.make_detections_list(
-            gt_output, scale_list, s3fd_util.detections_s3fd, config.model_thresh)
+            gt_output, config.model_thresh)
 
         adv_output = model(s3fd_adv_image_list)
         adv_detections_list = s3fd_util.make_detections_list(
-            adv_output, scale_list, s3fd_util.detections_s3fd, config.model_thresh)
+            adv_output, config.model_thresh)
 
         for gt_det, adv_det in zip(gt_detections_list, adv_detections_list):
             # 画像毎
@@ -168,18 +166,18 @@ def evaluate_background(adv_background_image, model, image_loader, config: DictC
 
             elif (gt_det is None) and (adv_det is not None):
                 adv_tp_binary_array = np.append(
-                    adv_tp_binary_array, np.zeros(adv_det.total_det))
+                    adv_tp_binary_array, np.zeros(len(adv_det)))
                 adv_conf_array = np.append(adv_conf_array, adv_det.conf.detach(
                 ).cpu().resolve_conj().resolve_neg().numpy())
-                adv_total_fp += adv_det.total_det
+                adv_total_fp += len(adv_det)
                 continue
 
             elif (gt_det is not None) and (adv_det is None):
-                gt_total_det += gt_det.total_det
+                gt_total_det += len(gt_det)
                 continue
 
             elif (gt_det is not None) and (adv_det is not None):
-                gt_total_det += gt_det.total_det
+                gt_total_det += len(gt_det)
 
                 adv_tp_binary = (list_iou(adv_det.xyxy, gt_det.xyxy)
                                  >= iou_thresh).any(dim=1).long()
