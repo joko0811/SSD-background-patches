@@ -14,7 +14,6 @@ from tqdm import tqdm
 
 from model.base_util import BackgroundBaseTrainer
 from box import boxio
-from model import s3fd_util
 from loss import proposed
 from imageutil import imgseg, imgdraw
 from detection.detection_base import DetectionsBase
@@ -38,6 +37,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
 
     image_loader = trainer.get_dataloader()
     model = trainer.load_model()
+    model.eval()
 
     # 敵対的背景
     # (1237,1649) is size of dataset image in S3FD representation
@@ -70,9 +70,9 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
                 mask_image_list = mask_image_list.to(
                     device=device)
 
-            s3fd_adv_background_image.requires_grad = True
+            adv_background_image.requires_grad = True
             s3fd_adv_image_list = imgseg.composite_image(
-                image_list, s3fd_adv_background_image, mask_image_list)
+                image_list, adv_background_image, mask_image_list)
 
             # Detection from adversarial images
             adv_output = model(s3fd_adv_image_list)
@@ -96,7 +96,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
                     continue
 
                 tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
-                    adv_detections_list[i], ground_truthes, s3fd_adv_background_image.unsqueeze(0), config.loss, scale=scale_list[0])
+                    adv_detections_list[i], ground_truthes, adv_background_image.unsqueeze(0), config.loss, scale=scale_list[0])
 
                 tpc_loss_list[i] += tpc_loss
                 tps_loss_list[i] += tps_loss
@@ -151,7 +151,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
                 # tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
 
                 tbx_writer.add_image(
-                    "adversarial_background_image", s3fd_adv_background_image, epoch)
+                    "adversarial_background_image", transforms.functional.to_tensor(trainer.transformed2pil(adv_background_image, trainer.get_image_size())), epoch)
 
                 if adv_detections_list[0] is not None:
                     tbx_anno_adv_image = transforms.functional.to_tensor(imgdraw.draw_boxes(
@@ -164,7 +164,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
                         s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0])))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
-    return s3fd_adv_background_image.clone().cpu()
+    return adv_background_image.clone().cpu()
 
 
 @ hydra.main(version_base=None, config_path="../conf/", config_name="train_background")
@@ -194,7 +194,6 @@ def main(cfg: DictConfig):
 
     tbx_writer = SummaryWriter(config.output_dir)
 
-    torch.autograd.set_detect_anomaly(True)
     adv_background_image = train_adversarial_image(
         trainer, ground_truthes, config.train_adversarial_image, tbx_writer=tbx_writer)
 

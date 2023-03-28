@@ -1,0 +1,2 @@
+trainer: model.retina_util.RetinaTrainer
+weight_path: "weights/Resnet50_Final.pth"
