@@ -7,6 +7,7 @@ datasets/
 # other project
 ssd-background-patches/model/S3FD
 ssd-background-patches/model/Retinaface
+ssd-background-patches/model/DSFD
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

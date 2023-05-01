@@ -15,6 +15,10 @@ from model.Retinaface.layers.functions.prior_box import PriorBox
 from model.Retinaface.utils.box_utils import decode
 from model.Retinaface.utils.box_utils import nms
 
+from model.dsfd_util import DsfdResize
+from model.DSFD.conf.widerface import widerface_640
+from model.DSFD.model.face_ssd import build_ssd
+
 
 def s3fd_demo():
 
@@ -112,6 +116,66 @@ def retina_demo():
     anno_image.save("hoge.png")
 
 
+def dsfd_demo():
+
+    DSFD_TRANSFORMS = transforms.Compose([
+        DsfdResize(),
+        transforms.PILToTensor(),
+        transforms.ConvertImageDtype(torch.float),
+        transforms.Normalize((104, 117, 123), 1),
+    ])
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    cfg = widerface_640
+    net = build_ssd('test', cfg['min_dim'])  # initialize SSD
+
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    net.load_state_dict(torch.load('weights/WIDERFace_DSFD_RES152.pth'))
+    net.cuda()
+    net.eval()
+
+    image = Image.open('data/retina_test.jpg')
+
+    max_im_shrink = ((2000.0*2000.0) / (image.width * image.height)) ** 0.5
+    shrink = max_im_shrink if max_im_shrink < 1 else 1
+    st = 0.5 if max_im_shrink >= 0.75 else 0.5 * max_im_shrink
+
+    scale = torch.tensor(
+        [image.width, image.height, image.width, image.height]).to(device=device, dtype=torch.float)
+
+    dsfd_img = DSFD_TRANSFORMS(image).unsqueeze(0).to(device=device)
+    flip_dsfd_img = torch.flip(dsfd_img, [3])
+
+    score_list = list()
+    pt_list = list()
+    with torch.no_grad():
+        data = net(dsfd_img)
+        for i in range(data.size(1)):
+            j = 0
+            while data[0, i, j, 0] >= cfg['conf_thresh']:
+                score = data[0, i, j, 0]
+                pt = (data[0, i, j, 1:] * scale)
+
+                score_list.append(score)
+                pt_list.append(pt)
+                j += 1
+
+                # data = net(dsfd_img)[1]
+                # ext_data = data[data[:, :, 0] >= cfg['conf_thresh']]
+                # score = ext_data[..., 0]
+                # box = ext_data[..., 1:]*scale
+                # flip_data = net(flip_dsfd_img)[1]
+
+                # anno_image = imgdraw.draw_boxes(image, box)
+                # anno_image.save("hoge.png")
+    score_list = torch.tensor(score_list)
+    pt_list = torch.stack(pt_list)
+
+    anno_image = imgdraw.draw_boxes(image, pt_list)
+    anno_image.save("hoge.png")
+
+
 @ hydra.main(version_base=None, config_path="../conf/dataset/", config_name="casia_train")
 def hydra_test(cfg):
     return
@@ -120,7 +184,8 @@ def hydra_test(cfg):
 def main():
     # hydra_test()
     # s3fd_demo()
-    retina_demo()
+    # retina_demo()
+    dsfd_demo()
 
 
 if __name__ == '__main__':

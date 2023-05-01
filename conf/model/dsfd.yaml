@@ -1,0 +1,2 @@
+trainer: model.dsfd_util.DsfdTrainer
+weight_path: "weights/WIDERFace_DSFD_RES152.pth"
