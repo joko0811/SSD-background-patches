@@ -14,7 +14,7 @@ from tensorboardX import SummaryWriter
 from PIL import Image
 
 from model import s3fd_util
-from dataset.mask import DirectoryImageWithMaskDataset
+from model.base_util import BackgroundBaseTrainer
 
 from box import boxio
 from util import bgutil, evalutil
@@ -114,49 +114,44 @@ def tbx_monitor(adv_background_image, model, image_loader, config):
     return
 
 
-def evaluate_background(adv_background_image, model, image_loader, config: DictConfig):
+def evaluate_background(adv_background_image, trainer: BackgroundBaseTrainer, config: DictConfig):
 
     iou_thresh = 0.5
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    s3fd_adv_background_image = s3fd_util.image_encode(
-        adv_background_image)[0].to(device)
+    adv_background_image = transforms.functional.resize(
+        transforms.functional.pil_to_tensor(adv_background_image), trainer.get_image_size())[0].to(device)
 
+    image_loader = trainer.get_dataloader()
+    model = trainer.load_model()
     model.eval()
 
-    gt_box_list = list()
     gt_total_det = 0
 
-    adv_box_list = list()
     adv_conf_array = np.array([])
     adv_tp_binary_array = np.array([])
 
     adv_total_tp = 0
     adv_total_fp = 0
 
-    for image_list, mask_image_list, image_path_list, mask_image_path_list in tqdm(image_loader):
+    for (image_list, mask_image_list), image_info in tqdm(image_loader):
 
-        pil_image_list = imgconv.tensor2pil(image_list)
-        encoded_tuple = s3fd_util.image_list_encode(
-            pil_image_list)
-        s3fd_image_list = encoded_tuple[0].to(
+        image_list = image_list.to(
             device=device, dtype=torch.float)
-        scale_list = encoded_tuple[1].to(
-            device=device, dtype=torch.float)
+        mask_image_list = mask_image_list.to(
+            device=device)
+        scale_list = torch.cat([image_info['width'], image_info['height'],
+                                image_info['width'], image_info['height']]).T.to(device=device, dtype=torch.float)
 
-        pil_mask_image_list = imgconv.tensor2pil(mask_image_list)
-        s3fd_mask_image_list = s3fd_util.image_list_encode(
-            pil_mask_image_list, is_mask=True)[0].to(device=device, dtype=torch.float)
+        adv_image_list = imgseg.composite_image(
+            image_list, adv_background_image, mask_image_list)
 
-        s3fd_adv_image_list = imgseg.composite_image(
-            s3fd_image_list, s3fd_adv_background_image, s3fd_mask_image_list)
-
-        gt_output = model(s3fd_image_list)
-        gt_detections_list = s3fd_util.make_detections_list(
+        gt_output = model(image_list)
+        gt_detections_list = trainer.make_detections_list(
             gt_output, config.model_thresh)
 
-        adv_output = model(s3fd_adv_image_list)
-        adv_detections_list = s3fd_util.make_detections_list(
+        adv_output = model(adv_image_list)
+        adv_detections_list = trainer.make_detections_list(
             adv_output, config.model_thresh)
 
         for gt_det, adv_det in zip(gt_detections_list, adv_detections_list):
@@ -219,41 +214,23 @@ def evaluate_background(adv_background_image, model, image_loader, config: DictC
 def main(cfg: DictConfig):
 
     config = cfg.main
-    orig_wd_path = os.getcwd()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    if config.adv_bg_image_path == "":
-        print("please select path")
-        print(
-            "Usage: python ssd-background-patches/eval_background.py path={path/to/adversarial_background_image}"
-        )
-        return
+    trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
+        config.trainer)
 
-    adv_bg_image_path = os.path.join(orig_wd_path, config.adv_bg_image_path)
-    # adv_bg_image = yolo_util.get_yolo_format_image_from_file(adv_bg_image_path)
+    adv_bg_image_path = config.adv_bg_image_path
     adv_bg_image = Image.open(adv_bg_image_path)
-
-    # model_setting_path = os.path.join(orig_wd_path, config.model.setting_path)
-    model_annfile_path = os.path.join(orig_wd_path, config.model.weight_path)
-    model = s3fd_util.load_model(
-        model_annfile_path
-    )
 
     transform = transforms.Compose([
         transforms.ToTensor(),
     ])
 
-    image_set_path = os.path.join(orig_wd_path, config.dataset.data_path)
-    mask_image_set_path = os.path.join(
-        orig_wd_path, config.dataset.mask_data_path)
-    image_set = DirectoryImageWithMaskDataset(
-        image_set_path, mask_image_set_path, max_iter=config.image_num, transform=transform)
-    image_loader = torch.utils.data.DataLoader(image_set)
-
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        tbx_monitor(adv_bg_image, model, image_loader, config.tbx_monitor)
-        # evaluate_background(adv_bg_image, model, image_loader,
-        #                     config.evaluate_background)
+        # tbx_monitor(adv_bg_image, model, image_loader, config.tbx_monitor)
+        evaluate_background(adv_bg_image, trainer,
+                            config.evaluate_background)
 
 
 if __name__ == "__main__":
