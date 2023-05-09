@@ -1,4 +1,5 @@
 _target_: dataset.train_background.TrainBackGroundDataset
+_partial_: True
 face_path: "datasets/casia/train/face/"
 mask_path: "datasets/casia/train/mask/"
 detection_path: "datasets/casia/train/detection/"
