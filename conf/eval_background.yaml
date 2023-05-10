@@ -5,6 +5,10 @@ defaults:
 path: ""
 output_dir: ${hydra:runtime.output_dir}
 
+dataset:
+  max_iter: 3000
+  _partial_: True
+
 main:
   trainer:
     _target_: ${model.trainer}

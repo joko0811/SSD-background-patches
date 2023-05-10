@@ -1,4 +1,3 @@
 _target_: dataset.train_background.TestBackGroundDataset
-_partial_: True
 face_path: "datasets/casia/test/face/"
 mask_path: "datasets/casia/test/mask/"
