@@ -14,11 +14,12 @@ from tensorboardX import SummaryWriter
 from PIL import Image
 
 from model import s3fd_util
+
 from model.base_util import BackgroundBaseTrainer
+from patch_manager import BaseBackgroundManager
 
 from box import boxio
 from util import bgutil, evalutil
-from dataset import coco
 from imageutil import imgdraw, imgconv, imgseg
 from evaluation.detection import data_utility_quority, list_iou
 from sklearn.metrics import average_precision_score
@@ -114,13 +115,12 @@ def tbx_monitor(adv_background_image, model, image_loader, config):
     return
 
 
-def evaluate_background(adv_background_image, trainer: BackgroundBaseTrainer, config: DictConfig):
+def evaluate_background(adv_background, background_manager: BaseBackgroundManager, trainer: BackgroundBaseTrainer, config: DictConfig):
 
     iou_thresh = 0.5
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    adv_background_image = transforms.functional.resize(
-        transforms.functional.pil_to_tensor(adv_background_image), trainer.get_image_size())[0].to(device)
+    adv_background = adv_background.to(device)
 
     image_loader = trainer.get_dataloader()
     model = trainer.load_model()
@@ -135,16 +135,16 @@ def evaluate_background(adv_background_image, trainer: BackgroundBaseTrainer, co
     adv_total_fp = 0
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
+        scale_list = torch.cat([image_info['width'], image_info['height'], image_info['width'],
+                               image_info['height']]).T.to(device=device, dtype=torch.float)
 
         image_list = image_list.to(
             device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(
             device=device)
-        scale_list = torch.cat([image_info['width'], image_info['height'],
-                                image_info['width'], image_info['height']]).T.to(device=device, dtype=torch.float)
 
-        adv_image_list = imgseg.composite_image(
-            image_list, adv_background_image, mask_image_list)
+        adv_image_list = background_manager.apply(
+            adv_background, image_list, mask_image_list)
 
         gt_output = model(image_list)
         gt_detections_list = trainer.make_detections_list(
@@ -213,24 +213,20 @@ def evaluate_background(adv_background_image, trainer: BackgroundBaseTrainer, co
 @ hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
 def main(cfg: DictConfig):
 
-    config = cfg.main
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
-        config.trainer)
+        cfg.trainer)
+    background_manager: BaseBackgroundManager = hydra.utils.instantiate(
+        cfg.patch_manager)(trainer.get_image_size())
 
-    adv_bg_image_path = config.adv_bg_image_path
-    adv_bg_image = Image.open(adv_bg_image_path)
-
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-    ])
+    adv_bg_image_path = cfg.adv_bg_image_path
+    adv_background = transforms.functional.pil_to_tensor(
+        Image.open(adv_bg_image_path))
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
         # tbx_monitor(adv_bg_image, model, image_loader, config.tbx_monitor)
-        evaluate_background(adv_bg_image, trainer,
-                            config.evaluate_background)
+        evaluate_background(adv_background, background_manager,
+                            trainer, cfg.evaluate_background)
 
 
 if __name__ == "__main__":
