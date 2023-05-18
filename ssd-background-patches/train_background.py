@@ -12,11 +12,12 @@ import numpy as np
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-from model.base_util import BackgroundBaseTrainer
 from box import boxio
 from loss import proposed
 from imageutil import imgseg, imgdraw
+
 from detection.detection_base import DetectionsBase
+from model.base_util import BackgroundBaseTrainer
 
 
 def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, config: DictConfig,  tbx_writer=None):
@@ -169,38 +170,37 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
 
 @ hydra.main(version_base=None, config_path="../conf/", config_name="train_background")
 def main(cfg: DictConfig):
-    config = cfg.train_main
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    mode = config.mode
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    tbx_writer = SummaryWriter(cfg.output_dir)
+    mode = cfg.mode
 
     match mode:
         case "monitor":
-            mode_config = config.monitor_mode
+            mode_trainer = cfg.monitor_trainer
 
         case "evaluate":
-            mode_config = config.evaluate_mode
+            mode_trainer = cfg.evaluate_trainer
 
         case _:
             raise Exception('modeが想定されていない値です')
 
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
-        mode_config)
+        mode_trainer)
 
+    # 全ての正しい検出の読み取り・生成
     gt_conf_list, gt_box_list = boxio.generate_integrated_xyxy_list(
-        mode_config.dataset_factory.detection_path, max_iter=mode_config.dataset_factory.max_iter)
+        mode_trainer.dataset_factory.detection_path, max_iter=mode_trainer.dataset_factory.max_iter)
     ground_truthes = DetectionsBase(gt_conf_list.to(
         device), gt_box_list.to(device), is_xywh=False)
 
-    tbx_writer = SummaryWriter(config.output_dir)
-
     adv_background_image = train_adversarial_image(
-        trainer, ground_truthes, config.train_adversarial_image, tbx_writer=tbx_writer)
+        trainer, ground_truthes, cfg.train_adversarial_image, tbx_writer=tbx_writer)
 
     tbx_writer.close()
 
     output_adv_path = os.path.join(
-        config.output_dir, "adv_background_image.png")
+        cfg.output_dir, "adv_background_image.png")
 
     pil_image = transforms.functional.to_pil_image(adv_background_image)
     pil_image.save(output_adv_path)
