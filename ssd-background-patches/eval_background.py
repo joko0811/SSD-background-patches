@@ -216,11 +216,11 @@ def main(cfg: DictConfig):
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
         cfg.trainer)
     background_manager: BaseBackgroundManager = hydra.utils.instantiate(
-        cfg.patch_manager)(trainer.get_image_size())
+        cfg.patch_manager)(trainer.get_image_size(), mode="test")
 
     adv_bg_image_path = cfg.adv_bg_image_path
-    adv_background = transforms.functional.pil_to_tensor(
-        Image.open(adv_bg_image_path))
+    adv_background = background_manager.transform_patch(transforms.functional.pil_to_tensor(
+        Image.open(adv_bg_image_path)))
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)

@@ -29,16 +29,21 @@ class BaseBackgroundManager:
     """マスク画像をもとに背景画像合成を行う
     """
 
-    def __init__(self, image_size):
+    def __init__(self, image_size, mode):
         """
         Args:
           image_size: パッチを適用するデータセットの画像サイズのタプルまたはリスト(H,W)
+          mode: test or train
         """
         self.image_size = image_size
+        self.mode = mode
 
     def apply(self, patch, image_list, mask_list):
         """パッチ適用関数。複数毎に同時に適用できる"""
         return imgseg.composite_image(image_list, patch, mask_list)
+
+    def transform_patch(self, patch):
+        return patch
 
 
 class BackgroundManager(BaseBackgroundManager):
@@ -48,7 +53,10 @@ class BackgroundManager(BaseBackgroundManager):
 
     def generate_patch(self):
         patch = torch.zeros((3,)+tuple(self.image_size))
-        return patch
+        return patch.clone()
+
+    def transform_patch(self, patch):
+        return transforms.functional.resize(patch, self.image_size)
 
 
 class TilingBackgroundManager(BaseBackgroundManager):
@@ -69,9 +77,15 @@ class TilingBackgroundManager(BaseBackgroundManager):
         return patch
 
     def apply(self, patch, image_list, mask_list):
-        tiling_patch = patch.tile(self.tiling_number)
+        if self.mode == "train":
+            tiling_patch = self.transform_patch(patch)
+        else:
+            tiling_patch = patch.clone()
         resized_image_list = transforms.functional.resize(
             image_list, tiling_patch.shape[1:])
         resized_mask_list = transforms.functional.resize(
             mask_list, tiling_patch.shape[1:])
         return super().apply(resized_image_list, tiling_patch, resized_mask_list)
+
+    def transform_patch(self, patch):
+        return patch.tile(self.tiling_number)

@@ -20,6 +20,7 @@ trainer:
   _target_: ${model.trainer}
   dataset_factory: ${dataset}
   model_conf: ${model}
+
 adv_bg_image_path: ${path}
 
 # mode setting
