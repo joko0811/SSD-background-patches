@@ -18,9 +18,10 @@ from imageutil import imgseg, imgdraw
 
 from detection.detection_base import DetectionsBase
 from model.base_util import BackgroundBaseTrainer
+from patch_manager import BaseBackgroundManager
 
 
-def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, config: DictConfig,  tbx_writer=None):
+def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: BaseBackgroundManager, ground_truthes, config: DictConfig,  tbx_writer=None):
     """
     Args:
         model: S3FD
@@ -45,9 +46,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
     # s3fd_dataset_image_format = (3, 1237, 1649)
     # retina_dataset_image_format = (3, 840, 840)
 
-    image_height, image_width = trainer.get_image_size()
-    dataset_image_format = (3, image_height, image_width)
-    adv_background_image = torch.zeros(dataset_image_format, device=device)
+    adv_background_image = background_manager.generate_patch()
     optimizer = optim.Adam([adv_background_image])
 
     for epoch in tqdm(range(max_epoch)):
@@ -57,7 +56,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
         epoch_fpc_list = list()
         # epoch_tv_list = list()
 
-        for (image_list, mask_image_list), image_info in tqdm(image_loader, leave=False):
+        for (image_list, mask_list), image_info in tqdm(image_loader, leave=False):
 
             scale_list = torch.cat([image_info['width'], image_info['height'],
                                     image_info['width'], image_info['height']]).T.to(device=device, dtype=torch.float)
@@ -68,15 +67,15 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
 
                 image_list = image_list.to(
                     device=device, dtype=torch.float)
-                mask_image_list = mask_image_list.to(
+                mask_list = mask_list.to(
                     device=device)
 
             adv_background_image.requires_grad = True
-            s3fd_adv_image_list = imgseg.composite_image(
-                image_list, adv_background_image, mask_image_list)
+            adv_image_list = background_manager.apply(
+                adv_background_image, image_list, mask_list)
 
             # Detection from adversarial images
-            adv_output = model(s3fd_adv_image_list)
+            adv_output = model(adv_image_list)
             adv_detections_list = trainer.make_detections_list(
                 adv_output, config.model_thresh)
 
@@ -157,12 +156,12 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, ground_truthes, conf
                 if adv_detections_list[0] is not None:
                     tbx_anno_adv_image = transforms.functional.to_tensor(imgdraw.draw_boxes(
                         trainer.transformed2pil(
-                            s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0])), adv_detections_list[0].xyxy*scale_list[0]))
+                            adv_image_list[0], (image_info['height'][0], image_info['width'][0])), adv_detections_list[0].xyxy*scale_list[0]))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
                 else:
                     tbx_anno_adv_image = transforms.functional.to_tensor(trainer.transformed2pil(
-                        s3fd_adv_image_list[0], (image_info['height'][0], image_info['width'][0])))
+                        adv_image_list[0], (image_info['height'][0], image_info['width'][0])))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
     return adv_background_image.clone().cpu()
@@ -187,6 +186,8 @@ def main(cfg: DictConfig):
 
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
         mode_trainer)
+    background_manager: BaseBackgroundManager = hydra.utils.instantiate(
+        cfg.patch_manager)(trainer.get_image_size(), mode="test")
 
     # 全ての正しい検出の読み取り・生成
     gt_conf_list, gt_box_list = boxio.generate_integrated_xyxy_list(
@@ -195,7 +196,7 @@ def main(cfg: DictConfig):
         device), gt_box_list.to(device), is_xywh=False)
 
     adv_background_image = train_adversarial_image(
-        trainer, ground_truthes, cfg.train_adversarial_image, tbx_writer=tbx_writer)
+        trainer, background_manager, ground_truthes, cfg.train_adversarial_image, tbx_writer=tbx_writer)
 
     tbx_writer.close()
 
