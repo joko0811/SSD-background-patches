@@ -1,100 +1,90 @@
-
 import os
-import sys
 
 import torch
 from torchvision import transforms
 
 from tqdm import tqdm
-from tensorboardX import SummaryWriter
 
-from model import s3fd_util
-from dataset.coco import load_class_names
+from model.S3FD import s3fd
+from model.s3fd_util import S3fdResize
 from dataset.simple import DirectoryImageDataset
-from dataset.detection import DirectoryImageWithDetectionDataset
-from box import boxio
-from imageutil import imgdraw
 
 
 def generate_data(path):
 
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    def _load_model(path):
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
-    out_path = os.path.join(path, "detect/")
-    image_dir_path = os.path.join(path, "image")
+        # Select device for inference
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        model = s3fd.build_s3fd('test', 2)
+        model.load_state_dict(torch.load(path))
+        return model.to(device)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    BATCH_SIZE = 4
+
+    out_path = os.path.join(path, "detection/")
+    image_dir_path = os.path.join(path, "face/")
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
+    S3FD_TRANSFORMS = transforms.Compose([
+        S3fdResize(),
+        transforms.PILToTensor(),
+        # transforms.ConvertImageDtype(torch.float),
     ])
 
     image_set = DirectoryImageDataset(
-        image_dir_path, transform=transform)
-    image_loader = torch.utils.data.DataLoader(image_set)
+        image_dir_path, transform=S3FD_TRANSFORMS)
+    image_loader = torch.utils.data.DataLoader(
+        image_set, batch_size=BATCH_SIZE)
 
-    model = s3fd_util.load_model(
+    model = _load_model(
         "weights/s3fd.pth")
     model.eval()
 
     thresh = 0.6
     for (image, image_path) in tqdm(image_loader):
-        pil_image = transforms.functional.to_pil_image(image[0])
+        image = image.to(device=device, dtype=torch.float)
 
-        s3fd_image, scale = s3fd_util.image_encode(
-            pil_image)
+        output = model(image)
 
-        gpu_s3fd_image = s3fd_image.to(device=device)
+        for img_idx, data in enumerate(output):
+            extract_output = data[data[..., 0] >= thresh]
+            det_str = ""
+            for det in extract_output:
+                if det.nelement() == 0:
+                    continue
 
-        output = model(gpu_s3fd_image)
-        extract_output = output[output[..., 0] >= thresh]
-        detections = s3fd_util.detections_s3fd(extract_output, scale)
+                conf = det[0]
+                box = det[1:]
 
-        det_str = boxio.format_detections(detections)
+                det_str += (
+                    str(conf.item()) + " " +
+                    str(box[0].item()) + " " +
+                    str(box[1].item()) + " " +
+                    str(box[2].item()) + " " +
+                    str(box[3].item()) + "\n"
+                )
 
-        image_name = os.path.basename(image_path[0]).split(".")[0]
-        det_file_path = os.path.join(out_path, image_name+".txt")
+            # ファイルまでのパス、拡張子を除いたファイル名を取得
+            image_name = os.path.basename(image_path[img_idx]).split(".")[0]
+            det_file_path = os.path.join(out_path, image_name+".txt")
 
-        with open(det_file_path, "w") as f:
-            f.write(det_str)
-
-    return
-
-
-def tbx_monitor(path):
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-
-    box_path = os.path.join(path, "box/")
-    image_dir_path = os.path.join(path, "image")
-
-    tbx_writer = SummaryWriter("outputs/tbx/")
-
-    class_names = load_class_names("./datasets/coco2014/coco.names")
-
-    yolo_transforms = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((416, 416)),
-    ])
-
-    image_set = DirectoryImageWithDetectionDataset(
-        image_dir_path, box_path, transform=yolo_transforms)
-    image_loader = torch.utils.data.DataLoader(image_set)
-
-    for i, (image, image_path, label_list, xywh_list) in enumerate(tqdm(image_loader)):
-        detection = boxio.detections_base(
-            torch.tensor(label_list), torch.tensor(xywh_list))
-        anno_image = imgdraw.draw_annotations(
-            image[0], detection, class_names, in_confidences=False)
-        tbx_writer.add_image("annotation_image", anno_image, i)
-
-    return
+            with open(det_file_path, "w") as f:
+                f.write(det_str)
+    print("complete!")
 
 
 def main():
     # path = sys.argv[1]
-    path = "datasets/gait_test1"
-    generate_data(path)
+    path = "datasets/casia/train/"
+
+    with torch.no_grad():
+        generate_data(path)
     # tbx_monitor(path)
 
 

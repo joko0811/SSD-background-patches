@@ -3,9 +3,13 @@ defaults:
   - model: s3fd # 使用モデルの設定
   - dataset@monitor_dataset: casia_mini # 使用データセットの設定
   - dataset@evaluate_dataset: casia_train # 使用データセットの設定
+  - patch_manager: tiling_background
+
+# output file on this directory
 output_dir: ${hydra:runtime.output_dir}
 iou_threshold: 0.5
-n_b: 3 # クラスタリングしたグループ毎に割り当てられるパッチの枚数
+
+# 実行モード指定
 mode: "monitor"
 
 # _partial_ be dataset factory
@@ -16,27 +20,30 @@ evaluate_dataset:
   max_iter: 3000
   _partial_: true
 
-train_main: # 敵対的画像生成時の設定
-  mode: ${mode}
-  output_dir: ${output_dir}
+# 敵対的画像生成時の設定
+mode: ${mode}
+output_dir: ${output_dir}
 #  model: ${model}
-  monitor_mode:
-    _target_: ${model.trainer}
-    dataset_factory: ${monitor_dataset}
-    model_conf: ${model}
-  evaluate_mode:
-    _target_: ${model.trainer}
-    dataset_factory: ${evaluate_dataset}
-    model_conf: ${model}
+# 動作確認時。tensorboardで画像も記録する
+monitor_trainer:
+  _target_: ${model.trainer}
+  dataset_factory: ${monitor_dataset}
+  model_conf: ${model}
+# 学習時。画像を記録しない
+evaluate_trainer:
+  _target_: ${model.trainer}
+  dataset_factory: ${evaluate_dataset}
+  model_conf: ${model}
 
-  train_adversarial_image: # 敵対的画像生成時の設定
-    max_epoch: 300 # 一枚の画像ごとに摂動を加える最大回数
-    loss: ${train_main.loss}
-    model_thresh: 0.6
-  loss:
-    tpc_weight: 0.2
-    tps_weight: 1
-    fpc_weight: 1
-    tv_weight: 0.1
-    calc_z: # 損失計算に必要なパラメータ計算の設定
-      iou_threshold: ${iou_threshold} # 値が閾値以上であるか判定する
+# 敵対的画像生成時の設定
+train_adversarial_image:
+  max_epoch: 300 # 一枚の画像ごとに摂動を加える最大回数
+  loss: ${loss}
+  model_thresh: 0.6
+loss:
+  tpc_weight: 0.2
+  tps_weight: 1
+  fpc_weight: 1
+  tv_weight: 0.1
+  calc_z: # 損失計算に必要なパラメータ計算の設定
+    iou_threshold: ${iou_threshold} # 値が閾値以上であるか判定する

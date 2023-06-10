@@ -14,11 +14,12 @@ from tensorboardX import SummaryWriter
 from PIL import Image
 
 from model import s3fd_util
+
 from model.base_util import BackgroundBaseTrainer
+from patch_manager import BaseBackgroundManager
 
 from box import boxio
 from util import bgutil, evalutil
-from dataset import coco
 from imageutil import imgdraw, imgconv, imgseg
 from evaluation.detection import data_utility_quority, list_iou
 from sklearn.metrics import average_precision_score
@@ -65,62 +66,60 @@ def save_detection(adv_background_image, model, image_loader, config: DictConfig
             adv_bg_image_list, adv_bg_det_path_list, model, boxio.format_yolo, optional=image_hw)
 
 
-def tbx_monitor(adv_background_image, model, image_loader, config):
+def tbx_monitor(adv_background, background_manager: BaseBackgroundManager, trainer: BackgroundBaseTrainer, config: DictConfig):
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    image_loader = trainer.get_dataloader()
+    model = trainer.load_model()
     model.eval()
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    # gpu_adv_bg_image = adv_background_image.to(device)
-    gpu_adv_bg_image = s3fd_util.image_encode(
-        adv_background_image)[0].to(device)
+    adv_background = adv_background.to(device)
 
     # class_names = coco.load_class_names(config.class_names_path)
     tbx_writer = SummaryWriter(config.output_dir)
 
-    for batch_iter, (image_list, mask_image_list, _, _) in enumerate(tqdm(image_loader, leave=False)):
+    for batch_iter, ((image_list, mask_image_list), image_info) in enumerate(tqdm(image_loader)):
+
+        scale_list = torch.cat([image_info['width'], image_info['height'], image_info['width'],
+                               image_info['height']]).T.to(device=device, dtype=torch.float)
 
         # gpu_image_list = image_list.to(device)
         # adv_image_list = bgutil.background_applyer(gpu_image_list, gpu_adv_bg_image)
-        pil_image_list = imgconv.tensor2pil(image_list)
-        encoded_tuple = s3fd_util.image_list_encode(
-            pil_image_list)
-        s3fd_image_list = encoded_tuple[0].to(
-            device=device, dtype=torch.float)
-        scale_list = encoded_tuple[1].to(
-            device=device, dtype=torch.float)
 
-        pil_mask_image_list = imgconv.tensor2pil(mask_image_list)
-        s3fd_mask_image_list = s3fd_util.image_list_encode(
-            pil_mask_image_list, is_mask=True)[0].to(device=device, dtype=torch.float)
+        gpu_image_list = image_list.to(
+            device=device)
+        gpu_mask_image_list = mask_image_list.to(
+            device=device)
 
-        adv_image_list = imgseg.composite_image(
-            s3fd_image_list, gpu_adv_bg_image, s3fd_mask_image_list)
+        adv_image_list = background_manager.apply(
+            adv_background, gpu_image_list, gpu_mask_image_list).to(dtype=torch.float)
 
         adv_output = model(adv_image_list)
-        adv_detections_list = s3fd_util.make_detections_list(
+        adv_detections_list = trainer.make_detections_list(
             adv_output,  0.6)
 
         for i, adv_image in enumerate(adv_image_list):
+            image_decode = transforms.Compose([
+                transforms.Resize((image_info['height'], image_info['width'])),
+                transforms.ToPILImage(),
+            ])
 
-            tbx_writer.add_image("original_image",
-                                 transforms.functional.to_tensor(pil_image_list[i]), batch_iter)
-            tbx_writer.add_image("mask_image",
-                                 transforms.functional.to_tensor(pil_mask_image_list[i]), batch_iter)
             if adv_detections_list[i] is not None:
                 anno_adv_image = imgdraw.draw_boxes(
-                    s3fd_util.image_decode(adv_image, scale_list[i]), adv_detections_list[i].xyxy*scale_list[i])
+                    image_decode(adv_image), adv_detections_list[i].xyxy*scale_list[i])
                 tbx_writer.add_image("adversarial_image",
                                      transforms.functional.to_tensor(anno_adv_image), batch_iter)
 
     return
 
 
-def evaluate_background(adv_background_image, trainer: BackgroundBaseTrainer, config: DictConfig):
+def evaluate_background(adv_background, background_manager: BaseBackgroundManager, trainer: BackgroundBaseTrainer, config: DictConfig):
 
     iou_thresh = 0.5
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    adv_background_image = transforms.functional.resize(
-        transforms.functional.pil_to_tensor(adv_background_image), trainer.get_image_size())[0].to(device)
+    adv_background = adv_background.to(device)
 
     image_loader = trainer.get_dataloader()
     model = trainer.load_model()
@@ -135,16 +134,16 @@ def evaluate_background(adv_background_image, trainer: BackgroundBaseTrainer, co
     adv_total_fp = 0
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
+        scale_list = torch.cat([image_info['width'], image_info['height'], image_info['width'],
+                               image_info['height']]).T.to(device=device, dtype=torch.float)
 
         image_list = image_list.to(
             device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(
             device=device)
-        scale_list = torch.cat([image_info['width'], image_info['height'],
-                                image_info['width'], image_info['height']]).T.to(device=device, dtype=torch.float)
 
-        adv_image_list = imgseg.composite_image(
-            image_list, adv_background_image, mask_image_list)
+        adv_image_list = background_manager.apply(
+            adv_background, image_list, mask_image_list)
 
         gt_output = model(image_list)
         gt_detections_list = trainer.make_detections_list(
@@ -213,24 +212,21 @@ def evaluate_background(adv_background_image, trainer: BackgroundBaseTrainer, co
 @ hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
 def main(cfg: DictConfig):
 
-    config = cfg.main
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
-        config.trainer)
+        cfg.trainer)
+    background_manager: BaseBackgroundManager = hydra.utils.instantiate(
+        cfg.patch_manager)(trainer.get_image_size(), mode="test")
 
-    adv_bg_image_path = config.adv_bg_image_path
-    adv_bg_image = Image.open(adv_bg_image_path)
-
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-    ])
+    adv_bg_image_path = cfg.adv_bg_image_path
+    adv_background = background_manager.transform_patch(transforms.functional.pil_to_tensor(
+        Image.open(adv_bg_image_path)))
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        # tbx_monitor(adv_bg_image, model, image_loader, config.tbx_monitor)
-        evaluate_background(adv_bg_image, trainer,
-                            config.evaluate_background)
+        tbx_monitor(adv_background, background_manager,
+                    trainer, cfg.evaluate_background)
+        # evaluate_background(adv_background, background_manager,
+        #                     trainer, cfg.evaluate_background)
 
 
 if __name__ == "__main__":

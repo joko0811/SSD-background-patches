@@ -1,25 +1,36 @@
 defaults:
   - model: s3fd # 使用モデルの設定
   - dataset: casia_test # 使用データセットの設定
+  - patch_manager: tiling_background
 
+# command line arguments
 path: ""
+
+# output file on this directory
 output_dir: ${hydra:runtime.output_dir}
 
-main:
-  trainer:
-    _target_: ${model.trainer}
-    dataset_factory: ${dataset}
-    model_conf: ${model}
-  image_num: 40
-  adv_bg_image_path: ${path}
-  dataset: ${dataset}
-  save_detection:
-    adv_bg_image_path: ${main.adv_bg_image_path}
-    gt_det_save_dir: "ground_truth_detection/"
-    adv_bg_det_save_dir: "adversarial_background_detection/"
-  tbx_monitor:
-    class_names_path: ${dataset.class_names}
-    output_dir: ${hydra:runtime.output_dir}
-  evaluate_background:
-    model_thresh: 0.6
-    output_dir: ${output_dir}
+# overwrite defaults setting
+dataset:
+  max_iter: 3000
+  _partial_: True
+
+# ---
+# eval_background.py setting
+trainer:
+  _target_: ${model.trainer}
+  dataset_factory: ${dataset}
+  model_conf: ${model}
+
+adv_bg_image_path: ${path}
+
+# mode setting
+save_detection:
+  adv_bg_image_path: ${main.adv_bg_image_path}
+  gt_det_save_dir: "ground_truth_detection/"
+  adv_bg_det_save_dir: "adversarial_background_detection/"
+tbx_monitor:
+  class_names_path: ${dataset.class_names}
+  output_dir: ${hydra:runtime.output_dir}
+evaluate_background:
+  model_thresh: 0.6
+  output_dir: ${output_dir}
