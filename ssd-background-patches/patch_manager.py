@@ -70,10 +70,10 @@ class TilingBackgroundManager(BaseBackgroundManager):
 
     TILE_SIZE = (100, 200)  # (H,W)
 
-    def __init__(self, image_size):
+    def __init__(self, image_size, mode):
         self.tiling_number = (
             int(image_size[0]/self.TILE_SIZE[0]), int(image_size[1]/self.TILE_SIZE[1]))
-        super().__init__(image_size)
+        super().__init__(image_size, mode)
 
     def generate_patch(self):
         patch = torch.zeros((3,) + self.TILE_SIZE)
