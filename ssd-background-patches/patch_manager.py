@@ -88,7 +88,7 @@ class TilingBackgroundManager(BaseBackgroundManager):
             image_list, tiling_patch.shape[1:])
         resized_mask_list = transforms.functional.resize(
             mask_list, tiling_patch.shape[1:])
-        return super().apply(resized_image_list, tiling_patch, resized_mask_list)
+        return super().apply(tiling_patch, resized_image_list, resized_mask_list)
 
     def transform_patch(self, patch):
         return patch.tile(self.tiling_number)
