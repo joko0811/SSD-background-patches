@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from box import boxio
-from loss import proposed
+from loss import proposed, tile_weighted
 from imageutil import imgseg, imgdraw
 
 from detection.detection_base import DetectionsBase
@@ -46,13 +46,13 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
     # s3fd_dataset_image_format = (3, 1237, 1649)
     # retina_dataset_image_format = (3, 840, 840)
 
-    adv_background_image = background_manager.generate_patch()
-    optimizer = optim.Adam([adv_background_image])
+    adv_patch = background_manager.generate_patch().to(device)
+    optimizer = optim.Adam([adv_patch])
 
     for epoch in tqdm(range(max_epoch)):
         epoch_loss_list = list()
         epoch_tpc_list = list()
-        epoch_tps_list = list()
+        # epoch_tps_list = list()
         epoch_fpc_list = list()
         # epoch_tv_list = list()
 
@@ -70,7 +70,9 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
                 mask_list = mask_list.to(
                     device=device)
 
-            adv_background_image.requires_grad = True
+            adv_patch.requires_grad = True
+            adv_background_image = background_manager.transform_patch(
+                adv_patch)
             adv_image_list = background_manager.apply(
                 adv_background_image, image_list, mask_list)
 
@@ -81,8 +83,8 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
 
             tpc_loss_list = torch.zeros(
                 image_loader.batch_size, device=device)
-            tps_loss_list = torch.zeros(
-                image_loader.batch_size, device=device)
+            # tps_loss_list = torch.zeros(
+            #    image_loader.batch_size, device=device)
             fpc_loss_list = torch.zeros(
                 image_loader.batch_size, device=device)
             # tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
@@ -90,25 +92,28 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
             for i in range(image_loader.batch_size):
                 if adv_detections_list[i] is None:
                     tpc_loss_list[i] += 0
-                    tps_loss_list[i] += 0
+                    # tps_loss_list[i] += 0
                     fpc_loss_list[i] += 0
                     # tv_loss_list[i] += 0
                     continue
 
-                tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
-                    adv_detections_list[i], ground_truthes, adv_background_image.unsqueeze(0), config.loss, scale=scale_list[0])
+                # tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
+                #     adv_detections_list[i], ground_truthes, adv_background_image.unsqueeze(0), config.loss, scale=scale_list[0])
+                tpc_loss, fpc_loss = tile_weighted.total_loss(
+                    adv_detections_list[i], ground_truthes, config.loss)
 
                 tpc_loss_list[i] += tpc_loss
-                tps_loss_list[i] += tps_loss
+                # tps_loss_list[i] += tps_loss
                 fpc_loss_list[i] += fpc_loss
                 # tv_loss_list[i] += tv_loss
 
             mean_tpc = torch.mean(tpc_loss_list)
-            mean_tps = torch.mean(tps_loss_list)
+            # mean_tps = torch.mean(tps_loss_list)
             mean_fpc = torch.mean(fpc_loss_list)
             # mean_tv = torch.mean(tv_loss_list)
 
-            loss = mean_tpc+mean_tps+mean_fpc  # +mean_tv
+            # loss = mean_tpc+mean_tps+mean_fpc  # +mean_tv
+            loss = mean_tpc+mean_fpc
 
             if loss == 0:
                 continue
@@ -125,8 +130,8 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
                 ).cpu().resolve_conj().resolve_neg().numpy())
                 epoch_tpc_list.append(mean_tpc.detach(
                 ).cpu().resolve_conj().resolve_neg().numpy())
-                epoch_tps_list.append(mean_tps.detach(
-                ).cpu().resolve_conj().resolve_neg().numpy())
+                # epoch_tps_list.append(mean_tps.detach(
+                # ).cpu().resolve_conj().resolve_neg().numpy())
                 epoch_fpc_list.append(mean_fpc.detach(
                 ).cpu().resolve_conj().resolve_neg().numpy())
                 # epoch_tv_list.append(mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy())
@@ -135,7 +140,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
             # tensorboard
             epoch_mean_loss = np.array(epoch_loss_list).mean()
             epoch_mean_tpc = np.array(epoch_tpc_list).mean()
-            epoch_mean_tps = np.array(epoch_tps_list).mean()
+            # epoch_mean_tps = np.array(epoch_tps_list).mean()
             epoch_mean_fpc = np.array(epoch_fpc_list).mean()
             # epoch_mean_tv = np.array(epoch_tv_list).mean()
 
@@ -144,8 +149,8 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
                     "total_loss", epoch_mean_loss, epoch)
                 tbx_writer.add_scalar(
                     "tpc_loss", epoch_mean_tpc, epoch)
-                tbx_writer.add_scalar(
-                    "tps_loss", epoch_mean_tps, epoch)
+                # tbx_writer.add_scalar(
+                #     "tps_loss", epoch_mean_tps, epoch)
                 tbx_writer.add_scalar(
                     "fpc_loss", epoch_mean_fpc, epoch)
                 # tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
@@ -153,7 +158,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
                 tbx_writer.add_image(
                     "adversarial_background_image", transforms.functional.to_tensor(trainer.transformed2pil(adv_background_image, trainer.get_image_size())), epoch)
 
-                if adv_detections_list[0] is not None:
+                if (epoch % 10 == 0) and (adv_detections_list[0] is not None):
                     tbx_anno_adv_image = transforms.functional.to_tensor(imgdraw.draw_boxes(
                         trainer.transformed2pil(
                             adv_image_list[0], (image_info['height'][0], image_info['width'][0])), adv_detections_list[0].xyxy*scale_list[0]))
@@ -164,7 +169,7 @@ def train_adversarial_image(trainer: BackgroundBaseTrainer, background_manager: 
                         adv_image_list[0], (image_info['height'][0], image_info['width'][0])))
                     tbx_writer.add_image(
                         "adversarial_image", tbx_anno_adv_image, epoch)
-    return adv_background_image.clone().cpu()
+    return adv_patch.clone().cpu()
 
 
 @ hydra.main(version_base=None, config_path="../conf/", config_name="train_background")
