@@ -22,7 +22,10 @@ def is_overlap_list(boxA, box_listB):
     bx2 = box_listB[..., 2]
     by2 = box_listB[..., 3]
 
-    return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2))).any()
+    return torch.logical_and(
+        (torch.max(ax1, bx1) <= torch.min(ax2, bx2)),
+        (torch.max(ay1, by1) <= torch.min(ay2, by2)),
+    ).any()
 
 
 def are_overlap_list(box_listA, box_listB):
@@ -39,7 +42,10 @@ def are_overlap_list(box_listA, box_listB):
     bx2 = compare_B[..., 2]
     by2 = compare_B[..., 3]
 
-    return torch.logical_and((torch.max(ax1, bx1) <= torch.min(ax2, bx2)), (torch.max(ay1, by1) <= torch.min(ay2, by2))).any(dim=1)
+    return torch.logical_and(
+        (torch.max(ax1, bx1) <= torch.min(ax2, bx2)),
+        (torch.max(ay1, by1) <= torch.min(ay2, by2)),
+    ).any(dim=1)
 
 
 def xywh2xyxy(xywh):

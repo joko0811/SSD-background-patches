@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+
 # Delete source images that do not match the mask image
 # I don't use it because it's a broken algorithm.
 

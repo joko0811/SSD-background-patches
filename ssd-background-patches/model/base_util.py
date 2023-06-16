@@ -3,7 +3,6 @@ from torchvision.transforms import Compose
 
 
 class BaseTrainer(metaclass=ABCMeta):
-
     @abstractclassmethod
     def get_dataloader(self):
         pass

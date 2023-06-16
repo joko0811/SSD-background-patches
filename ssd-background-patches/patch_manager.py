@@ -26,8 +26,7 @@ class BasePatchManager:
 
 
 class BaseBackgroundManager:
-    """マスク画像をもとに背景画像合成を行う
-    """
+    """マスク画像をもとに背景画像合成を行う"""
 
     def __init__(self, image_size, mode):
         """
@@ -55,7 +54,7 @@ class BackgroundManager(BaseBackgroundManager):
     """
 
     def generate_patch(self):
-        patch = torch.zeros((3,)+tuple(self.image_size))
+        patch = torch.zeros((3,) + tuple(self.image_size))
         return patch.clone()
 
     def transform_patch(self, patch):
@@ -72,7 +71,9 @@ class TilingBackgroundManager(BaseBackgroundManager):
 
     def __init__(self, image_size, mode):
         self.tiling_number = (
-            int(image_size[0]/self.TILE_SIZE[0]), int(image_size[1]/self.TILE_SIZE[1]))
+            int(image_size[0] / self.TILE_SIZE[0]),
+            int(image_size[1] / self.TILE_SIZE[1]),
+        )
         super().__init__(image_size, mode)
 
     def generate_patch(self):
@@ -85,9 +86,11 @@ class TilingBackgroundManager(BaseBackgroundManager):
         else:
             tiling_patch = patch.clone()
         resized_image_list = transforms.functional.resize(
-            image_list, tiling_patch.shape[1:])
+            image_list, tiling_patch.shape[1:]
+        )
         resized_mask_list = transforms.functional.resize(
-            mask_list, tiling_patch.shape[1:])
+            mask_list, tiling_patch.shape[1:]
+        )
         return super().apply(tiling_patch, resized_image_list, resized_mask_list)
 
     def transform_patch(self, patch):
