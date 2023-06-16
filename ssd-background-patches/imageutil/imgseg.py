@@ -18,18 +18,20 @@ def gen_mask_image(image: torch.Tensor):
         pil_image = imgconv.tensor2pil(image)
         return imgconv.pil2tensor(rembg.remove(pil_image, only_mask=True), device)
 
-    mask_image_list = torch.zeros(
-        image.shape, device=device, dtype=torch.float)
+    mask_image_list = torch.zeros(image.shape, device=device, dtype=torch.float)
     for image_iter, img in enumerate(image):
         pil_image = imgconv.tensor2pil(img)
         mask_image = rembg.remove(pil_image, only_mask=True)
-        mask_image_list[image_iter] = imgconv.pil2tensor(
-            mask_image, device)
+        mask_image_list[image_iter] = imgconv.pil2tensor(mask_image, device)
 
     return mask_image_list
 
 
-def composite_image(foreground_image: torch.Tensor, background_image: torch.Tensor, mask_image: torch.Tensor):
+def composite_image(
+    foreground_image: torch.Tensor,
+    background_image: torch.Tensor,
+    mask_image: torch.Tensor,
+):
     """Compose an image based on a mask image
 
     Args:
@@ -42,7 +44,8 @@ def composite_image(foreground_image: torch.Tensor, background_image: torch.Tens
     # Match the shape of background_image
     if background_image.dim() == 3:
         composite_background_image = background_image.repeat(
-            (foreground_image.shape[0], 1, 1, 1))
+            (foreground_image.shape[0], 1, 1, 1)
+        )
     else:
         composite_background_image = background_image.clone()
 
@@ -52,5 +55,6 @@ def composite_image(foreground_image: torch.Tensor, background_image: torch.Tens
         composite_mask_image = mask_image.clone()
 
     composite_image = torch.where(
-        composite_mask_image == 1, foreground_image, composite_background_image)
+        composite_mask_image == 1, foreground_image, composite_background_image
+    )
     return composite_image

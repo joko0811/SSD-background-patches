@@ -24,7 +24,8 @@ def image_clamp(image, min, max):
     clamped_imageB = torch.clamp(imageB, min=min[2], max=max[2]).unsqueeze(0)
 
     clamped_image = torch.cat(
-        (clamped_imageR, clamped_imageG, clamped_imageB), dim=0).contiguous()
+        (clamped_imageR, clamped_imageG, clamped_imageB), dim=0
+    ).contiguous()
 
     return clamped_image
 
@@ -41,8 +42,9 @@ def video2image(video_path, sample_interbal=1):
     frame_height = cap.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
 
     # 画像枚数分のリスト
-    image_list = np.zeros((int(frame_count/sample_interbal),
-                          frame_height, frame_width, 3))
+    image_list = np.zeros(
+        (int(frame_count / sample_interbal), frame_height, frame_width, 3)
+    )
 
     for i in range(frame_count):
         if i % sample_interbal == 0:

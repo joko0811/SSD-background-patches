@@ -14,15 +14,13 @@ mode: "monitor"
 
 # _partial_ be dataset factory
 monitor_dataset:
-  max_iter: 30
+  max_iter: 300
   _partial_: true
 evaluate_dataset:
   max_iter: 3000
   _partial_: true
 
 # 敵対的画像生成時の設定
-mode: ${mode}
-output_dir: ${output_dir}
 #  model: ${model}
 # 動作確認時。tensorboardで画像も記録する
 monitor_trainer:

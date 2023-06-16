@@ -3,7 +3,12 @@ import torch
 
 def image_crop_by_box(image, box):
     # box=xyxy
-    return image[:, :, int(box[1].item()):int(box[3].item())+1, int(box[0].item()):int(box[2].item())+1]
+    return image[
+        :,
+        :,
+        int(box[1].item()) : int(box[3].item()) + 1,
+        int(box[0].item()) : int(box[2].item()) + 1,
+    ]
 
 
 def box2mask(image, boxes):
@@ -18,20 +23,30 @@ def box2mask(image, boxes):
     for box in boxes:
         x1, y1, x2, y2 = box
 
-        sc_idx_y = (torch.arange(y2-y1, dtype=torch.int64, device=image.device) +
-                    y1.to(torch.int64)).unsqueeze(1).tile(image_w)
+        sc_idx_y = (
+            (
+                torch.arange(y2 - y1, dtype=torch.int64, device=image.device)
+                + y1.to(torch.int64)
+            )
+            .unsqueeze(1)
+            .tile(image_w)
+        )
         sc_src_y = torch.ones(sc_idx_y.shape, device=sc_idx_y.device)
         mask_y = torch.zeros(mask_size, device=image.device).scatter_(
-            0, sc_idx_y, sc_src_y)
+            0, sc_idx_y, sc_src_y
+        )
 
-        sc_idx_x = (torch.arange(x2-x1, dtype=torch.int64, device=image.device) +
-                    x1.to(torch.int64)).tile(image_h, 1)
+        sc_idx_x = (
+            torch.arange(x2 - x1, dtype=torch.int64, device=image.device)
+            + x1.to(torch.int64)
+        ).tile(image_h, 1)
         sc_src_x = torch.ones(sc_idx_x.shape, device=sc_idx_x.device)
         mask_x = torch.zeros(mask_size, device=image.device).scatter_(
-            1, sc_idx_x, sc_src_x)
+            1, sc_idx_x, sc_src_x
+        )
 
         # mask_y,mask_x共通して1である箇所は0、それ以外は1のbox_mask
-        box_mask = torch.logical_not(mask_y*mask_x).int()
+        box_mask = torch.logical_not(mask_y * mask_x).int()
 
         mask *= box_mask
 
@@ -41,8 +56,8 @@ def box2mask(image, boxes):
 
 def box_expand(boxes, offset):
     # box=xyxy
-    x1y1 = boxes[..., :2]-offset
-    x2y2 = boxes[..., 2:4]+offset
+    x1y1 = boxes[..., :2] - offset
+    x2y2 = boxes[..., 2:4] + offset
 
     dim = 1
     if boxes.dim() == 1:

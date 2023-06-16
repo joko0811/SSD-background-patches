@@ -12,8 +12,8 @@ class DirectoryImageWithMaskDataset(Dataset):
 
         if max_iter is not None:
             self.max_iter = max_iter
-            self.face_files = self.face_files[:self.max_iter]
-            self.mask_files = self.mask_files[:self.max_iter]
+            self.face_files = self.face_files[: self.max_iter]
+            self.mask_files = self.mask_files[: self.max_iter]
 
         self.transform = transform
         # TODO: Check if the names of image and mask match

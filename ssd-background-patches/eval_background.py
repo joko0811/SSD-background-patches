@@ -52,21 +52,37 @@ def save_detection(adv_background_image, model, image_loader, config: DictConfig
         image_hw = image_list.shape[-2:]
 
         gpu_image_list = image_list.to(device)
-        adv_bg_image_list = bgutil.background_applyer(
-            gpu_image_list, gpu_adv_bg_image)
+        adv_bg_image_list = bgutil.background_applyer(gpu_image_list, gpu_adv_bg_image)
 
         gt_det_path_list = evalutil.gen_detection_path(
-            image_path_list, os.path.join(save_path, gt_det_save_dir))
+            image_path_list, os.path.join(save_path, gt_det_save_dir)
+        )
         evalutil.save_detection_text(
-            gpu_image_list, gt_det_path_list, model, boxio.format_yolo, optional=image_hw)
+            gpu_image_list,
+            gt_det_path_list,
+            model,
+            boxio.format_yolo,
+            optional=image_hw,
+        )
 
         adv_bg_det_path_list = evalutil.gen_detection_path(
-            image_path_list, os.path.join(save_path, adv_bg_det_save_dir))
+            image_path_list, os.path.join(save_path, adv_bg_det_save_dir)
+        )
         evalutil.save_detection_text(
-            adv_bg_image_list, adv_bg_det_path_list, model, boxio.format_yolo, optional=image_hw)
+            adv_bg_image_list,
+            adv_bg_det_path_list,
+            model,
+            boxio.format_yolo,
+            optional=image_hw,
+        )
 
 
-def tbx_monitor(adv_background, background_manager: BaseBackgroundManager, trainer: BackgroundBaseTrainer, config: DictConfig):
+def tbx_monitor(
+    adv_background,
+    background_manager: BaseBackgroundManager,
+    trainer: BackgroundBaseTrainer,
+    config: DictConfig,
+):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -79,42 +95,59 @@ def tbx_monitor(adv_background, background_manager: BaseBackgroundManager, train
     # class_names = coco.load_class_names(config.class_names_path)
     tbx_writer = SummaryWriter(config.output_dir)
 
-    for batch_iter, ((image_list, mask_image_list), image_info) in enumerate(tqdm(image_loader)):
+    for batch_iter, ((image_list, mask_image_list), image_info) in enumerate(
+        tqdm(image_loader)
+    ):
 
-        scale_list = torch.cat([image_info['width'], image_info['height'], image_info['width'],
-                               image_info['height']]).T.to(device=device, dtype=torch.float)
+        scale_list = torch.cat(
+            [
+                image_info["width"],
+                image_info["height"],
+                image_info["width"],
+                image_info["height"],
+            ]
+        ).T.to(device=device, dtype=torch.float)
 
         # gpu_image_list = image_list.to(device)
         # adv_image_list = bgutil.background_applyer(gpu_image_list, gpu_adv_bg_image)
 
-        gpu_image_list = image_list.to(
-            device=device)
-        gpu_mask_image_list = mask_image_list.to(
-            device=device)
+        gpu_image_list = image_list.to(device=device)
+        gpu_mask_image_list = mask_image_list.to(device=device)
 
         adv_image_list = background_manager.apply(
-            adv_background, gpu_image_list, gpu_mask_image_list).to(dtype=torch.float)
+            adv_background, gpu_image_list, gpu_mask_image_list
+        ).to(dtype=torch.float)
 
         adv_output = model(adv_image_list)
-        adv_detections_list = trainer.make_detections_list(
-            adv_output,  0.6)
+        adv_detections_list = trainer.make_detections_list(adv_output, 0.6)
 
         for i, adv_image in enumerate(adv_image_list):
-            image_decode = transforms.Compose([
-                transforms.Resize((image_info['height'], image_info['width'])),
-                transforms.ToPILImage(),
-            ])
+            image_decode = transforms.Compose(
+                [
+                    transforms.Resize((image_info["height"], image_info["width"])),
+                    transforms.ToPILImage(),
+                ]
+            )
 
             if adv_detections_list[i] is not None:
                 anno_adv_image = imgdraw.draw_boxes(
-                    image_decode(adv_image), adv_detections_list[i].xyxy*scale_list[i])
-                tbx_writer.add_image("adversarial_image",
-                                     transforms.functional.to_tensor(anno_adv_image), batch_iter)
+                    image_decode(adv_image), adv_detections_list[i].xyxy * scale_list[i]
+                )
+                tbx_writer.add_image(
+                    "adversarial_image",
+                    transforms.functional.to_tensor(anno_adv_image),
+                    batch_iter,
+                )
 
     return
 
 
-def evaluate_background(adv_background, background_manager: BaseBackgroundManager, trainer: BackgroundBaseTrainer, config: DictConfig):
+def evaluate_background(
+    adv_background,
+    background_manager: BaseBackgroundManager,
+    trainer: BackgroundBaseTrainer,
+    config: DictConfig,
+):
 
     iou_thresh = 0.5
 
@@ -134,24 +167,31 @@ def evaluate_background(adv_background, background_manager: BaseBackgroundManage
     adv_total_fp = 0
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
-        scale_list = torch.cat([image_info['width'], image_info['height'], image_info['width'],
-                               image_info['height']]).T.to(device=device, dtype=torch.float)
+        scale_list = torch.cat(
+            [
+                image_info["width"],
+                image_info["height"],
+                image_info["width"],
+                image_info["height"],
+            ]
+        ).T.to(device=device, dtype=torch.float)
 
-        image_list = image_list.to(
-            device=device, dtype=torch.float)
-        mask_image_list = mask_image_list.to(
-            device=device)
+        image_list = image_list.to(device=device, dtype=torch.float)
+        mask_image_list = mask_image_list.to(device=device)
 
         adv_image_list = background_manager.apply(
-            adv_background, image_list, mask_image_list)
+            adv_background, image_list, mask_image_list
+        )
 
         gt_output = model(image_list)
         gt_detections_list = trainer.make_detections_list(
-            gt_output, config.model_thresh)
+            gt_output, config.model_thresh
+        )
 
         adv_output = model(adv_image_list)
         adv_detections_list = trainer.make_detections_list(
-            adv_output, config.model_thresh)
+            adv_output, config.model_thresh
+        )
 
         for gt_det, adv_det in zip(gt_detections_list, adv_detections_list):
             # 画像毎
@@ -160,9 +200,12 @@ def evaluate_background(adv_background, background_manager: BaseBackgroundManage
 
             elif (gt_det is None) and (adv_det is not None):
                 adv_tp_binary_array = np.append(
-                    adv_tp_binary_array, np.zeros(len(adv_det)))
-                adv_conf_array = np.append(adv_conf_array, adv_det.conf.detach(
-                ).cpu().resolve_conj().resolve_neg().numpy())
+                    adv_tp_binary_array, np.zeros(len(adv_det))
+                )
+                adv_conf_array = np.append(
+                    adv_conf_array,
+                    adv_det.conf.detach().cpu().resolve_conj().resolve_neg().numpy(),
+                )
                 adv_total_fp += len(adv_det)
                 continue
 
@@ -173,18 +216,25 @@ def evaluate_background(adv_background, background_manager: BaseBackgroundManage
             elif (gt_det is not None) and (adv_det is not None):
                 gt_total_det += len(gt_det)
 
-                adv_tp_binary = (list_iou(adv_det.xyxy, gt_det.xyxy)
-                                 >= iou_thresh).any(dim=1).long()
+                adv_tp_binary = (
+                    (list_iou(adv_det.xyxy, gt_det.xyxy) >= iou_thresh)
+                    .any(dim=1)
+                    .long()
+                )
 
                 adv_total_tp += adv_tp_binary.nonzero().shape[0]
-                adv_total_fp += adv_tp_binary.shape[0] - \
-                    adv_tp_binary.nonzero().shape[0]
+                adv_total_fp += (
+                    adv_tp_binary.shape[0] - adv_tp_binary.nonzero().shape[0]
+                )
 
                 adv_tp_binary_array = np.append(
-                    adv_tp_binary_array, adv_tp_binary.detach(
-                    ).cpu().resolve_conj().resolve_neg().numpy())
-                adv_conf_array = np.append(adv_conf_array, adv_det.conf.detach(
-                ).cpu().resolve_conj().resolve_neg().numpy())
+                    adv_tp_binary_array,
+                    adv_tp_binary.detach().cpu().resolve_conj().resolve_neg().numpy(),
+                )
+                adv_conf_array = np.append(
+                    adv_conf_array,
+                    adv_det.conf.detach().cpu().resolve_conj().resolve_neg().numpy(),
+                )
 
                 continue
 
@@ -201,30 +251,32 @@ def evaluate_background(adv_background, background_manager: BaseBackgroundManage
     duq_score = data_utility_quority(gt_total_det, adv_total_tp, adv_total_fp)
     ap_score = average_precision_score(adv_tp_binary_array, adv_conf_array)
 
-    print("GT_FACES: "+str(gt_total_det))
-    print("TP: "+str(adv_total_tp))
-    print("FP: "+str(adv_total_fp))
+    print("GT_FACES: " + str(gt_total_det))
+    print("TP: " + str(adv_total_tp))
+    print("FP: " + str(adv_total_fp))
 
-    print("DUQ: "+str(duq_score))
-    print("AP: "+str(ap_score))
+    print("DUQ: " + str(duq_score))
+    print("AP: " + str(ap_score))
 
 
-@ hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
+@hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
 def main(cfg: DictConfig):
 
-    trainer: BackgroundBaseTrainer = hydra.utils.instantiate(
-        cfg.trainer)
+    trainer: BackgroundBaseTrainer = hydra.utils.instantiate(cfg.trainer)
     background_manager: BaseBackgroundManager = hydra.utils.instantiate(
-        cfg.patch_manager)(trainer.get_image_size(), mode="test")
+        cfg.patch_manager
+    )(trainer.get_image_size(), mode="test")
 
     adv_bg_image_path = cfg.adv_bg_image_path
-    adv_background = background_manager.transform_patch(transforms.functional.pil_to_tensor(
-        Image.open(adv_bg_image_path)))
+    adv_background = background_manager.transform_patch(
+        transforms.functional.pil_to_tensor(Image.open(adv_bg_image_path))
+    )
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        tbx_monitor(adv_background, background_manager,
-                    trainer, cfg.evaluate_background)
+        tbx_monitor(
+            adv_background, background_manager, trainer, cfg.evaluate_background
+        )
         # evaluate_background(adv_background, background_manager,
         #                     trainer, cfg.evaluate_background)
 

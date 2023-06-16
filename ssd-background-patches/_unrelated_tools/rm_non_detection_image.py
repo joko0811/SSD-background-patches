@@ -17,34 +17,31 @@ def main():
     weight_path = "weights/s3fd.pth"
     model = s3fd_util.load_model(weight_path)
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
 
     model.eval()
 
     image_set_path = "datasets/casiagait_b_video90/test/"
-    image_set = DirectoryImageDataset(
-        image_set_path, transform=transform)
+    image_set = DirectoryImageDataset(image_set_path, transform=transform)
 
     image_loader = torch.utils.data.DataLoader(image_set)
 
     for (image_list, image_path) in tqdm(image_loader):
 
         pil_image_list = imgconv.tensor2pil(image_list)
-        encoded_tuple = s3fd_util.image_list_encode(
-            pil_image_list)
+        encoded_tuple = s3fd_util.image_list_encode(pil_image_list)
 
-        s3fd_image_list = encoded_tuple[0].to(
-            device=device, dtype=torch.float)
-        scale_list = encoded_tuple[1].to(
-            device=device, dtype=torch.float)
+        s3fd_image_list = encoded_tuple[0].to(device=device, dtype=torch.float)
+        scale_list = encoded_tuple[1].to(device=device, dtype=torch.float)
 
         with torch.no_grad():
             output = model(s3fd_image_list)
 
-        detections_list = s3fd_util.make_detections_list(
-            output,  0.6)
+        detections_list = s3fd_util.make_detections_list(output, 0.6)
 
         for i, detections in enumerate(detections_list):
             if (detections is None) or (len(detections) == 0):
