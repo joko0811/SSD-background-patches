@@ -15,15 +15,16 @@ from omegaconf import DictConfig
 
 class YoloTrainer(BaseTrainer):
 
-    YOLO_TRANSFORMS = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((416, 416)),
-    ])
+    YOLO_TRANSFORMS = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Resize((416, 416)),
+        ]
+    )
 
     def __init__(self, model_conf: DictConfig, dataset_conf: DictConfig):
         self.model_conf = model_conf
-        dataset = hydra.utils.instantiate(
-            dataset_conf, transforms=self.YOLO_TRANSFORMS)
+        dataset = hydra.utils.instantiate(dataset_conf, transforms=self.YOLO_TRANSFORMS)
         self.dataloader = torch.utils.data.DataLoader(dataset)
 
     def get_transform(self):
@@ -33,14 +34,20 @@ class YoloTrainer(BaseTrainer):
         return self.dataloader
 
     def load_model(self):
-        return yolo.load_model(model_path=self.model_conf.model_path, weights_path=self.model_conf.weights_path)
+        return yolo.load_model(
+            model_path=self.model_conf.model_path,
+            weights_path=self.model_conf.weights_path,
+        )
 
     def make_detections_list(self, data_list):
         detections_list = list()
         for data in data_list:
             if data.nelement() != 0:
                 detections_list.append(
-                    ObjectDetectionBase(data[:, 8], data[:, 4:8], data[:, 10:], is_xywh=False))
+                    ObjectDetectionBase(
+                        data[:, 8], data[:, 4:8], data[:, 10:], is_xywh=False
+                    )
+                )
                 # detection_class(data, is_nms))
             else:
                 detections_list.append(None)
@@ -67,9 +74,9 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
     t = time.time()
 
     if torch.cuda.is_available():
-        output = [torch.zeros((0, 10+nc), device="cuda")] * prediction.shape[0]
+        output = [torch.zeros((0, 10 + nc), device="cuda")] * prediction.shape[0]
     else:
-        output = [torch.zeros((0, 10+nc), device="cpu")] * prediction.shape[0]
+        output = [torch.zeros((0, 10 + nc), device="cpu")] * prediction.shape[0]
 
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
@@ -92,16 +99,29 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
         if multi_label:
             i, j = (confidences > conf_thres).nonzero(as_tuple=False).T
             reshaped_x = torch.cat(
-                (above_threshold_x[i, :4], box[i], confidences[i, j, None], j[:, None].float(), confidences[i]), 1)
+                (
+                    above_threshold_x[i, :4],
+                    box[i],
+                    confidences[i, j, None],
+                    j[:, None].float(),
+                    confidences[i],
+                ),
+                1,
+            )
         else:  # best class only
             conf, j = confidences.max(1, keepdim=True)
             reshaped_x = torch.cat((x[:, :4], box, conf, j.float(), confidences), 1)[
-                conf.view(-1) > conf_thres]
+                conf.view(-1) > conf_thres
+            ]
 
         # Filter by class
         if classes is not None:
-            filtered_x = reshaped_x[(reshaped_x[:, 9:10] == torch.tensor(
-                classes, device=reshaped_x.device)).any(1)]
+            filtered_x = reshaped_x[
+                (
+                    reshaped_x[:, 9:10]
+                    == torch.tensor(classes, device=reshaped_x.device)
+                ).any(1)
+            ]
         else:
             filtered_x = reshaped_x
 
@@ -111,8 +131,7 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
             continue
         elif n > max_nms:  # excess boxes
             # sort by confidence
-            sorted_x = filtered_x[filtered_x[:, 8].argsort(descending=True)[
-                :max_nms]]
+            sorted_x = filtered_x[filtered_x[:, 8].argsort(descending=True)[:max_nms]]
         else:
             sorted_x = filtered_x
 
@@ -129,8 +148,7 @@ def nms(prediction, conf_thres=0.25, iou_thres=0.45, classes=None):
         output[xi] = sorted_x[below_upper_limit_nms_idx]
 
         if (time.time() - t) > time_limit:
-            print(
-                f'WARNING: NMS time limit {time_limit}s eclass_extract_xceeded')
+            print(f"WARNING: NMS time limit {time_limit}s eclass_extract_xceeded")
             break  # time limit eclass_extract_xceeded
 
     return output

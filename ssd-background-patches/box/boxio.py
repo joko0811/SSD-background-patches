@@ -32,10 +32,14 @@ def format_boxes(boxes, **kargs):
         w = boxes[box_idx, 0]
         h = boxes[box_idx, 0]
         box_str += (
-            str(x.item()) + " " +
-            str(y.item()) + " " +
-            str(w.item()) + " " +
-            str(h.item()) + "\n"
+            str(x.item())
+            + " "
+            + str(y.item())
+            + " "
+            + str(w.item())
+            + " "
+            + str(h.item())
+            + "\n"
         )
 
     return box_str
@@ -49,11 +53,16 @@ def format_detections(detections: DetectionsBase):
         box = detections.xyxy[det_idx]
 
         det_str += (
-            str(conf.item()) + " " +
-            str(box[0].item()) + " " +
-            str(box[1].item()) + " " +
-            str(box[2].item()) + " " +
-            str(box[3].item()) + "\n"
+            str(conf.item())
+            + " "
+            + str(box[0].item())
+            + " "
+            + str(box[1].item())
+            + " "
+            + str(box[2].item())
+            + " "
+            + str(box[3].item())
+            + "\n"
         )
 
     return det_str
@@ -90,17 +99,22 @@ def format_yolo(detections: ObjectDetectionBase, image_hw):
     for det_idx in range(len(detections)):
         label_idx = detections.class_labels[det_idx]
         box = detections.xywh[det_idx]
-        yolo_x = box[0].item()/image_hw[1]
-        yolo_y = box[1].item()/image_hw[0]
-        yolo_w = box[2].item()/image_hw[1]
-        yolo_h = box[3].item()/image_hw[0]
+        yolo_x = box[0].item() / image_hw[1]
+        yolo_y = box[1].item() / image_hw[0]
+        yolo_w = box[2].item() / image_hw[1]
+        yolo_h = box[3].item() / image_hw[0]
 
         det_str += (
-            str(label_idx.item()) + " " +
-            str(yolo_x) + " " +
-            str(yolo_y) + " " +
-            str(yolo_w) + " " +
-            str(yolo_h) + "\n"
+            str(label_idx.item())
+            + " "
+            + str(yolo_x)
+            + " "
+            + str(yolo_y)
+            + " "
+            + str(yolo_w)
+            + " "
+            + str(yolo_h)
+            + "\n"
         )
 
     return det_str
@@ -118,10 +132,10 @@ def parse_yolo(path, image_hw):
         det_info = det_str.split()
 
         label = int(det_info[0])
-        x = float(det_info[1])*image_hw[1]
-        y = float(det_info[2])*image_hw[0]
-        w = float(det_info[3])*image_hw[1]
-        h = float(det_info[4])*image_hw[0]
+        x = float(det_info[1]) * image_hw[1]
+        y = float(det_info[2]) * image_hw[0]
+        w = float(det_info[3]) * image_hw[1]
+        h = float(det_info[4]) * image_hw[0]
 
         label_list.append(label)
         xywh_list.append([x, y, w, h])

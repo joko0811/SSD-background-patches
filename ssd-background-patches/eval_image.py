@@ -11,14 +11,13 @@ from dataset.simple import DirectoryImageDataset
 
 
 def generate_data(path):
-
     def _load_model(path):
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        torch.set_default_tensor_type("torch.cuda.FloatTensor")
 
         # Select device for inference
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        model = s3fd.build_s3fd('test', 2)
+        model = s3fd.build_s3fd("test", 2)
         model.load_state_dict(torch.load(path))
         return model.to(device)
 
@@ -31,19 +30,18 @@ def generate_data(path):
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
-    S3FD_TRANSFORMS = transforms.Compose([
-        S3fdResize(),
-        transforms.PILToTensor(),
-        # transforms.ConvertImageDtype(torch.float),
-    ])
+    S3FD_TRANSFORMS = transforms.Compose(
+        [
+            S3fdResize(),
+            transforms.PILToTensor(),
+            # transforms.ConvertImageDtype(torch.float),
+        ]
+    )
 
-    image_set = DirectoryImageDataset(
-        image_dir_path, transform=S3FD_TRANSFORMS)
-    image_loader = torch.utils.data.DataLoader(
-        image_set, batch_size=BATCH_SIZE)
+    image_set = DirectoryImageDataset(image_dir_path, transform=S3FD_TRANSFORMS)
+    image_loader = torch.utils.data.DataLoader(image_set, batch_size=BATCH_SIZE)
 
-    model = _load_model(
-        "weights/s3fd.pth")
+    model = _load_model("weights/s3fd.pth")
     model.eval()
 
     thresh = 0.6
@@ -63,16 +61,21 @@ def generate_data(path):
                 box = det[1:]
 
                 det_str += (
-                    str(conf.item()) + " " +
-                    str(box[0].item()) + " " +
-                    str(box[1].item()) + " " +
-                    str(box[2].item()) + " " +
-                    str(box[3].item()) + "\n"
+                    str(conf.item())
+                    + " "
+                    + str(box[0].item())
+                    + " "
+                    + str(box[1].item())
+                    + " "
+                    + str(box[2].item())
+                    + " "
+                    + str(box[3].item())
+                    + "\n"
                 )
 
             # ファイルまでのパス、拡張子を除いたファイル名を取得
             image_name = os.path.basename(image_path[img_idx]).split(".")[0]
-            det_file_path = os.path.join(out_path, image_name+".txt")
+            det_file_path = os.path.join(out_path, image_name + ".txt")
 
             with open(det_file_path, "w") as f:
                 f.write(det_str)

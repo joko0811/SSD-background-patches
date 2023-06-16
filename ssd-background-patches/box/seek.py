@@ -33,8 +33,9 @@ def find_nearest_box(box_listA, box_listB):
         nearest_idx[i] = min_idx
     """
 
-    norm = torch.linalg.norm(box_listB[:, :2].unsqueeze(
-        0)-box_listA[:, :2].unsqueeze(1), dim=2)
+    norm = torch.linalg.norm(
+        box_listB[:, :2].unsqueeze(0) - box_listA[:, :2].unsqueeze(1), dim=2
+    )
     nearest_idx = torch.argmin(norm, dim=1)
 
     return nearest_idx.to(torch.int64)

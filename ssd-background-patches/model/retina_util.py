@@ -19,8 +19,8 @@ class RetinaResize:
 
     def __call__(self, pic):
         width, height = transforms.functional.get_image_size(pic)
-        ref_area = self.scale_reference_size[0]*self.scale_reference_size[1]
-        if width*height < ref_area:
+        ref_area = self.scale_reference_size[0] * self.scale_reference_size[1]
+        if width * height < ref_area:
             return transforms.functional.resize(img=pic, size=self.scale_reference_size)
         else:
             return pic
@@ -30,10 +30,12 @@ class RetinaTrainer(BackgroundBaseTrainer):
     # casia gait b dataset画像のの変形後のサイズ(HW)
     # TODO: 動的に取得するやり方を考える
     image_size = (840, 840)
-    RETINA_TRANSFORMS = transforms.Compose([
-        RetinaResize(),
-        transforms.PILToTensor(),
-    ])
+    RETINA_TRANSFORMS = transforms.Compose(
+        [
+            RetinaResize(),
+            transforms.PILToTensor(),
+        ]
+    )
 
     def __init__(self, model_conf: DictConfig, dataset_factory):
         self.model_conf = model_conf
@@ -47,7 +49,7 @@ class RetinaTrainer(BackgroundBaseTrainer):
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        net = RetinaFace(cfg=cfg_re50, phase='test')
+        net = RetinaFace(cfg=cfg_re50, phase="test")
         model = detect.load_model(net, self.model_conf.weight_path, False)
 
         return model.to(device)
@@ -58,13 +60,14 @@ class RetinaTrainer(BackgroundBaseTrainer):
 
         detections_list = list()
 
-        priorbox = PriorBox(cfg_re50, image_size=(
-            self.image_size[0], self.image_size[1]))
+        priorbox = PriorBox(
+            cfg_re50, image_size=(self.image_size[0], self.image_size[1])
+        )
         priors = priorbox.forward().to(device)
 
         for i in range(len(loc_list)):
 
-            boxes = decode(loc_list[i], priors, cfg_re50['variance'])
+            boxes = decode(loc_list[i], priors, cfg_re50["variance"])
             conf = conf_list[i, :, 1]
 
             ext1_idx, _ = nms(boxes, conf, overlap=0.4, top_k=750)
@@ -76,9 +79,9 @@ class RetinaTrainer(BackgroundBaseTrainer):
             ext2_boxes = ext1_boxes[ext2_idx].clone()
 
             if ext2_conf.nelement() != 0:
-                detections_list.append(DetectionsBase(
-                    ext2_conf, ext2_boxes, is_xywh=False
-                ))
+                detections_list.append(
+                    DetectionsBase(ext2_conf, ext2_boxes, is_xywh=False)
+                )
             else:
                 detections_list.append(None)
 
@@ -86,7 +89,7 @@ class RetinaTrainer(BackgroundBaseTrainer):
 
     def transformed2pil(self, pic, scale):
         rs_pic = transforms.functional.resize(pic, scale)
-        return transforms.functional.to_pil_image(rs_pic/255)
+        return transforms.functional.to_pil_image(rs_pic / 255)
 
     def get_image_size(self):
         return self.image_size

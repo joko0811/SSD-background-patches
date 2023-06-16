@@ -12,12 +12,13 @@ def iou(boxA, boxB):
     bx2 = boxB[:, 2]
     by2 = boxB[:, 3]
 
-    intersect = (torch.min(ax2, bx2)-torch.max(ax1, bx1)) * \
-        (torch.min(ay2, by2)-torch.max(ay1, by1))
-    a_area = (ax2-ax1)*(ay2-ay1)
-    b_area = (bx2-bx1)*(by2-by1)
+    intersect = (torch.min(ax2, bx2) - torch.max(ax1, bx1)) * (
+        torch.min(ay2, by2) - torch.max(ay1, by1)
+    )
+    a_area = (ax2 - ax1) * (ay2 - ay1)
+    b_area = (bx2 - bx1) * (by2 - by1)
 
-    iou = intersect/(a_area+b_area-intersect)
+    iou = intersect / (a_area + b_area - intersect)
     return iou
 
 
@@ -42,49 +43,45 @@ def list_iou(box_listA, box_listB):
     bx2 = compare_B[..., 2]
     by2 = compare_B[..., 3]
 
-    intersect = (torch.min(ax2, bx2)-torch.max(ax1, bx1)) * \
-        (torch.min(ay2, by2)-torch.max(ay1, by1))
-    a_area = (ax2-ax1)*(ay2-ay1)
-    b_area = (bx2-bx1)*(by2-by1)
+    intersect = (torch.min(ax2, bx2) - torch.max(ax1, bx1)) * (
+        torch.min(ay2, by2) - torch.max(ay1, by1)
+    )
+    a_area = (ax2 - ax1) * (ay2 - ay1)
+    b_area = (bx2 - bx1) * (by2 - by1)
 
-    iou = intersect/(a_area+b_area-intersect)
+    iou = intersect / (a_area + b_area - intersect)
     return iou
 
 
 def accuracy(tp, tn, fp, fn):
-    return (tp+tn)/(tp+tn+fp+fn)
+    return (tp + tn) / (tp + tn + fp + fn)
 
 
 def precision(tp, fp):
-    return tp/(tp+fp)
+    return tp / (tp + fp)
 
 
 def recall(tp, fn):
-    return tp/(tp+fn)
+    return tp / (tp + fn)
 
 
 def data_utility_quority(ground_truth_det_num, tp, fp):
-    return (tp-fp)/ground_truth_det_num
+    return (tp - fp) / ground_truth_det_num
 
 
 def calc_det_TP(det_boxes, gt_boxes, iou_threshold=0.5):
 
-    tp_binary = (list_iou(det_boxes, gt_boxes) >=
-                 iou_threshold).any(dim=1).long()
+    tp_binary = (list_iou(det_boxes, gt_boxes) >= iou_threshold).any(dim=1).long()
 
-    tp_sum = tp_binary.sum().detach(
-    ).cpu().resolve_conj().resolve_neg().tolist()
+    tp_sum = tp_binary.sum().detach().cpu().resolve_conj().resolve_neg().tolist()
 
     return tp_sum
 
 
 def calc_det_FP(det_boxes, gt_boxes, iou_threshold=0.5):
-    """ground truthesと同じラベルを持ち、かつiouが閾値未満のdetectionの数をクラス別に集計する
-    """
-    fp_binary = (list_iou(det_boxes, gt_boxes) <
-                 iou_threshold).any(dim=1).long()
+    """ground truthesと同じラベルを持ち、かつiouが閾値未満のdetectionの数をクラス別に集計する"""
+    fp_binary = (list_iou(det_boxes, gt_boxes) < iou_threshold).any(dim=1).long()
 
-    fp_sum = fp_binary.sum().detach(
-    ).cpu().resolve_conj().resolve_neg().tolist()
+    fp_sum = fp_binary.sum().detach().cpu().resolve_conj().resolve_neg().tolist()
 
     return fp_sum
