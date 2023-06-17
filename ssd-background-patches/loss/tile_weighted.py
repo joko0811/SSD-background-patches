@@ -27,13 +27,15 @@ def total_loss(
 
 def tpc_loss(detections: DetectionsBase, det_weight):
     score = -1 * (
-        (det_weight * torch.log((1 - detections.conf) + 1e-5)).sum() / len(detections)
+        (det_weight * torch.log((1 - detections.conf) + 1e-5)).sum()
+        # / len(detections)
     )
     return score
 
 
 def fpc_loss(detections: DetectionsBase, det_weight):
     score = -1 * (
-        ((1 - det_weight) * torch.log(detections.conf + 1e-5)).sum() / len(detections)
+        ((1 - det_weight) * torch.log(detections.conf + 1e-5)).sum()
+        # / len(detections)
     )
     return score
