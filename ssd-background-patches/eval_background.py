@@ -175,7 +175,7 @@ def evaluate_background(
 
         for gt_det, adv_det in zip(gt_detections_list, adv_detections_list):
             # 画像毎
-            tp_fp_manager.add_detection(gt_det, adv_det)
+            tp_fp_manager.add_detection(adv_det, gt_det)
 
     tp, fp, gt = tp_fp_manager.get_value()
     duq_score = data_utility_quority(gt, tp, fp)

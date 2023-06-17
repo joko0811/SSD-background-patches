@@ -14,11 +14,12 @@ from tqdm import tqdm
 
 from box import boxio
 from loss import proposed, tile_weighted
-from imageutil import imgseg, imgdraw
+from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
 from model.base_util import BackgroundBaseTrainer
 from patch_manager import BaseBackgroundManager
+from detection.tp_fp_manager import TpFpManager
 
 
 def train_adversarial_image(
@@ -46,6 +47,8 @@ def train_adversarial_image(
     image_loader = trainer.get_dataloader()
     model = trainer.load_model()
     model.eval()
+
+    tp_fp_manager = TpFpManager(ground_truthes)
 
     # 敵対的背景
     # (1237,1649) is size of dataset image in S3FD representation
@@ -97,6 +100,9 @@ def train_adversarial_image(
             # tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
 
             for i in range(image_loader.batch_size):
+                with torch.no_grad():
+                    tp_fp_manager.add_detection(adv_detections_list[i])
+
                 if adv_detections_list[i] is None:
                     tpc_loss_list[i] += 0
                     # tps_loss_list[i] += 0
@@ -132,6 +138,15 @@ def train_adversarial_image(
             optimizer.step()
 
             with torch.no_grad():
+                tp, fp, gt = tp_fp_manager.get_value()
+                background_manager.save_best_image(
+                    adv_patch,
+                    os.path.join(config.output_dir, "patch.pt"),
+                    ground_truthes,
+                    tp,
+                    fp,
+                )
+
                 # tensorboard
                 epoch_loss_list.append(
                     loss.detach().cpu().resolve_conj().resolve_neg().numpy()
