@@ -1,7 +1,13 @@
+hydra:
+  callbacks:
+    git_logging:
+      _target_: util.callback.GitCallback
+
 defaults:
   - model: s3fd # 使用モデルの設定
   - dataset: casia_test # 使用データセットの設定
   - patch_manager: tiling_background
+  - _self_
 
 # command line arguments
 path: ""

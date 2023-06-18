@@ -1,9 +1,14 @@
+hydra:
+  callbacks:
+    git_logging:
+      _target_: util.callback.GitCallback
 # プロジェクト全体で用いる設定
 defaults:
   - model: s3fd # 使用モデルの設定
   - dataset@monitor_dataset: casia_mini # 使用データセットの設定
   - dataset@evaluate_dataset: casia_train # 使用データセットの設定
   - patch_manager: tiling_background
+  - _self_
 
 # output file on this directory
 output_dir: ${hydra:runtime.output_dir}
@@ -38,6 +43,7 @@ train_adversarial_image:
   max_epoch: 300 # 一枚の画像ごとに摂動を加える最大回数
   loss: ${loss}
   model_thresh: 0.6
+  output_dir: ${output_dir}
 loss:
   tpc_weight: 0.2
   tps_weight: 1

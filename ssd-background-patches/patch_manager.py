@@ -1,7 +1,13 @@
+import sys
+import os
+
 import torch
 
 from imageutil import imgseg
 from torchvision import transforms
+
+# ベストパッチの評価用
+from evaluation.detection import data_utility_quority
 
 
 class BasePatchManager:
@@ -36,6 +42,8 @@ class BaseBackgroundManager:
         """
         self.image_size = image_size
         self.mode = mode
+        # duq is lower is better
+        self.best_duq = sys.maxsize
 
     def generate_patch(self):
         return
@@ -46,6 +54,12 @@ class BaseBackgroundManager:
 
     def transform_patch(self, patch):
         return patch
+
+    def save_best_image(self, patch, path, ground_trhuth, tp, fp):
+        duq = data_utility_quority(len(ground_trhuth), tp, fp)
+        if duq <= self.best_duq:
+            self.best_duq = duq
+            torch.save(patch, path)
 
 
 class BackgroundManager(BaseBackgroundManager):

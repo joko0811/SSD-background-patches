@@ -23,6 +23,7 @@ from util import bgutil, evalutil
 from imageutil import imgdraw, imgconv, imgseg
 from evaluation.detection import data_utility_quority, list_iou
 from sklearn.metrics import average_precision_score
+from detection.tp_fp_manager import TpFpManager
 
 
 def save_detection(adv_background_image, model, image_loader, config: DictConfig):
@@ -48,7 +49,6 @@ def save_detection(adv_background_image, model, image_loader, config: DictConfig
     os.mkdir(adv_bg_det_save_path)
 
     for image_list, image_path_list in tqdm(image_loader):
-
         image_hw = image_list.shape[-2:]
 
         gpu_image_list = image_list.to(device)
@@ -83,7 +83,6 @@ def tbx_monitor(
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
 ):
-
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
@@ -98,7 +97,6 @@ def tbx_monitor(
     for batch_iter, ((image_list, mask_image_list), image_info) in enumerate(
         tqdm(image_loader)
     ):
-
         scale_list = torch.cat(
             [
                 image_info["width"],
@@ -148,9 +146,6 @@ def evaluate_background(
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
 ):
-
-    iou_thresh = 0.5
-
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     adv_background = adv_background.to(device)
 
@@ -158,24 +153,9 @@ def evaluate_background(
     model = trainer.load_model()
     model.eval()
 
-    gt_total_det = 0
-
-    adv_conf_array = np.array([])
-    adv_tp_binary_array = np.array([])
-
-    adv_total_tp = 0
-    adv_total_fp = 0
+    tp_fp_manager = TpFpManager()
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
-        scale_list = torch.cat(
-            [
-                image_info["width"],
-                image_info["height"],
-                image_info["width"],
-                image_info["height"],
-            ]
-        ).T.to(device=device, dtype=torch.float)
-
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
@@ -195,48 +175,13 @@ def evaluate_background(
 
         for gt_det, adv_det in zip(gt_detections_list, adv_detections_list):
             # 画像毎
-            if (gt_det is None) and (adv_det is None):
-                continue
+            tp_fp_manager.add_detection(adv_det, gt_det)
 
-            elif (gt_det is None) and (adv_det is not None):
-                adv_tp_binary_array = np.append(
-                    adv_tp_binary_array, np.zeros(len(adv_det))
-                )
-                adv_conf_array = np.append(
-                    adv_conf_array,
-                    adv_det.conf.detach().cpu().resolve_conj().resolve_neg().numpy(),
-                )
-                adv_total_fp += len(adv_det)
-                continue
+    tp, fp, gt = tp_fp_manager.get_value()
+    duq_score = data_utility_quority(gt, tp, fp)
 
-            elif (gt_det is not None) and (adv_det is None):
-                gt_total_det += len(gt_det)
-                continue
-
-            elif (gt_det is not None) and (adv_det is not None):
-                gt_total_det += len(gt_det)
-
-                adv_tp_binary = (
-                    (list_iou(adv_det.xyxy, gt_det.xyxy) >= iou_thresh)
-                    .any(dim=1)
-                    .long()
-                )
-
-                adv_total_tp += adv_tp_binary.nonzero().shape[0]
-                adv_total_fp += (
-                    adv_tp_binary.shape[0] - adv_tp_binary.nonzero().shape[0]
-                )
-
-                adv_tp_binary_array = np.append(
-                    adv_tp_binary_array,
-                    adv_tp_binary.detach().cpu().resolve_conj().resolve_neg().numpy(),
-                )
-                adv_conf_array = np.append(
-                    adv_conf_array,
-                    adv_det.conf.detach().cpu().resolve_conj().resolve_neg().numpy(),
-                )
-
-                continue
+    adv_tp_binary_array, adv_conf_array = tp_fp_manager.get_sklearn_y_true_score()
+    ap_score = average_precision_score(adv_tp_binary_array, adv_conf_array)
 
     np.save(os.path.join(config.output_dir, "y_true.npy"), adv_tp_binary_array)
     np.save(os.path.join(config.output_dir, "y_score.npy"), adv_conf_array)
@@ -248,20 +193,31 @@ def evaluate_background(
     # disp.plot()
     # plt.show()
 
-    duq_score = data_utility_quority(gt_total_det, adv_total_tp, adv_total_fp)
-    ap_score = average_precision_score(adv_tp_binary_array, adv_conf_array)
+    result = (
+        "GT_FACES: "
+        + str(gt)
+        + "\n"
+        + "TP: "
+        + str(tp)
+        + "\n"
+        + "FP: "
+        + str(fp)
+        + "\n"
+        + "DUQ: "
+        + str(duq_score)
+        + "\n"
+        + "AP: "
+        + str(ap_score)
+        + "\n"
+    )
 
-    print("GT_FACES: " + str(gt_total_det))
-    print("TP: " + str(adv_total_tp))
-    print("FP: " + str(adv_total_fp))
-
-    print("DUQ: " + str(duq_score))
-    print("AP: " + str(ap_score))
+    print(result)
+    with open(os.path.join(config.output_dir, "result.txt"), mode="w") as f:
+        f.write(result)
 
 
 @hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
 def main(cfg: DictConfig):
-
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(cfg.trainer)
     background_manager: BaseBackgroundManager = hydra.utils.instantiate(
         cfg.patch_manager
@@ -274,11 +230,11 @@ def main(cfg: DictConfig):
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        tbx_monitor(
+        # tbx_monitor(
+        #     adv_background, background_manager, trainer, cfg.evaluate_background)
+        evaluate_background(
             adv_background, background_manager, trainer, cfg.evaluate_background
         )
-        # evaluate_background(adv_background, background_manager,
-        #                     trainer, cfg.evaluate_background)
 
 
 if __name__ == "__main__":
