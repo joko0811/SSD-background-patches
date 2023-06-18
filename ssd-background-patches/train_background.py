@@ -187,25 +187,30 @@ def train_adversarial_image(
                     epoch,
                 )
 
-                if (epoch % 10 == 0) and (adv_detections_list[0] is not None):
-                    tbx_anno_adv_image = transforms.functional.to_tensor(
-                        imgdraw.draw_boxes(
+                if epoch % 10 == 0:
+                    if adv_detections_list[0] is not None:
+                        tbx_anno_adv_image = transforms.functional.to_tensor(
+                            imgdraw.draw_boxes(
+                                trainer.transformed2pil(
+                                    adv_image_list[0],
+                                    (image_info["height"][0], image_info["width"][0]),
+                                ),
+                                adv_detections_list[0].xyxy * scale_list[0],
+                            )
+                        )
+                        tbx_writer.add_image(
+                            "adversarial_image", tbx_anno_adv_image, epoch
+                        )
+                    else:
+                        tbx_anno_adv_image = transforms.functional.to_tensor(
                             trainer.transformed2pil(
                                 adv_image_list[0],
                                 (image_info["height"][0], image_info["width"][0]),
-                            ),
-                            adv_detections_list[0].xyxy * scale_list[0],
+                            )
                         )
-                    )
-                    tbx_writer.add_image("adversarial_image", tbx_anno_adv_image, epoch)
-                else:
-                    tbx_anno_adv_image = transforms.functional.to_tensor(
-                        trainer.transformed2pil(
-                            adv_image_list[0],
-                            (image_info["height"][0], image_info["width"][0]),
+                        tbx_writer.add_image(
+                            "adversarial_image", tbx_anno_adv_image, epoch
                         )
-                    )
-                    tbx_writer.add_image("adversarial_image", tbx_anno_adv_image, epoch)
     return adv_patch.clone().cpu()
 
 
