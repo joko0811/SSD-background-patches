@@ -64,8 +64,9 @@ def train_adversarial_image(
         # epoch_tps_list = list()
         epoch_fpc_list = list()
         # epoch_tv_list = list()
+        tp_fp_manager.reset()
 
-        for (image_list, mask_list), image_info in tqdm(image_loader, leave=False):
+        for (image_list, mask_list), image_info in image_loader:
             scale_list = torch.cat(
                 [
                     image_info["width"],
@@ -141,7 +142,7 @@ def train_adversarial_image(
                 tp, fp, gt = tp_fp_manager.get_value()
                 background_manager.save_best_image(
                     adv_patch,
-                    os.path.join(config.output_dir, "patch.pt"),
+                    os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
                     ground_truthes,
                     tp,
                     fp,
