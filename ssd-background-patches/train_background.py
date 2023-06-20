@@ -139,16 +139,6 @@ def train_adversarial_image(
             optimizer.step()
 
             with torch.no_grad():
-                tp, fp, gt = tp_fp_manager.get_value()
-                print("epoch: " + str(epoch))
-                background_manager.save_best_image(
-                    adv_patch,
-                    os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
-                    ground_truthes,
-                    tp,
-                    fp,
-                )
-
                 # tensorboard
                 epoch_loss_list.append(
                     loss.detach().cpu().resolve_conj().resolve_neg().numpy()
@@ -164,6 +154,15 @@ def train_adversarial_image(
                 # epoch_tv_list.append(mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy())
 
         with torch.no_grad():
+            tp, fp, gt = tp_fp_manager.get_value()
+            print("epoch: " + str(epoch))
+            background_manager.save_best_image(
+                adv_patch,
+                os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
+                ground_truthes,
+                tp,
+                fp,
+            )
             # tensorboard
             epoch_mean_loss = np.array(epoch_loss_list).mean()
             epoch_mean_tpc = np.array(epoch_tpc_list).mean()
