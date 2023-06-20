@@ -120,16 +120,12 @@ def tbx_monitor(
         adv_detections_list = trainer.make_detections_list(adv_output, 0.6)
 
         for i, adv_image in enumerate(adv_image_list):
-            image_decode = transforms.Compose(
-                [
-                    transforms.Resize((image_info["height"], image_info["width"])),
-                    transforms.ToPILImage(),
-                ]
-            )
-
             if adv_detections_list[i] is not None:
                 anno_adv_image = imgdraw.draw_boxes(
-                    image_decode(adv_image), adv_detections_list[i].xyxy * scale_list[i]
+                    trainer.transformed2pil(
+                        adv_image, (image_info["height"][0], image_info["width"][0])
+                    ),
+                    adv_detections_list[i].xyxy * scale_list[i],
                 )
                 tbx_writer.add_image(
                     "adversarial_image",
@@ -224,17 +220,21 @@ def main(cfg: DictConfig):
     )(trainer.get_image_size(), mode="test")
 
     adv_bg_image_path = cfg.adv_bg_image_path
+    # adv_background = background_manager.transform_patch(
+    #     transforms.functional.pil_to_tensor(Image.open(adv_bg_image_path))
+    # )
     adv_background = background_manager.transform_patch(
-        transforms.functional.pil_to_tensor(Image.open(adv_bg_image_path))
+        torch.load("outputs/2023-06-19/14-53-10/epoch43_patch.pt")
     )
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        # tbx_monitor(
-        #     adv_background, background_manager, trainer, cfg.evaluate_background)
-        evaluate_background(
+        tbx_monitor(
             adv_background, background_manager, trainer, cfg.evaluate_background
         )
+        # evaluate_background(
+        #     adv_background, background_manager, trainer, cfg.evaluate_background
+        # )
 
 
 if __name__ == "__main__":
