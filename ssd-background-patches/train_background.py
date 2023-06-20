@@ -130,14 +130,6 @@ def train_adversarial_image(
             # loss = mean_tpc+mean_tps+mean_fpc  # +mean_tv
             loss = mean_tpc + mean_fpc
 
-            if loss == 0:
-                continue
-
-            optimizer.zero_grad()
-            loss.backward()
-            # The Adversarial background image is updated here
-            optimizer.step()
-
             with torch.no_grad():
                 # tensorboard
                 epoch_loss_list.append(
@@ -152,6 +144,14 @@ def train_adversarial_image(
                     mean_fpc.detach().cpu().resolve_conj().resolve_neg().numpy()
                 )
                 # epoch_tv_list.append(mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy())
+
+            if loss == 0:
+                continue
+
+            optimizer.zero_grad()
+            loss.backward()
+            # The Adversarial background image is updated here
+            optimizer.step()
 
         with torch.no_grad():
             tp, fp, gt = tp_fp_manager.get_value()
