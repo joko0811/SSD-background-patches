@@ -25,12 +25,10 @@ def total_loss(
 
 
 def tpc_loss(detections: DetectionsBase, z):
-    score = -1 * ((z * torch.log((1 - detections.conf) + 1e-5)).sum()) / z.sum(dim=1)
+    score = -1 * (((z * torch.log((1 - detections.conf) + 1e-5)).sum()) / z.sum())
     return score
 
 
 def fpc_loss(detections: DetectionsBase, z):
-    score = (
-        -1 * (((1 - z) * torch.log(detections.conf + 1e-5)).sum()) / (1 - z).sum(dim=1)
-    )
+    score = -1 * ((((1 - z) * torch.log(detections.conf + 1e-5)).sum()) / (1 - z).sum())
     return score
