@@ -45,9 +45,9 @@ train_adversarial_image:
   model_thresh: 0.6
   output_dir: ${output_dir}
 loss:
-  tpc_weight: 0.2
+  tpc_weight: 1
   tps_weight: 1
   fpc_weight: 1
-  tv_weight: 0.1
+  tv_weight: 1
   calc_z: # 損失計算に必要なパラメータ計算の設定
     iou_threshold: ${iou_threshold} # 値が閾値以上であるか判定する
