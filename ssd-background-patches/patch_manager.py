@@ -1,4 +1,5 @@
 import sys
+import logging
 import os
 
 import torch
@@ -56,7 +57,7 @@ class BaseBackgroundManager:
         return patch
 
     def save_best_image(self, patch, path, ground_trhuth, tp, fp):
-        print(
+        logging.info(
             "tp: " + str(tp) + ", fp: " + str(fp) + ", gt: " + str(len(ground_trhuth))
         )
         duq = data_utility_quority(len(ground_trhuth), tp, fp)
@@ -65,7 +66,7 @@ class BaseBackgroundManager:
         if duq <= self.best_duq:
             self.best_duq = duq
             out_str += " update best duq"
-        print(out_str)
+        logging.info(out_str)
 
 
 class BackgroundManager(BaseBackgroundManager):

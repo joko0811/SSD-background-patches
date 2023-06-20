@@ -1,4 +1,6 @@
 import os
+import sys
+import logging
 
 import hydra
 from omegaconf import DictConfig
@@ -155,7 +157,7 @@ def train_adversarial_image(
 
         with torch.no_grad():
             tp, fp, gt = tp_fp_manager.get_value()
-            print("epoch: " + str(epoch))
+            logging.info("epoch: " + str(epoch))
             background_manager.save_best_image(
                 adv_patch,
                 os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
@@ -212,6 +214,8 @@ def train_adversarial_image(
                         tbx_writer.add_image(
                             "adversarial_image", tbx_anno_adv_image, epoch
                         )
+            # エポック毎のバッファリングのフラッシュ
+            sys.stdout.flush()
     return adv_patch.clone().cpu()
 
 
@@ -221,7 +225,7 @@ def main(cfg: DictConfig):
     tbx_writer = SummaryWriter(cfg.output_dir)
     mode = cfg.mode
 
-    print("device: " + str(device))
+    logging.info("device: " + str(device))
 
     match mode:
         case "monitor":
@@ -261,7 +265,7 @@ def main(cfg: DictConfig):
 
     pil_image = transforms.functional.to_pil_image(adv_background_image)
     pil_image.save(output_adv_path)
-    print("finished!")
+    logging.info("finished!")
 
 
 if __name__ == "__main__":
