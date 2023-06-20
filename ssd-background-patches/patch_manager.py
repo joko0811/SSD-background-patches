@@ -56,10 +56,16 @@ class BaseBackgroundManager:
         return patch
 
     def save_best_image(self, patch, path, ground_trhuth, tp, fp):
+        print(
+            "tp: " + str(tp) + ", fp: " + str(fp) + ", gt: " + str(len(ground_trhuth))
+        )
         duq = data_utility_quority(len(ground_trhuth), tp, fp)
+        torch.save(patch, path)
+        out_str = "duq: " + str(duq)
         if duq <= self.best_duq:
             self.best_duq = duq
-            torch.save(patch, path)
+            out_str += "update best duq"
+        print(out_str)
 
 
 class BackgroundManager(BaseBackgroundManager):

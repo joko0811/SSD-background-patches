@@ -140,6 +140,7 @@ def train_adversarial_image(
 
             with torch.no_grad():
                 tp, fp, gt = tp_fp_manager.get_value()
+                print("epoch: " + str(epoch))
                 background_manager.save_best_image(
                     adv_patch,
                     os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
