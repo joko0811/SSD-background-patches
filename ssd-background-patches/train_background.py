@@ -221,6 +221,8 @@ def main(cfg: DictConfig):
     tbx_writer = SummaryWriter(cfg.output_dir)
     mode = cfg.mode
 
+    print("device: " + str(device))
+
     match mode:
         case "monitor":
             mode_trainer = cfg.monitor_trainer

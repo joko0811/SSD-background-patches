@@ -64,7 +64,7 @@ class BaseBackgroundManager:
         out_str = "duq: " + str(duq)
         if duq <= self.best_duq:
             self.best_duq = duq
-            out_str += "update best duq"
+            out_str += " update best duq"
         print(out_str)
 
 

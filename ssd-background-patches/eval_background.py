@@ -223,18 +223,16 @@ def main(cfg: DictConfig):
     # adv_background = background_manager.transform_patch(
     #     transforms.functional.pil_to_tensor(Image.open(adv_bg_image_path))
     # )
-    adv_background = background_manager.transform_patch(
-        torch.load("outputs/2023-06-19/14-53-10/epoch43_patch.pt")
-    )
+    adv_background = background_manager.transform_patch(torch.load(adv_bg_image_path))
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        tbx_monitor(
-            adv_background, background_manager, trainer, cfg.evaluate_background
-        )
-        # evaluate_background(
+        # tbx_monitor(
         #     adv_background, background_manager, trainer, cfg.evaluate_background
         # )
+        evaluate_background(
+            adv_background, background_manager, trainer, cfg.evaluate_background
+        )
 
 
 if __name__ == "__main__":
