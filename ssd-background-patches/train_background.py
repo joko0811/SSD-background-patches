@@ -15,7 +15,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from box import boxio
-from loss import simple
+from loss import tile_weighted
 from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
@@ -115,7 +115,7 @@ def train_adversarial_image(
 
                 # tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
                 #     adv_detections_list[i], ground_truthes, adv_background_image.unsqueeze(0), config.loss, scale=scale_list[0])
-                tpc_loss, fpc_loss = simple.total_loss(
+                tpc_loss, fpc_loss = tile_weighted.total_loss(
                     adv_detections_list[i], ground_truthes, config.loss
                 )
 
