@@ -150,6 +150,7 @@ def evaluate_background(
     model.eval()
 
     tp_fp_manager = TpFpManager()
+    duq_list = np.array([])
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
         image_list = image_list.to(device=device, dtype=torch.float)
@@ -172,15 +173,20 @@ def evaluate_background(
         for gt_det, adv_det in zip(gt_detections_list, adv_detections_list):
             # 画像毎
             tp_fp_manager.add_detection(adv_det, gt_det)
+            tp, fp, gt = tp_fp_manager.get_det()
+            tp_fp_manager.reset()
 
-    tp, fp, gt = tp_fp_manager.get_value()
-    duq_score = data_utility_quority(gt, tp, fp)
+            duq_score = data_utility_quority(gt, tp, fp)
+            np.append(duq_list, duq_score)
 
     adv_tp_binary_array, adv_conf_array = tp_fp_manager.get_sklearn_y_true_score()
     ap_score = average_precision_score(adv_tp_binary_array, adv_conf_array)
 
     np.save(os.path.join(config.output_dir, "y_true.npy"), adv_tp_binary_array)
     np.save(os.path.join(config.output_dir, "y_score.npy"), adv_conf_array)
+
+    np.save(os.path.join(config.output_dir, "duq_score.npy"), duq_list)
+    duq_mean = np.mean(duq_list)
 
     # ap_score = ap(gt_box_list, adv_box_list, adv_conf_list, iou_thresh)
     # ap_score = average_precision_score(tp_binary_list, adv_conf_list)
@@ -199,8 +205,8 @@ def evaluate_background(
         + "FP: "
         + str(fp)
         + "\n"
-        + "DUQ: "
-        + str(duq_score)
+        + "DUQ MEAN: "
+        + str(duq_mean)
         + "\n"
         + "AP: "
         + str(ap_score)
