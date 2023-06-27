@@ -13,13 +13,6 @@ class TpFpManager:
         self.det_tp_binary_array = np.array([])
         self.det_conf_array = np.array([])
 
-    def reset(self):
-        self.tp = 0
-        self.fp = 0
-        self.gt = 0 if self.ground_truth is None else len(self.ground_truth)
-        self.det_tp_binary_array = np.array([])
-        self.det_conf_array = np.array([])
-
     def add_detection(
         self,
         detection: DetectionsBase,
@@ -89,7 +82,20 @@ class TpFpManager:
             )
         return
 
-    def get_value(self):
+    def reset(self):
+        self.reset_det()
+        self.reset_sklean_y_true_score()
+
+    def reset_det(self):
+        self.tp = 0
+        self.fp = 0
+        self.gt = 0 if self.ground_truth is None else len(self.ground_truth)
+
+    def reset_sklean_y_true_score(self):
+        self.det_tp_binary_array = np.array([])
+        self.det_conf_array = np.array([])
+
+    def get_det(self):
         return (self.tp, self.fp, self.gt)
 
     def get_sklearn_y_true_score(self):
