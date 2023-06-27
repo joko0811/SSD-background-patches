@@ -78,7 +78,6 @@ ptyprocess==0.7.0
 pure-eval==0.2.2
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
-pycocotools==2.0
 pycodestyle==2.9.1
 pydantic==1.10.2
 Pygments==2.15.1
@@ -113,9 +112,9 @@ tifffile==2022.10.10
 tokenize-rt==5.1.0
 toml==0.10.2
 tomli==2.0.1
-torch==1.13.1
+torch==1.12.1
 torchsummary==1.5.1
-torchvision==0.14.1
+torchvision==0.13.1
 torchviz==0.0.2
 tqdm==4.64.1
 traitlets==5.9.0
