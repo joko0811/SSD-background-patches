@@ -12,17 +12,7 @@ class TpFpManager:
         """
         self.tp = 0
         self.fp = 0
-        self.gt = 0
-        self.det_tp_binary_array = np.array([])
-        self.det_conf_array = np.array([])
-
-    def reset(self):
-        """
-        保持した値を初期化する
-        初期化段階で真の顔領域を指定している場合初期化しない
-        """
-        self.tp = 0
-        self.fp = 0
+        self.fn = 0
         self.gt = 0
         self.det_tp_binary_array = np.array([])
         self.det_conf_array = np.array([])
@@ -57,16 +47,25 @@ class TpFpManager:
 
         elif (ground_truth is not None) and (detection is None):
             self.gt += len(ground_truth)
+            self.fn += len(ground_truth)
             return
 
         elif (ground_truth is not None) and (detection is not None):
             self.gt += len(ground_truth)
 
+            dt_gt_iou = list_iou(detection.xyxy, ground_truth.xyxy)
+
             det_tp_binary = (
-                (list_iou(detection.xyxy, ground_truth.xyxy) >= iou_thresh)
+                (dt_gt_iou >= iou_thresh)
                 .any(dim=1)
                 .long()
             )
+
+            # 重なる検出が一つもない真の領域数を集計
+            # any(dim=0)で真の領域毎の重なる領域が存在するかのboolに変換
+            # detach以降はtensor→intの変換処理
+            self.fn += ((dt_gt_iou < iou_thresh).any(dim=0).long().sum()
+                        ).detach().cpu().resolve_conj().resolve_neg().numpy().item()
 
             self.tp += det_tp_binary.nonzero().shape[0]
             self.fp += det_tp_binary.shape[0] - \
@@ -83,7 +82,7 @@ class TpFpManager:
             return
 
     def get_value(self):
-        return (self.tp, self.fp, self.gt)
+        return (self.tp, self.fp, self.fn, self.gt)
 
     def get_sklearn_y_true_score(self):
         """

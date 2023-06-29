@@ -50,8 +50,6 @@ def train_adversarial_image(
     model = trainer.load_model()
     model.eval()
 
-    tp_fp_manager = TpFpManager()
-
     # 敵対的背景
     # (1237,1649) is size of dataset image in S3FD representation
     # s3fd_dataset_image_format = (3, 1237, 1649)
@@ -66,7 +64,7 @@ def train_adversarial_image(
         # epoch_tps_list = list()
         epoch_fpc_list = list()
         # epoch_tv_list = list()
-        tp_fp_manager.reset()
+        tp_fp_manager = TpFpManager()
 
         for (image_list, mask_list), image_info in image_loader:
 
@@ -167,7 +165,7 @@ def train_adversarial_image(
             optimizer.step()
 
         with torch.no_grad():
-            tp, fp, gt = tp_fp_manager.get_value()
+            tp, fp, fn, gt = tp_fp_manager.get_value()
             logging.info("epoch: " + str(epoch))
             background_manager.save_best_image(
                 adv_patch,

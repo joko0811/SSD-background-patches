@@ -10,20 +10,17 @@ import numpy as np
 
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
+from sklearn.metrics import average_precision_score
 
-from PIL import Image
-
-from model import s3fd_util
-
-from model.base_util import BackgroundBaseTrainer
-from patch_manager import BaseBackgroundManager
 
 from box import boxio
 from util import bgutil, evalutil
-from imageutil import imgdraw, imgconv, imgseg
-from evaluation.detection import data_utility_quority, list_iou
-from sklearn.metrics import average_precision_score
+from imageutil import imgdraw
+from model.base_util import BackgroundBaseTrainer
+from patch_manager import BaseBackgroundManager
+from detection.detection_base import DetectionsBase
 from detection.tp_fp_manager import TpFpManager
+from evaluation.detection import data_utility_quority, f1, precision, recall
 
 
 def save_detection(adv_background_image, model, image_loader, config: DictConfig):
@@ -52,7 +49,8 @@ def save_detection(adv_background_image, model, image_loader, config: DictConfig
         image_hw = image_list.shape[-2:]
 
         gpu_image_list = image_list.to(device)
-        adv_bg_image_list = bgutil.background_applyer(gpu_image_list, gpu_adv_bg_image)
+        adv_bg_image_list = bgutil.background_applyer(
+            gpu_image_list, gpu_adv_bg_image)
 
         gt_det_path_list = evalutil.gen_detection_path(
             image_path_list, os.path.join(save_path, gt_det_save_dir)
@@ -123,7 +121,8 @@ def tbx_monitor(
             if adv_detections_list[i] is not None:
                 anno_adv_image = imgdraw.draw_boxes(
                     trainer.transformed2pil(
-                        adv_image, (image_info["height"][0], image_info["width"][0])
+                        adv_image, (image_info["height"]
+                                    [i], image_info["width"][i])
                     ),
                     adv_detections_list[i].xyxy * scale_list[i],
                 )
@@ -173,7 +172,7 @@ def evaluate_background(
             # 画像毎
             tp_fp_manager.add_detection(adv_det, gt_det)
 
-    tp, fp, gt = tp_fp_manager.get_value()
+    tp, fp, fn, gt = tp_fp_manager.get_value()
     duq_score = data_utility_quority(gt, tp, fp)
 
     adv_tp_binary_array, adv_conf_array = tp_fp_manager.get_sklearn_y_true_score()
@@ -181,6 +180,15 @@ def evaluate_background(
 
     np.save(os.path.join(config.output_dir, "y_true.npy"), adv_tp_binary_array)
     np.save(os.path.join(config.output_dir, "y_score.npy"), adv_conf_array)
+
+    precision_score = precision(tp, fp)
+    recall_score = recall(tp, fn)
+
+    beta_list = np.array([0.001, 0.01, 0.1, 0.5])
+    fbeta_list = np.array([])
+    for beta in beta_list:
+        fbeta_score = f1(precision_score, recall_score, beta)
+        fbeta_list = np.append(fbeta_list, fbeta_score)
 
     # ap_score = ap(gt_box_list, adv_box_list, adv_conf_list, iou_thresh)
     # ap_score = average_precision_score(tp_binary_list, adv_conf_list)
@@ -199,11 +207,20 @@ def evaluate_background(
         + "FP: "
         + str(fp)
         + "\n"
+        + "FN: "
+        + str(fn)
+        + "\n"
         + "DUQ: "
         + str(duq_score)
         + "\n"
         + "AP: "
         + str(ap_score)
+        + "\n"
+        + "beta: "
+        + np.array2string(beta_list)
+        + "\n"
+        + "AF_{\\beta}"
+        + np.array2string(fbeta_list)
         + "\n"
     )
 
@@ -223,7 +240,8 @@ def main(cfg: DictConfig):
     # adv_background = background_manager.transform_patch(
     #     transforms.functional.pil_to_tensor(Image.open(adv_bg_image_path))
     # )
-    adv_background = background_manager.transform_patch(torch.load(adv_bg_image_path))
+    adv_background = background_manager.transform_patch(
+        torch.load(adv_bg_image_path))
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
