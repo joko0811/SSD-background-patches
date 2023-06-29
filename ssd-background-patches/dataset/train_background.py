@@ -10,6 +10,11 @@ from box import boxio
 class TrainBackGroundDataset(Dataset):
     """敵対的背景画像の学習用データセット
     顔領域を含む画像、顔を対象とした時のマスク画像、顔領域の検出がセットになっている
+    データセットに要求される構造は以下である。ファイル名をIDとして、三つのディレクトリは同一IDを共有する（ディレクトリ以下には拡張子を除いて同じ名前のファイルがあることを期待する）
+
+    face_files: データセットの主体。顔を含む画像が配置される
+    mask_files: 顔画像に対するマスク画像
+    detection_files: 真の顔領域が存在する
     """
 
     def __init__(
@@ -21,7 +26,8 @@ class TrainBackGroundDataset(Dataset):
 
         self.face_files = sorted(glob.glob("%s/*.*" % self.face_path))
         self.mask_files = sorted(glob.glob("%s/*.*" % self.mask_path))
-        self.detection_files = sorted(glob.glob("%s/*.*" % self.detection_path))
+        self.detection_files = sorted(
+            glob.glob("%s/*.*" % self.detection_path))
 
         try:
             self._check_dataset()
@@ -61,7 +67,8 @@ class TrainBackGroundDataset(Dataset):
 
         face_path = self.face_files[index % len(self.face_files)]
         mask_path = self.mask_files[index % len(self.mask_files)]
-        detection_path = self.detection_files[index % len(self.detection_files)]
+        detection_path = self.detection_files[index % len(
+            self.detection_files)]
 
         face_image = Image.open(face_path)
         mask_image = Image.open(mask_path).convert("1")

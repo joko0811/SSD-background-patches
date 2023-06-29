@@ -69,9 +69,14 @@ def data_utility_quority(ground_truth_det_num, tp, fp):
     return (tp - fp) / ground_truth_det_num
 
 
+def f1(precision, recall, beta=1):
+    return (1+beta)*precision*recall / (beta*precision + recall)
+
+
 def calc_det_TP(det_boxes, gt_boxes, iou_threshold=0.5):
 
-    tp_binary = (list_iou(det_boxes, gt_boxes) >= iou_threshold).any(dim=1).long()
+    tp_binary = (list_iou(det_boxes, gt_boxes) >=
+                 iou_threshold).any(dim=1).long()
 
     tp_sum = tp_binary.sum().detach().cpu().resolve_conj().resolve_neg().tolist()
 
@@ -80,7 +85,8 @@ def calc_det_TP(det_boxes, gt_boxes, iou_threshold=0.5):
 
 def calc_det_FP(det_boxes, gt_boxes, iou_threshold=0.5):
     """ground truthesと同じラベルを持ち、かつiouが閾値未満のdetectionの数をクラス別に集計する"""
-    fp_binary = (list_iou(det_boxes, gt_boxes) < iou_threshold).any(dim=1).long()
+    fp_binary = (list_iou(det_boxes, gt_boxes) <
+                 iou_threshold).any(dim=1).long()
 
     fp_sum = fp_binary.sum().detach().cpu().resolve_conj().resolve_neg().tolist()
 
