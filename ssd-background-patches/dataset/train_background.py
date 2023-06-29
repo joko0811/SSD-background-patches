@@ -90,6 +90,7 @@ class TrainBackGroundDataset(Dataset):
         face_image_info["height"] = torch.tensor([height])
         face_image_info["conf"] = conf
         face_image_info["xyxy"] = xyxy
+        face_image_info["path"] = face_path
 
         return ((face_image, mask_image), face_image_info)
 
