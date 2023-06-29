@@ -50,7 +50,7 @@ def train_adversarial_image(
     model = trainer.load_model()
     model.eval()
 
-    tp_fp_manager = TpFpManager(ground_truthes)
+    tp_fp_manager = TpFpManager()
 
     # 敵対的背景
     # (1237,1649) is size of dataset image in S3FD representation
@@ -69,23 +69,26 @@ def train_adversarial_image(
         tp_fp_manager.reset()
 
         for (image_list, mask_list), image_info in image_loader:
-            scale_list = torch.cat(
-                [
-                    image_info["width"],
-                    image_info["height"],
-                    image_info["width"],
-                    image_info["height"],
-                ]
-            ).T.to(device=device, dtype=torch.float)
 
             # Preprocessing
             # Set to no_grad since the process is not needed for gradient calculation.
             with torch.no_grad():
                 image_list = image_list.to(device=device, dtype=torch.float)
                 mask_list = mask_list.to(device=device)
+                scale_list = torch.cat(
+                    [
+                        image_info["width"],
+                        image_info["height"],
+                        image_info["width"],
+                        image_info["height"],
+                    ]
+                ).T.to(device=device, dtype=torch.float)
+                # 正しい顔領域
+                # ground_truthesは全ての画像における正しい顔領域を示しているのに対して、ここで取り出しているのは検出を行う画像のみの正しい顔領域
 
             adv_patch.requires_grad = True
-            adv_background_image = background_manager.transform_patch(adv_patch)
+            adv_background_image = background_manager.transform_patch(
+                adv_patch)
             adv_image_list = background_manager.apply(
                 adv_background_image, image_list, mask_list
             )
@@ -104,7 +107,15 @@ def train_adversarial_image(
 
             for i in range(image_loader.batch_size):
                 with torch.no_grad():
-                    tp_fp_manager.add_detection(adv_detections_list[i])
+                    # 正しい顔領域を読み込んで追加する
+                    if image_info['conf'][i].nelement() != 0 and image_info['xyxy'][i].nelement() != 0:
+                        image_ground_truth = DetectionsBase(image_info['conf'][i].to(
+                            device), image_info['xyxy'][i].to(device), is_xywh=False)
+                    else:
+                        image_ground_truth = None
+
+                    tp_fp_manager.add_detection(
+                        adv_detections_list[i], image_ground_truth)
 
                 if adv_detections_list[i] is None:
                     tpc_loss_list[i] += 0
@@ -160,7 +171,8 @@ def train_adversarial_image(
             logging.info("epoch: " + str(epoch))
             background_manager.save_best_image(
                 adv_patch,
-                os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
+                os.path.join(config.output_dir, "epoch" +
+                             str(epoch) + "_patch.pt"),
                 ground_truthes,
                 tp,
                 fp,
@@ -196,7 +208,8 @@ def train_adversarial_image(
                             imgdraw.draw_boxes(
                                 trainer.transformed2pil(
                                     adv_image_list[0],
-                                    (image_info["height"][0], image_info["width"][0]),
+                                    (image_info["height"][0],
+                                     image_info["width"][0]),
                                 ),
                                 adv_detections_list[0].xyxy * scale_list[0],
                             )
@@ -208,7 +221,8 @@ def train_adversarial_image(
                         tbx_anno_adv_image = transforms.functional.to_tensor(
                             trainer.transformed2pil(
                                 adv_image_list[0],
-                                (image_info["height"][0], image_info["width"][0]),
+                                (image_info["height"][0],
+                                 image_info["width"][0]),
                             )
                         )
                         tbx_writer.add_image(
