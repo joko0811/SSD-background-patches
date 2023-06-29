@@ -165,7 +165,9 @@ def train_adversarial_image(
             optimizer.step()
 
         with torch.no_grad():
+
             tp, fp, fn, gt = tp_fp_manager.get_value()
+
             logging.info("epoch: " + str(epoch))
             background_manager.save_best_image(
                 adv_patch,
