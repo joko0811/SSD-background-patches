@@ -19,7 +19,7 @@ mode: "monitor"
 
 # _partial_ be dataset factory
 monitor_dataset:
-  max_iter: 300
+  max_iter: 30
   _partial_: true
 evaluate_dataset:
   max_iter: 3000
