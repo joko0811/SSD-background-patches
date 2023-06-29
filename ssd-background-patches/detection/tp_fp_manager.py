@@ -62,9 +62,9 @@ class TpFpManager:
             )
 
             # 重なる検出が一つもない真の領域数を集計
-            # any(dim=0)で真の領域毎の重なる領域が存在するかのboolに変換
+            # all(dim=0)で真の領域毎の重なる領域が一つもない場合Trueを取るboolに変換
             # detach以降はtensor→intの変換処理
-            self.fn += ((dt_gt_iou < iou_thresh).any(dim=0).long().sum()
+            self.fn += ((dt_gt_iou < iou_thresh).all(dim=0).long().sum()
                         ).detach().cpu().resolve_conj().resolve_neg().numpy().item()
 
             self.tp += det_tp_binary.nonzero().shape[0]
