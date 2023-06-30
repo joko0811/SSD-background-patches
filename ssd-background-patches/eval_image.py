@@ -38,16 +38,14 @@ def generate_data(path):
         ]
     )
 
-    image_set = DirectoryImageDataset(
-        image_dir_path, transform=S3FD_TRANSFORMS)
-    image_loader = torch.utils.data.DataLoader(
-        image_set, batch_size=BATCH_SIZE)
+    image_set = DirectoryImageDataset(image_dir_path, transform=S3FD_TRANSFORMS)
+    image_loader = torch.utils.data.DataLoader(image_set, batch_size=BATCH_SIZE)
 
     model = _load_model("weights/s3fd.pth")
     model.eval()
 
     thresh = 0.6
-    for (image, image_path) in tqdm(image_loader):
+    for image, image_path in tqdm(image_loader):
         image = image.to(device=device, dtype=torch.float)
 
         output = model(image)
