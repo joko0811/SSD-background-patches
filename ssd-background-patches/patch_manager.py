@@ -68,7 +68,7 @@ class BaseBackgroundManager:
         torch.save(patch, path)
         out_str = "f1: " + str(f1_score)
         if f1_score <= self.best_score:
-            self.best_score = f1
+            self.best_score = f1_score
             out_str += " update best score"
         logging.info(out_str)
 
