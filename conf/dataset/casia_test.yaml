@@ -1,3 +1,4 @@
-_target_: dataset.train_background.TestBackGroundDataset
+_target_: dataset.train_background.TrainBackGroundDataset
 face_path: "datasets/casia/test/face/"
 mask_path: "datasets/casia/test/mask/"
+detection_path: "datasets/casia/test/detection/"
