@@ -55,6 +55,6 @@ def composite_image(
         composite_mask_image = mask_image.clone()
 
     composite_image = torch.where(
-        composite_mask_image == 1, foreground_image, composite_background_image
+        composite_mask_image, foreground_image, composite_background_image
     )
     return composite_image
