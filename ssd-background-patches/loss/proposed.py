@@ -57,7 +57,7 @@ def calc_z(dt_gt_iou_scores, config):
 
 
 def tpc_loss(z, det_conf):
-    tpc_score = -1 * (torch.sum(z * torch.log(1 - det_conf + 1e-5)))
+    tpc_score = -1 * (torch.sum(z * torch.log(1 - det_conf + 1e-9)))
     return tpc_score
 
 
@@ -72,7 +72,7 @@ def tps_loss(z, det_xywh, gt_xywh, image_hw):
     calc_distance = (
         distance
         if distance.nonzero().nelement() != 0
-        else torch.tensor(1e-5, device=distance.device)
+        else torch.tensor(1e-9, device=distance.device)
     )
     tps_score = torch.exp(-1 * torch.mean(calc_distance))
 

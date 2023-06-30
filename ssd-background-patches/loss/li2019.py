@@ -166,7 +166,7 @@ def get_max_scores_without_correct_class(
     nan_proofed_max_class_scores = max_class_scores.scatter_(
         0,
         zero_indexes,
-        torch.ones(zero_indexes.shape, device=zero_indexes.device) * 1e-5,
+        torch.ones(zero_indexes.shape, device=zero_indexes.device) * 1e-9,
     )
 
     return nan_proofed_max_class_scores
@@ -232,7 +232,7 @@ def mean_tps(
     calc_distance = (
         distance[distance > 0]
         if distance.nonzero().nelement() != 0
-        else torch.tensor(1e-5, device=distance.device)
+        else torch.tensor(1e-9, device=distance.device)
     )
     tps_score = torch.exp(-1 * torch.mean(calc_distance))
 

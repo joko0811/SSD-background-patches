@@ -18,7 +18,7 @@ def iou(boxA, boxB):
     a_area = (ax2 - ax1) * (ay2 - ay1)
     b_area = (bx2 - bx1) * (by2 - by1)
 
-    iou = intersect / (a_area + b_area - intersect)
+    iou = intersect / (a_area + b_area - intersect + 1e-9)
     return iou
 
 
@@ -58,16 +58,16 @@ def accuracy(tp, tn, fp, fn):
 
 
 def precision(tp, fp):
-    return tp / (tp + fp)
+    return tp / (tp + fp + 1e-9)
 
 
 def recall(tp, fn):
-    return tp / (tp + fn)
+    return tp / (tp + fn + 1e-9)
 
 
 def data_utility_quority(ground_truth_det_num, tp, fp):
-    return (tp - fp) / ground_truth_det_num
+    return (tp - fp) / (ground_truth_det_num + 1e-9)
 
 
 def f1(precision, recall, beta=1):
-    return (1 + beta) * precision * recall / (beta * precision + recall)
+    return (1 + beta) * precision * recall / (beta * precision + recall + 1e-9)
