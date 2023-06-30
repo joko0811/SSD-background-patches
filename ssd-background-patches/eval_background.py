@@ -136,6 +136,13 @@ def tbx_monitor(
                     anno_adv_image,
                     # adv_detections_list[i].xyxy * scale_list[i],
                     tp_det * scale_list[i],
+                    color=(255, 255, 255),
+                )
+                fp_det = adv_detections_list[i].xyxy[(det_gt_iou < 0.5).all(dim=1)]
+                anno_adv_image = imgdraw.draw_boxes(
+                    anno_adv_image,
+                    # adv_detections_list[i].xyxy * scale_list[i],
+                    fp_det * scale_list[i],
                     color=(255, 0, 0),
                 )
 
@@ -260,12 +267,12 @@ def main(cfg: DictConfig):
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        # tbx_monitor(
-        #     adv_background, background_manager, trainer, cfg.evaluate_background
-        # )
-        evaluate_background(
+        tbx_monitor(
             adv_background, background_manager, trainer, cfg.evaluate_background
         )
+        # evaluate_background(
+        #     adv_background, background_manager, trainer, cfg.evaluate_background
+        # )
 
 
 if __name__ == "__main__":
