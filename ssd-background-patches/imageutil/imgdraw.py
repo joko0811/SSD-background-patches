@@ -70,7 +70,7 @@ def draw_annotations(
     return image
 
 
-def draw_boxes(image, boxes):
+def draw_boxes(image, boxes, color=(255, 255, 255)):
     """
     Args:
         img:
@@ -88,6 +88,6 @@ def draw_boxes(image, boxes):
     for i in range(len(boxes)):
 
         # 矩形を描画する
-        draw.rectangle(boxes[i].tolist(), width=2)
+        draw.rectangle(boxes[i].tolist(), width=2, outline=color)
 
     return image
