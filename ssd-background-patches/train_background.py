@@ -180,6 +180,7 @@ def train_adversarial_image(
                 ground_truthes,
                 tp,
                 fp,
+                fn,
             )
             # tensorboard
             epoch_mean_loss = np.array(epoch_loss_list).mean()

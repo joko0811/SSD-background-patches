@@ -134,7 +134,6 @@ def initial_background_patches(
     )  # 選択したパッチ内部の勾配合計
 
     for group_idx in range(ground_truthes.total_group):
-
         group_bp_boxes = torch.zeros(n_b, 4, device=bp_boxes.device)
         group_bp_grad_sum = torch.ones(n_b, device=bp_grad_sumes.device) * (
             -1 * float("inf")
@@ -157,7 +156,6 @@ def initial_background_patches(
         )
 
         for window_w, window_h in zip(window_list_w, window_list_h):
-
             x1y1_search_area = search_area[:2]
 
             ignore_boxes = torch.cat(
@@ -213,7 +211,6 @@ def expanded_background_patches(
     new_bp_boxes = scaled_bp_boxes.clone()
 
     for i, bp_box in enumerate(scaled_bp_boxes):
-
         bp_box_wh = boxconv.xyxy2xywh(bp_box)[2:]
         bp_box_area = bp_box_wh[0] * bp_box_wh[1]
         if bp_box_area > bp_area_threshold:
@@ -223,7 +220,6 @@ def expanded_background_patches(
 
         # 4方向への拡張領域のうち、勾配総和が最大になるものを選ぶ
         for j in range(len(bp_box)):
-
             # 拡張したとき、差分となる領域のbox
             bp_box_diff = bp_box.clone()
 
@@ -276,7 +272,7 @@ def perturbation_in_background_patches(gradient_image, bp_boxes):
 def perturbation_normalization(perturbation_image, config: DictConfig):
     l2_norm_lambda = config.l2_norm_lambda  # default 0.03=1/30
     return (
-        l2_norm_lambda / (torch.linalg.norm(perturbation_image) + 1e-5)
+        l2_norm_lambda / (torch.linalg.norm(perturbation_image) + 1e-9)
     ) * perturbation_image
 
 
