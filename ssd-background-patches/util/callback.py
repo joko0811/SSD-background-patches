@@ -15,8 +15,8 @@ def get_git_sha():
 class GitCallback(Callback):
     def on_run_start(self, config: DictConfig, **kwargs: Any) -> None:
         sha = get_git_sha()
-        print(f"Git sha: {sha}")
+        logging.info(f"Git sha: {sha}")
 
     def on_multirun_start(self, config: DictConfig, **kwargs: Any) -> None:
         sha = get_git_sha()
-        print(f"Git sha: {sha}")
+        logging.info(f"Git sha: {sha}")
