@@ -13,9 +13,7 @@ from box.boxconv import xyxy2xywh
 def total_loss(
     detections: DetectionsBase,
     ground_truthes: DetectionsBase,
-    image_list,
     config: DictConfig,
-    scale=None,
 ):
     """Returns the total loss
     Args:
@@ -27,11 +25,11 @@ def total_loss(
         (x1, y1, x2, y2, conf, cls)
     """
 
-    rescaled_det_xyxy = detections.xyxy * scale
-    rescaled_det_xywh = xyxy2xywh(rescaled_det_xyxy)
+    # rescaled_det_xyxy = detections.xyxy * scale
+    # rescaled_det_xywh = xyxy2xywh(rescaled_det_xyxy)
 
     # calc parameter z
-    dt_gt_iou_scores = list_iou(rescaled_det_xyxy, ground_truthes.xyxy)
+    dt_gt_iou_scores = list_iou(detections.xyxy, ground_truthes.xyxy)
     z = calc_z(dt_gt_iou_scores, config.calc_z)
     bar_z = (z == 0).long()
 
@@ -41,9 +39,7 @@ def total_loss(
     # tv_weight = config.tv_weight
 
     tpc_score = tpc_weight * tpc_loss(z, detections.conf)
-    tps_score = tps_weight * tps_loss(
-        z, rescaled_det_xywh, ground_truthes.xywh, image_list.shape[-2:]
-    )
+    tps_score = tps_weight * tps_loss(z, detections.xywh, ground_truthes.xywh)
     fpc_score = fpc_weight * fpc_loss(bar_z, detections.conf)
     # tv_score = tv_weight*tv_loss(image_list)
 
@@ -61,13 +57,10 @@ def tpc_loss(z, det_conf):
     return tpc_score
 
 
-def tps_loss(z, det_xywh, gt_xywh, image_hw):
+def tps_loss(z, det_xywh, gt_xywh):
     gt_nearest_idx = find_nearest_box(det_xywh, gt_xywh)
     gt_xywh_nearest_dt = gt_xywh[gt_nearest_idx]
 
-    image_hw_gpu = torch.tensor(image_hw, device=z.device)
-    distance_div = torch.cat([image_hw_gpu, image_hw_gpu])
-    # distance = (torch.abs(calc_gt - calc_det) / distance_div)[..., :2].sum(dim=2)*z
     distance = (torch.abs(gt_xywh_nearest_dt - det_xywh)[..., :2]).sum(dim=1) * z
     calc_distance = (
         distance

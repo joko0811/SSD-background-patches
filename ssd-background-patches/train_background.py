@@ -15,7 +15,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from box import boxio
-from loss import tile_weighted
+from loss import tile_weighted, proposed
 from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
@@ -61,13 +61,12 @@ def train_adversarial_image(
     for epoch in tqdm(range(max_epoch)):
         epoch_loss_list = list()
         epoch_tpc_list = list()
-        # epoch_tps_list = list()
+        epoch_tps_list = list()
         epoch_fpc_list = list()
         # epoch_tv_list = list()
         tp_fp_manager = TpFpManager()
 
         for (image_list, mask_list), image_info in image_loader:
-
             # Preprocessing
             # Set to no_grad since the process is not needed for gradient calculation.
             with torch.no_grad():
@@ -85,8 +84,7 @@ def train_adversarial_image(
                 # ground_truthesは全ての画像における正しい顔領域を示しているのに対して、ここで取り出しているのは検出を行う画像のみの正しい顔領域
 
             adv_patch.requires_grad = True
-            adv_background_image = background_manager.transform_patch(
-                adv_patch)
+            adv_background_image = background_manager.transform_patch(adv_patch)
             adv_image_list = background_manager.apply(
                 adv_background_image, image_list, mask_list
             )
@@ -98,48 +96,55 @@ def train_adversarial_image(
             )
 
             tpc_loss_list = torch.zeros(image_loader.batch_size, device=device)
-            # tps_loss_list = torch.zeros(
-            #    image_loader.batch_size, device=device)
+            tps_loss_list = torch.zeros(image_loader.batch_size, device=device)
             fpc_loss_list = torch.zeros(image_loader.batch_size, device=device)
             # tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
 
             for i in range(image_loader.batch_size):
                 with torch.no_grad():
                     # 正しい顔領域を読み込んで追加する
-                    if image_info['conf'][i].nelement() != 0 and image_info['xyxy'][i].nelement() != 0:
-                        image_ground_truth = DetectionsBase(image_info['conf'][i].to(
-                            device), image_info['xyxy'][i].to(device), is_xywh=False)
+                    if (
+                        image_info["conf"][i].nelement() != 0
+                        and image_info["xyxy"][i].nelement() != 0
+                    ):
+                        image_ground_truth = DetectionsBase(
+                            image_info["conf"][i].to(device),
+                            image_info["xyxy"][i].to(device),
+                            is_xywh=False,
+                        )
                     else:
                         image_ground_truth = None
 
                     tp_fp_manager.add_detection(
-                        adv_detections_list[i], image_ground_truth)
+                        adv_detections_list[i], image_ground_truth
+                    )
 
                 if adv_detections_list[i] is None:
                     tpc_loss_list[i] += 0
-                    # tps_loss_list[i] += 0
+                    tps_loss_list[i] += 0
                     fpc_loss_list[i] += 0
                     # tv_loss_list[i] += 0
                     continue
 
-                # tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
-                #     adv_detections_list[i], ground_truthes, adv_background_image.unsqueeze(0), config.loss, scale=scale_list[0])
-                tpc_loss, fpc_loss = tile_weighted.total_loss(
-                    adv_detections_list[i], ground_truthes, config.loss
+                tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
+                    # tpc_loss, fpc_loss = tile_weighted.total_loss(
+                    adv_detections_list[i],
+                    ground_truthes,
+                    config.loss,
                 )
 
                 tpc_loss_list[i] += tpc_loss
-                # tps_loss_list[i] += tps_loss
+                tps_loss_list[i] += tps_loss
                 fpc_loss_list[i] += fpc_loss
                 # tv_loss_list[i] += tv_loss
 
             mean_tpc = torch.mean(tpc_loss_list)
-            # mean_tps = torch.mean(tps_loss_list)
+            mean_tps = torch.mean(tps_loss_list)
             mean_fpc = torch.mean(fpc_loss_list)
             # mean_tv = torch.mean(tv_loss_list)
 
-            # loss = mean_tpc+mean_tps+mean_fpc  # +mean_tv
-            loss = mean_tpc + mean_fpc
+            loss = mean_tpc + mean_tps + mean_fpc  # +mean_tv
+            # loss = mean_tpc + mean_fpc
 
             with torch.no_grad():
                 # tensorboard
@@ -149,8 +154,9 @@ def train_adversarial_image(
                 epoch_tpc_list.append(
                     mean_tpc.detach().cpu().resolve_conj().resolve_neg().numpy()
                 )
-                # epoch_tps_list.append(mean_tps.detach(
-                # ).cpu().resolve_conj().resolve_neg().numpy())
+                epoch_tps_list.append(
+                    mean_tps.detach().cpu().resolve_conj().resolve_neg().numpy()
+                )
                 epoch_fpc_list.append(
                     mean_fpc.detach().cpu().resolve_conj().resolve_neg().numpy()
                 )
@@ -165,14 +171,12 @@ def train_adversarial_image(
             optimizer.step()
 
         with torch.no_grad():
-
             tp, fp, fn, gt = tp_fp_manager.get_value()
 
             logging.info("epoch: " + str(epoch))
             background_manager.save_best_image(
                 adv_patch,
-                os.path.join(config.output_dir, "epoch" +
-                             str(epoch) + "_patch.pt"),
+                os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
                 ground_truthes,
                 tp,
                 fp,
@@ -180,15 +184,14 @@ def train_adversarial_image(
             # tensorboard
             epoch_mean_loss = np.array(epoch_loss_list).mean()
             epoch_mean_tpc = np.array(epoch_tpc_list).mean()
-            # epoch_mean_tps = np.array(epoch_tps_list).mean()
+            epoch_mean_tps = np.array(epoch_tps_list).mean()
             epoch_mean_fpc = np.array(epoch_fpc_list).mean()
             # epoch_mean_tv = np.array(epoch_tv_list).mean()
 
             if tbx_writer is not None:
                 tbx_writer.add_scalar("total_loss", epoch_mean_loss, epoch)
                 tbx_writer.add_scalar("tpc_loss", epoch_mean_tpc, epoch)
-                # tbx_writer.add_scalar(
-                #     "tps_loss", epoch_mean_tps, epoch)
+                tbx_writer.add_scalar("tps_loss", epoch_mean_tps, epoch)
                 tbx_writer.add_scalar("fpc_loss", epoch_mean_fpc, epoch)
                 # tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
 
@@ -208,8 +211,7 @@ def train_adversarial_image(
                             imgdraw.draw_boxes(
                                 trainer.transformed2pil(
                                     adv_image_list[0],
-                                    (image_info["height"][0],
-                                     image_info["width"][0]),
+                                    (image_info["height"][0], image_info["width"][0]),
                                 ),
                                 adv_detections_list[0].xyxy * scale_list[0],
                             )
@@ -221,8 +223,7 @@ def train_adversarial_image(
                         tbx_anno_adv_image = transforms.functional.to_tensor(
                             trainer.transformed2pil(
                                 adv_image_list[0],
-                                (image_info["height"][0],
-                                 image_info["width"][0]),
+                                (image_info["height"][0], image_info["width"][0]),
                             )
                         )
                         tbx_writer.add_image(
