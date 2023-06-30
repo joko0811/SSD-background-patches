@@ -8,7 +8,7 @@ from imageutil import imgseg
 from torchvision import transforms
 
 # ベストパッチの評価用
-from evaluation.detection import data_utility_quority
+from evaluation.detection import data_utility_quority, f1, precision, recall
 
 
 class BasePatchManager:
@@ -43,8 +43,8 @@ class BaseBackgroundManager:
         """
         self.image_size = image_size
         self.mode = mode
-        # duq is lower is better
-        self.best_duq = sys.maxsize
+        # lower is better
+        self.best_score = sys.maxsize
 
     def generate_patch(self):
         return
@@ -56,16 +56,20 @@ class BaseBackgroundManager:
     def transform_patch(self, patch):
         return patch
 
-    def save_best_image(self, patch, path, ground_trhuth, tp, fp):
+    def save_best_image(self, patch, path, ground_trhuth, tp, fp, fn):
         logging.info(
             "tp: " + str(tp) + ", fp: " + str(fp) + ", gt: " + str(len(ground_trhuth))
         )
-        duq = data_utility_quority(len(ground_trhuth), tp, fp)
+        precision_score = precision(tp, fp)
+        recall_score = recall(tp, fn)
+
+        f1_score = f1(precision_score, recall_score)
+        # duq = data_utility_quority(len(ground_trhuth), tp, fp)
         torch.save(patch, path)
-        out_str = "duq: " + str(duq)
-        if duq <= self.best_duq:
-            self.best_duq = duq
-            out_str += " update best duq"
+        out_str = "f1: " + str(f1_score)
+        if f1_score <= self.best_score:
+            self.best_score = f1
+            out_str += " update best score"
         logging.info(out_str)
 
 
