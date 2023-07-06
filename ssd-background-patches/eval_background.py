@@ -267,12 +267,12 @@ def main(cfg: DictConfig):
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        tbx_monitor(
-            adv_background, background_manager, trainer, cfg.evaluate_background
-        )
-        # evaluate_background(
+        # tbx_monitor(
         #     adv_background, background_manager, trainer, cfg.evaluate_background
         # )
+        evaluate_background(
+            adv_background, background_manager, trainer, cfg.evaluate_background
+        )
 
 
 if __name__ == "__main__":
