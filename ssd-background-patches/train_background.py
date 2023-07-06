@@ -56,6 +56,10 @@ def train_adversarial_image(
     # retina_dataset_image_format = (3, 840, 840)
 
     adv_patch = background_manager.generate_patch().to(device)
+    patch_dir = os.path.join(config.output_dir, "patch")
+    if not os.path.exists(patch_dir):
+        os.makedirs(patch_dir)
+
     optimizer = optim.Adam([adv_patch])
 
     for epoch in tqdm(range(max_epoch)):
@@ -176,7 +180,7 @@ def train_adversarial_image(
             logging.info("epoch: " + str(epoch))
             background_manager.save_best_image(
                 adv_patch,
-                os.path.join(config.output_dir, "epoch" + str(epoch) + "_patch.pt"),
+                os.path.join(patch_dir, "epoch" + str(epoch) + "_patch.pt"),
                 ground_truthes,
                 tp,
                 fp,
