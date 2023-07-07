@@ -15,13 +15,14 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from box import boxio
-from loss import tile_weighted, proposed
+from loss import tile_weighted, simple, proposed
 from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
 from model.base_util import BackgroundBaseTrainer
 from patch_manager import BaseBackgroundManager
 from detection.tp_fp_manager import TpFpManager
+from util.infoutil import get_git_sha
 
 
 def train_adversarial_image(
@@ -131,7 +132,7 @@ def train_adversarial_image(
                     continue
 
                 # tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
-                tpc_loss, fpc_loss = tile_weighted.total_loss(
+                tpc_loss, fpc_loss = simple.total_loss(
                     adv_detections_list[i],
                     ground_truthes,
                     config.loss,
@@ -246,6 +247,8 @@ def main(cfg: DictConfig):
     mode = cfg.mode
 
     logging.info("device: " + str(device))
+    git_hash = get_git_sha()
+    logging.info("commit hash: " + git_hash)
 
     match mode:
         case "monitor":

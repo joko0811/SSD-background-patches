@@ -1,7 +1,3 @@
-hydra:
-  callbacks:
-    git_logging:
-      _target_: util.callback.GitCallback
 # プロジェクト全体で用いる設定
 defaults:
   - model: s3fd # 使用モデルの設定
