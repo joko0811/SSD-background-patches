@@ -11,6 +11,7 @@ class DirectoryImageDataset(Dataset):
 
     def __getitem__(self, index):
         image_path = self.files[index % len(self.files)]
+        # TODO:replase torchvision.io.read_image
         image = Image.open(image_path)
 
         if self.transform is not None:
