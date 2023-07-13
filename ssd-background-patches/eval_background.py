@@ -23,57 +23,6 @@ from detection.tp_fp_manager import TpFpManager
 from evaluation.detection import data_utility_quority, f1, precision, recall, list_iou
 
 
-def save_detection(adv_background_image, model, image_loader, config: DictConfig):
-    model.eval()
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-
-    gpu_adv_bg_image = adv_background_image.to(device)
-    adv_bg_image_path = config.adv_bg_image_path
-    save_path = os.path.dirname(adv_bg_image_path)
-
-    # default is "ground_truth_detection"
-    gt_det_save_dir = config.gt_det_save_dir
-    gt_det_save_path = os.path.join(save_path, gt_det_save_dir)
-    if os.path.isdir(gt_det_save_path):
-        shutil.rmtree(gt_det_save_path)
-    os.mkdir(gt_det_save_path)
-
-    # default is "adversarial_background_detection"
-    adv_bg_det_save_dir = config.adv_bg_det_save_dir
-    adv_bg_det_save_path = os.path.join(save_path, adv_bg_det_save_dir)
-    if os.path.isdir(adv_bg_det_save_path):
-        shutil.rmtree(adv_bg_det_save_path)
-    os.mkdir(adv_bg_det_save_path)
-
-    for image_list, image_path_list in tqdm(image_loader):
-        image_hw = image_list.shape[-2:]
-
-        gpu_image_list = image_list.to(device)
-        adv_bg_image_list = bgutil.background_applyer(gpu_image_list, gpu_adv_bg_image)
-
-        gt_det_path_list = evalutil.gen_detection_path(
-            image_path_list, os.path.join(save_path, gt_det_save_dir)
-        )
-        evalutil.save_detection_text(
-            gpu_image_list,
-            gt_det_path_list,
-            model,
-            boxio.format_yolo,
-            optional=image_hw,
-        )
-
-        adv_bg_det_path_list = evalutil.gen_detection_path(
-            image_path_list, os.path.join(save_path, adv_bg_det_save_dir)
-        )
-        evalutil.save_detection_text(
-            adv_bg_image_list,
-            adv_bg_det_path_list,
-            model,
-            boxio.format_yolo,
-            optional=image_hw,
-        )
-
-
 def tbx_monitor(
     adv_background,
     background_manager: BaseBackgroundManager,
