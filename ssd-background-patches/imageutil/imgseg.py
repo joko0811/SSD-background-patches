@@ -1,30 +1,14 @@
 import rembg  # tool to remove images background
+from PIL import Image
 
 import torch
 
 from imageutil import imgconv
 
 
-def gen_mask_image(image: torch.Tensor):
-    """Returns the mask image of image
-    Args:
-        image: 4D tensor N*H*W*C or 3D tensor H*W*C.
-    Return: tensor of the same shape as the input
-    """
-    device = image.device
-
-    if image.dim() == 3:
-        # This conversion is done because rembg input is a pil image
-        pil_image = imgconv.tensor2pil(image)
-        return imgconv.pil2tensor(rembg.remove(pil_image, only_mask=True), device)
-
-    mask_image_list = torch.zeros(image.shape, device=device, dtype=torch.float)
-    for image_iter, img in enumerate(image):
-        pil_image = imgconv.tensor2pil(img)
-        mask_image = rembg.remove(pil_image, only_mask=True)
-        mask_image_list[image_iter] = imgconv.pil2tensor(mask_image, device)
-
-    return mask_image_list
+def generate_mask_image(image: Image.Image):
+    mask_image = rembg.remove(image, only_mask=True)
+    return mask_image
 
 
 def composite_image(
