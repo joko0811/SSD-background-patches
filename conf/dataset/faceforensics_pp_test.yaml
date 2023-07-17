@@ -1,0 +1,4 @@
+_target_: dataset.train_background.TrainBackGroundDataset
+face_path: "datasets/faceforensics_pp/test/face/"
+mask_path: "datasets/faceforensics_pp/test/mask/"
+detection_path: "datasets/faceforensics_pp/test/detection/"
