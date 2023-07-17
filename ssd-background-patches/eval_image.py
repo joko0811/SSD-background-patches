@@ -17,11 +17,12 @@ def generate_data(model, image_set, path):
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
+    BATCH_SIZE = 1
+    thresh = 0.6
+
     image_loader = torch.utils.data.DataLoader(image_set, batch_size=BATCH_SIZE)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    BATCH_SIZE = 1
-    thresh = 0.6
     for image, image_path in tqdm(image_loader):
         image = image.to(device=device, dtype=torch.float)
 
