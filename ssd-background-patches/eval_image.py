@@ -76,14 +76,14 @@ def calculate_face_area(model, image_set):
         image_list = image_list.to(device=device, dtype=torch.float)
         output = model(image_list)
 
-        for image_idx, det in enumerate(output):
-            extract_output = det[det[..., 0] >= thresh]
+        for image_idx, image_output in enumerate(output):
+            extract_output = image_output[image_output[..., 0] >= thresh]
             for det in extract_output:
                 if det.nelement() == 0:
                     continue
                 image_height, image_width = image_list[image_idx].shape[1:]
-                det_height = det[..., 3] - det[..., 1]
-                det_width = det[..., 2] - det[..., 0]
+                det_height = det[..., 4] - det[..., 2]
+                det_width = det[..., 3] - det[..., 1]
 
                 # 出力された座標は画像サイズで正規化されているため乗算
                 area = (
