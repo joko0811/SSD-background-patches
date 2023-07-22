@@ -163,11 +163,7 @@ def evaluate_background(
     precision_score = precision(tp, fp)
     recall_score = recall(tp, fn)
 
-    beta_list = np.array([0.001, 0.01, 0.1, 0.5])
-    fbeta_list = np.array([])
-    for beta in beta_list:
-        fbeta_score = f1(precision_score, recall_score, beta)
-        fbeta_list = np.append(fbeta_list, fbeta_score)
+    f_score = f1(precision_score, recall_score)
 
     # ap_score = ap(gt_box_list, adv_box_list, adv_conf_list, iou_thresh)
     # ap_score = average_precision_score(tp_binary_list, adv_conf_list)
@@ -195,11 +191,8 @@ def evaluate_background(
         + "AP: "
         + str(ap_score)
         + "\n"
-        + "beta: "
-        + np.array2string(beta_list)
-        + "\n"
-        + "AF_{\\beta}"
-        + np.array2string(fbeta_list)
+        + "F: "
+        + str(f_score)
         + "\n"
     )
 
