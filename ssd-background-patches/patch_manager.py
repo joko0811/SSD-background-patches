@@ -1,6 +1,7 @@
 import sys
 import logging
 import os
+from math import ceil
 
 import torch
 
@@ -8,7 +9,7 @@ from imageutil import imgseg
 from torchvision import transforms
 
 # ベストパッチの評価用
-from evaluation.detection import data_utility_quority, f1, precision, recall
+from evaluation.detection import f1, precision, recall
 
 
 class BasePatchManager:
@@ -35,13 +36,12 @@ class BasePatchManager:
 class BaseBackgroundManager:
     """マスク画像をもとに背景画像合成を行う"""
 
-    def __init__(self, image_size, mode):
+    def __init__(self, mode):
         """
         Args:
           image_size: パッチを適用するデータセットの画像サイズのタプルまたはリスト(H,W)
           mode: test or train
         """
-        self.image_size = image_size
         self.mode = mode
         # lower is better
         self.best_score = sys.maxsize
@@ -53,7 +53,12 @@ class BaseBackgroundManager:
         """パッチ適用関数。複数毎に同時に適用できる"""
         return imgseg.composite_image(image_list, patch, mask_list)
 
-    def transform_patch(self, patch):
+    def transform_patch(self, patch, image_size):
+        """
+        Args:
+            patch:
+            image_size: (H,W)
+        """
         return patch
 
     def save_best_image(self, patch, path, ground_trhuth, tp, fp, fn):
@@ -82,8 +87,13 @@ class BackgroundManager(BaseBackgroundManager):
         patch = torch.zeros((3,) + tuple(self.image_size))
         return patch.clone()
 
-    def transform_patch(self, patch):
-        return transforms.functional.resize(patch, self.image_size)
+    def transform_patch(self, patch, image_size):
+        """
+        Args:
+            patch:
+            image_size: (H,W)
+        """
+        return transforms.functional.resize(patch, image_size)
 
 
 class TilingBackgroundManager(BaseBackgroundManager):
@@ -92,17 +102,17 @@ class TilingBackgroundManager(BaseBackgroundManager):
     ただし背景領域適用前にパッチの敷き詰め処理を行う
     """
 
-    TILE_SIZE = (100, 200)  # (H,W)
+    def __init__(self, mode, tile_size=(100, 200)):
+        """
+        Args:
+            tile_size: tuple(H,W)タイル一枚のサイズを指定する
+        """
 
-    def __init__(self, image_size, mode):
-        self.tiling_number = (
-            int(image_size[0] / self.TILE_SIZE[0]),
-            int(image_size[1] / self.TILE_SIZE[1]),
-        )
-        super().__init__(image_size, mode)
+        self.tile_size = tile_size
+        super.__init__(mode)
 
     def generate_patch(self):
-        patch = torch.zeros((3,) + self.TILE_SIZE)
+        patch = torch.zeros((3,) + self.tile_size)
         return patch
 
     def apply(self, patch, image_list, mask_list):
@@ -118,5 +128,17 @@ class TilingBackgroundManager(BaseBackgroundManager):
         )
         return super().apply(tiling_patch, resized_image_list, resized_mask_list)
 
-    def transform_patch(self, patch):
-        return patch.tile(self.tiling_number)
+    def transform_patch(self, patch, image_size):
+        """
+        Args:
+            patch:
+            image_size: (H,W)
+        """
+        tiling_number = (
+            ceil(image_size[0] / self.tile_size[0]),
+            ceil(image_size[1] / self.tile_size[1]),
+        )
+        tiling_patch = transforms.functional.crop(
+            patch.tile(tiling_number), 0, 0, image_size[0], image_size[1]
+        )
+        return tiling_patch
