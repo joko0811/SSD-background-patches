@@ -109,7 +109,7 @@ class TilingBackgroundManager(BaseBackgroundManager):
         """
 
         self.tile_size = tile_size
-        super.__init__(mode)
+        super().__init__(mode)
 
     def generate_patch(self):
         patch = torch.zeros((3,) + self.tile_size)
