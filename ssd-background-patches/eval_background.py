@@ -13,8 +13,6 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import average_precision_score
 
 
-from box import boxio
-from util import bgutil, evalutil
 from imageutil import imgdraw
 from model.base_util import BackgroundBaseTrainer
 from patch_manager import BaseBackgroundManager
@@ -24,7 +22,7 @@ from evaluation.detection import data_utility_quority, f1, precision, recall, li
 
 
 def tbx_monitor(
-    adv_background,
+    adv_patch,
     background_manager: BaseBackgroundManager,
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
@@ -35,7 +33,7 @@ def tbx_monitor(
     model = trainer.load_model()
     model.eval()
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    adv_background = adv_background.to(device)
+    adv_patch = adv_patch.to(device)
 
     tbx_writer = SummaryWriter(config.output_dir)
 
@@ -54,6 +52,9 @@ def tbx_monitor(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
+        image_size = (image_info["height"], image_info["width"])
+
+        adv_background = background_manager.transform_patch(adv_patch, image_size)
         adv_image_list = background_manager.apply(
             adv_background, image_list, mask_image_list
         ).to(dtype=torch.float)
@@ -108,13 +109,13 @@ def tbx_monitor(
 
 
 def evaluate_background(
-    adv_background,
+    adv_patch,
     background_manager: BaseBackgroundManager,
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
 ):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    adv_background = adv_background.to(device)
+    adv_patch = adv_patch.to(device)
 
     image_loader = trainer.get_dataloader()
     model = trainer.load_model()
@@ -126,6 +127,9 @@ def evaluate_background(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
+        image_size = (image_info["height"], image_info["width"])
+
+        adv_background = background_manager.transform_patch(adv_patch, image_size)
         adv_image_list = background_manager.apply(
             adv_background, image_list, mask_image_list
         )
@@ -209,10 +213,10 @@ def main(cfg: DictConfig):
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(cfg.trainer)
     background_manager: BaseBackgroundManager = hydra.utils.instantiate(
         cfg.patch_manager
-    )(trainer.get_image_size(), mode="test")
+    )(mode="test")
 
     adv_bg_image_path = cfg.adv_bg_image_path
-    adv_background = background_manager.transform_patch(torch.load(adv_bg_image_path))
+    adv_patch = torch.load(adv_bg_image_path)
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
@@ -220,7 +224,7 @@ def main(cfg: DictConfig):
         #     adv_background, background_manager, trainer, cfg.evaluate_background
         # )
         evaluate_background(
-            adv_background, background_manager, trainer, cfg.evaluate_background
+            adv_patch, background_manager, trainer, cfg.evaluate_background
         )
 
 
