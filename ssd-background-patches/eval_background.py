@@ -218,7 +218,7 @@ def main(cfg: DictConfig):
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(cfg.trainer)
     background_manager: BaseBackgroundManager = hydra.utils.instantiate(
         cfg.patch_manager
-    )(mode="test")
+    )
 
     adv_bg_image_path = cfg.adv_bg_image_path
     adv_patch = torch.load(adv_bg_image_path)

@@ -268,7 +268,7 @@ def main(cfg: DictConfig):
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(mode_trainer)
     background_manager: BaseBackgroundManager = hydra.utils.instantiate(
         cfg.patch_manager
-    )(trainer.get_image_size(), mode="test")
+    )
 
     # 全ての正しい検出の読み取り・生成
     gt_conf_list, gt_box_list = boxio.generate_integrated_xyxy_list(

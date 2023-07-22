@@ -1,2 +1,3 @@
 _target_: patch_manager.TilingBackgroundManager
-_partial_: True
+# H,W
+tile_size: [100,200]
