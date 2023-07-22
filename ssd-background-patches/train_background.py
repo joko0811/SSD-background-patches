@@ -89,7 +89,12 @@ def train_adversarial_image(
                 # ground_truthesは全ての画像における正しい顔領域を示しているのに対して、ここで取り出しているのは検出を行う画像のみの正しい顔領域
 
             adv_patch.requires_grad = True
-            adv_background_image = background_manager.transform_patch(adv_patch)
+
+            resized_image_size = image_list[0].shape[1:]  # (H,W)
+            adv_background_image = background_manager.transform_patch(
+                adv_patch, resized_image_size
+            )
+
             adv_image_list = background_manager.apply(
                 adv_background_image, image_list, mask_list
             )

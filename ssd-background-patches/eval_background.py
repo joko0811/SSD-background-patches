@@ -52,9 +52,11 @@ def tbx_monitor(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
-        image_size = (image_info["height"], image_info["width"])
+        resized_image_size = image_list[0].shape[1:]  # (H,W)
 
-        adv_background = background_manager.transform_patch(adv_patch, image_size)
+        adv_background = background_manager.transform_patch(
+            adv_patch, resized_image_size
+        )
         adv_image_list = background_manager.apply(
             adv_background, image_list, mask_image_list
         ).to(dtype=torch.float)
@@ -78,7 +80,7 @@ def tbx_monitor(
                 adv_image, (image_info["height"][i], image_info["width"][i])
             )
 
-            if adv_detections_list is not None:
+            if adv_detections_list[i] is not None and gt_det is not None:
                 det_gt_iou = list_iou(adv_detections_list[i].xyxy, gt_det.xyxy)
 
                 tp_det = adv_detections_list[i].xyxy[(det_gt_iou >= 0.5).any(dim=1)]
@@ -89,6 +91,14 @@ def tbx_monitor(
                     color=(255, 255, 255),
                 )
                 fp_det = adv_detections_list[i].xyxy[(det_gt_iou < 0.5).all(dim=1)]
+                anno_adv_image = imgdraw.draw_boxes(
+                    anno_adv_image,
+                    # adv_detections_list[i].xyxy * scale_list[i],
+                    fp_det * scale_list[i],
+                    color=(255, 0, 0),
+                )
+            elif adv_detections_list[i] is not None and gt_det is None:
+                fp_det = adv_detections_list[i].xyxy
                 anno_adv_image = imgdraw.draw_boxes(
                     anno_adv_image,
                     # adv_detections_list[i].xyxy * scale_list[i],
@@ -127,9 +137,11 @@ def evaluate_background(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
-        image_size = (image_info["height"], image_info["width"])
+        resized_image_size = image_list[0].shape[1:]  # (H,W)
 
-        adv_background = background_manager.transform_patch(adv_patch, image_size)
+        adv_background = background_manager.transform_patch(
+            adv_patch, resized_image_size
+        )
         adv_image_list = background_manager.apply(
             adv_background, image_list, mask_image_list
         )
@@ -213,9 +225,7 @@ def main(cfg: DictConfig):
 
     with torch.no_grad():
         # save_detection(adv_bg_image, model, image_loader, config.save_detection)
-        # tbx_monitor(
-        #     adv_background, background_manager, trainer, cfg.evaluate_background
-        # )
+        # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
         evaluate_background(
             adv_patch, background_manager, trainer, cfg.evaluate_background
         )
