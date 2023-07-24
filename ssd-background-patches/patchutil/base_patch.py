@@ -43,9 +43,11 @@ class BaseBackgroundManager:
     def generate_patch(self):
         return
 
-    def apply(self, patch, image_list, mask_list):
+    def apply(self, patch, patch_mask, image_list, mask_list):
         """パッチ適用関数。複数毎に同時に適用できる"""
-        return imgseg.composite_image(image_list, patch, mask_list)
+        return imgseg.composite_image_with_3_layer(
+            image_list, mask_list, patch, patch_mask
+        )
 
     def transform_patch(self, patch, image_size):
         """

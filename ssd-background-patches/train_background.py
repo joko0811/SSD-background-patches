@@ -20,7 +20,7 @@ from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
 from model.base_util import BackgroundBaseTrainer
-from patch_manager import BaseBackgroundManager
+from patchutil.base_patch import BaseBackgroundManager
 from detection.tp_fp_manager import TpFpManager
 from util.infoutil import get_git_sha
 
@@ -91,12 +91,13 @@ def train_adversarial_image(
             adv_patch.requires_grad = True
 
             resized_image_size = image_list[0].shape[1:]  # (H,W)
-            adv_background_image = background_manager.transform_patch(
-                adv_patch, resized_image_size
-            )
+            (
+                adv_background_image,
+                adv_background_mask,
+            ) = background_manager.transform_patch(adv_patch, resized_image_size)
 
             adv_image_list = background_manager.apply(
-                adv_background_image, image_list, mask_list
+                adv_background_image, adv_background_mask, image_list, mask_list
             )
 
             # Detection from adversarial images

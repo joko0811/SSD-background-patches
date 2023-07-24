@@ -19,4 +19,6 @@ class BackgroundManager(BaseBackgroundManager):
             patch:
             image_size: (H,W)
         """
-        return transforms.functional.resize(patch, image_size)
+        patch = transforms.functional.resize(patch, image_size)
+        mask = torch.ones((1,) + image_size).to(device=patch.device)
+        return patch, mask

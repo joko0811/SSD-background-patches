@@ -15,7 +15,7 @@ from sklearn.metrics import average_precision_score
 
 from imageutil import imgdraw
 from model.base_util import BackgroundBaseTrainer
-from patch_manager import BaseBackgroundManager
+from patchutil.base_patch import BaseBackgroundManager
 from detection.detection_base import DetectionsBase
 from detection.tp_fp_manager import TpFpManager
 from evaluation.detection import data_utility_quority, f1, precision, recall, list_iou
@@ -54,11 +54,11 @@ def tbx_monitor(
 
         resized_image_size = image_list[0].shape[1:]  # (H,W)
 
-        adv_background = background_manager.transform_patch(
+        adv_background, adv_background_mask = background_manager.transform_patch(
             adv_patch, resized_image_size
         )
         adv_image_list = background_manager.apply(
-            adv_background, image_list, mask_image_list
+            adv_background, adv_background_mask, image_list, mask_image_list
         ).to(dtype=torch.float)
 
         adv_output = model(adv_image_list)
@@ -139,11 +139,11 @@ def evaluate_background(
 
         resized_image_size = image_list[0].shape[1:]  # (H,W)
 
-        adv_background = background_manager.transform_patch(
+        adv_background, adv_background_mask = background_manager.transform_patch(
             adv_patch, resized_image_size
         )
         adv_image_list = background_manager.apply(
-            adv_background, image_list, mask_image_list
+            adv_background, adv_background_mask, image_list, mask_image_list
         )
 
         adv_output = model(adv_image_list)
