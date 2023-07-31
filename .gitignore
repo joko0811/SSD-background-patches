@@ -1,8 +1,10 @@
 # Project
 .vscode/
 weights/
-outputs/
 datasets/
+# hydra outputs
+outputs/
+multirun/
 
 # other project
 ssd-background-patches/model/S3FD
