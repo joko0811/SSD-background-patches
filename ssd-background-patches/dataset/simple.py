@@ -18,7 +18,7 @@ class DirectoryImageDataset(Dataset):
 
         if self.transform is not None:
             image = self.transform(image)
-        return image, image_path
+        return image, image_size, image_path
 
     def __len__(self):
         return len(self.files)
