@@ -13,12 +13,63 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import average_precision_score
 
 
+from box.boxio import format_detections
 from imageutil import imgdraw
 from model.base_util import BackgroundBaseTrainer
 from patchutil.base_patch import BaseBackgroundManager
 from detection.detection_base import DetectionsBase
 from detection.tp_fp_manager import TpFpManager
 from evaluation.detection import data_utility_quority, f1, precision, recall, list_iou
+
+
+def save_detection(
+    adv_patch,
+    background_manager: BaseBackgroundManager,
+    trainer: BackgroundBaseTrainer,
+    config: DictConfig,
+):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    image_loader = trainer.get_dataloader()
+    model = trainer.load_model()
+    model.eval()
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    adv_patch = adv_patch.to(device)
+
+    det_output_path = os.path.join(config.output_dir, "detections")
+    if not os.path.exists(det_output_path):
+        os.mkdir(det_output_path)
+
+    for (image_list, mask_image_list), image_info in tqdm(image_loader):
+        image_list = image_list.to(device=device, dtype=torch.float)
+        mask_image_list = mask_image_list.to(device=device)
+
+        resized_image_size = image_list[0].shape[1:]  # (H,W)
+
+        adv_background, adv_background_mask = background_manager.transform_patch(
+            adv_patch, resized_image_size
+        )
+        adv_image_list = background_manager.apply(
+            adv_background, adv_background_mask, image_list, mask_image_list
+        ).to(dtype=torch.float)
+
+        adv_output = model(adv_image_list)
+        adv_detections_list = trainer.make_detections_list(
+            adv_output, config.model_thresh
+        )
+
+        for image_idx, det in enumerate(adv_detections_list):
+            if det is None:
+                continue
+
+            det_str = format_detections(det)
+
+            # ファイルまでのパス、拡張子を除いたファイル名を取得
+            image_name = os.path.basename(image_info["path"][image_idx]).split(".")[0]
+            det_file_path = os.path.join(det_output_path, image_name + ".txt")
+
+            with open(det_file_path, "w") as f:
+                f.write(det_str)
 
 
 def tbx_monitor(
@@ -224,7 +275,7 @@ def main(cfg: DictConfig):
     adv_patch = torch.load(adv_bg_image_path)
 
     with torch.no_grad():
-        # save_detection(adv_bg_image, model, image_loader, config.save_detection)
+        save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
         # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
         evaluate_background(
             adv_patch, background_manager, trainer, cfg.evaluate_background
