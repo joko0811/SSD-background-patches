@@ -250,7 +250,7 @@ def step5_detection(base_path, data_split_name, input_file_dir, output_file_dir)
                         f.write(det_str)
 
 
-if __name__ == "__main__":
+def main():
     """
     {input_path}/
         video_1.mp4
@@ -307,13 +307,17 @@ if __name__ == "__main__":
     # logging.info("end of rm_non_det generation[2/5]")
 
     # {output_path}/[data_split_name]/file_type[0]
-    step3_split_train_test_val(
-        rm_non_det_path, output_path, data_split_name, data_split_rate, file_type[0]
-    )
-    logging.info("end of " + file_type[0] + " generation[3/5]")
+    # step3_split_train_test_val(
+    #     rm_non_det_path, output_path, data_split_name, data_split_rate, file_type[0]
+    # )
+    # logging.info("end of " + file_type[0] + " generation[3/5]")
     # {output_path}/[data_split_name]/file_type[1]
     step4_mask(output_path, data_split_name, file_type[0], file_type[1])
     logging.info("end of " + file_type[1] + " generation[4/5]")
     # {output_path}/[data_split_name]/file_type[2]
     step5_detection(output_path, data_split_name, file_type[0], file_type[2])
     logging.info("end of " + file_type[2] + " generation[5/5]")
+
+
+if __name__ == "__main__":
+    main()
