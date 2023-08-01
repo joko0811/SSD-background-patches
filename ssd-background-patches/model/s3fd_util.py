@@ -23,6 +23,17 @@ class S3fdResize:
         return transforms.functional.resize(img=pic, size=out_size)
 
 
+class S3fdDesize:
+    """S3fdTrainer.S3FD_TRANSFORMSの逆変換"""
+
+    def __init__(self):
+        pass
+
+    def __call__(self, pic, scale):
+        rs_pic = transforms.functional.resize(pic, scale)
+        return transforms.functional.to_pil_image(rs_pic / 255)
+
+
 class S3fdTrainer(BackgroundBaseTrainer):
     # casia gait b dataset画像のの変形後のサイズ(HW)
     # TODO: 動的に取得するやり方を考える
@@ -71,8 +82,8 @@ class S3fdTrainer(BackgroundBaseTrainer):
         return detections_list
 
     def transformed2pil(self, pic, scale):
-        rs_pic = transforms.functional.resize(pic, scale)
-        return transforms.functional.to_pil_image(rs_pic / 255)
+        desize = S3fdDesize()
+        return desize(pic, scale)
 
     def get_image_size(self):
         return self.image_size
