@@ -23,7 +23,7 @@ def generate_data(model, image_set, path):
     image_loader = torch.utils.data.DataLoader(image_set, batch_size=BATCH_SIZE)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    for image, image_path in tqdm(image_loader):
+    for image, image_size, image_path in tqdm(image_loader):
         image = image.to(device=device, dtype=torch.float)
 
         output = model(image)
@@ -73,7 +73,7 @@ def calculate_face_area(model, image_set):
 
     area_df_columns = ["area"]
     area_df = pd.DataFrame([], columns=area_df_columns)
-    for image_list, image_path_list in tqdm(image_loader):
+    for image_list, image_size_list, image_path_list in tqdm(image_loader):
         image_list = image_list.to(device=device, dtype=torch.float)
         output = model(image_list)
 

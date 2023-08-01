@@ -14,6 +14,8 @@ class DirectoryImageDataset(Dataset):
         # TODO:replase torchvision.io.read_image
         image = Image.open(image_path)
 
+        image_size = (image.height, image.width)
+
         if self.transform is not None:
             image = self.transform(image)
         return image, image_path

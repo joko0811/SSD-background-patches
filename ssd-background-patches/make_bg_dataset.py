@@ -77,7 +77,7 @@ def step2_rm_non_detection(input_path):
     thresh = 0.6
 
     with torch.no_grad():
-        for image, path in image_loader:
+        for image, image_size, path in image_loader:
             # 変換前の画像の座標に変換するための配列
             image = image.to(device=device, dtype=torch.float)
             output = model(image)
@@ -126,7 +126,7 @@ def step3_split_train_test_val(
 
     def _save_dataset(dataset, save_path):
         image_loader = DataLoader(dataset, batch_size=1)
-        for image, path in image_loader:
+        for image, image_size, path in image_loader:
             image = transforms.functional.to_pil_image(image.squeeze())
 
             image_name = os.path.basename(path[0])
@@ -160,7 +160,7 @@ def step4_mask(base_path, data_split_name, input_file_dir, output_file_dir):
         image_set = DirectoryImageDataset(input_path, transform=transform)
         image_loader = DataLoader(image_set, batch_size=1)
 
-        for image, image_path in tqdm(image_loader):
+        for image, image_size, image_path in tqdm(image_loader):
             image_name = os.path.basename(image_path[0])
             save_path = os.path.join(output_path, image_name)
             image = transforms.functional.to_pil_image(image.squeeze())
@@ -214,7 +214,7 @@ def step5_detection(base_path, data_split_name, input_file_dir, output_file_dir)
 
             output_path = os.path.join(base_path, os.path.join(dsn, output_file_dir))
 
-            for image, image_path in tqdm(image_loader):
+            for image, image_size, image_path in tqdm(image_loader):
                 image = image.to(device=device, dtype=torch.float)
 
                 output = model(image).squeeze()
