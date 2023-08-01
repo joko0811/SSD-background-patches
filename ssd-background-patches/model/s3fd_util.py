@@ -23,7 +23,7 @@ class S3fdResize:
         return transforms.functional.resize(img=pic, size=out_size)
 
 
-class S3fdDesize:
+class S3fdDeTransform:
     """S3fdTrainer.S3FD_TRANSFORMSの逆変換"""
 
     def __init__(self):
@@ -82,7 +82,7 @@ class S3fdTrainer(BackgroundBaseTrainer):
         return detections_list
 
     def transformed2pil(self, pic, scale):
-        desize = S3fdDesize()
+        desize = S3fdDeTransform()
         return desize(pic, scale)
 
     def get_image_size(self):
