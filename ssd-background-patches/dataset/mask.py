@@ -21,6 +21,7 @@ class DirectoryImageWithMaskDataset(Dataset):
     def __getitem__(self, index):
         image_path = self.face_files[index % len(self.face_files)]
         image = Image.open(image_path)
+        image_size = (image.height, image.width)
 
         mask_image_path = self.mask_files[index % len(self.mask_files)]
         mask_image = Image.open(mask_image_path)
@@ -29,7 +30,12 @@ class DirectoryImageWithMaskDataset(Dataset):
             image = self.transform(image)
             mask_image = self.transform(mask_image)
 
-        return image, mask_image, image_path, mask_image_path
+        image_info = {}
+        image_info["image_path"] = image_path
+        image_info["mask_image_path"] = mask_image_path
+        image_info["image_size"] = image_size
+
+        return image, mask_image, image_info
 
     def __len__(self):
         return len(self.face_files)
