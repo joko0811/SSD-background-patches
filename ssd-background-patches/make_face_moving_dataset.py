@@ -181,13 +181,67 @@ def step2_detection(input_path):
                 f.write(det_str)
 
 
+def step3_rm_non_det_image(dir):
+    """
+    ディレクトリAとディレクトリBを探索し、条件に合致する場合に存在する方のディレクトリのファイルを削除する関数
+    Args:
+        dir_A (str): ディレクトリAのパス
+        dir_B (str): ディレクトリBのパス
+    """
+
+    face_dir = os.path.join(dir, "face")
+    detection_dir = os.path.join(dir, "detection")
+    mask_dir = os.path.join(dir, "mask")
+
+    # ディレクトリAとディレクトリBをそれぞれ探索
+    for root, dirs, files in os.walk(face_dir):
+        for file in files:
+            file = file.split(".")[0]
+            file_path_face = os.path.join(face_dir, file + ".png")
+            file_path_mask = os.path.join(mask_dir, file + ".png")
+            file_path_det = os.path.join(detection_dir, file + ".txt")
+
+            if not os.path.exists(file_path_face):
+                # 直下ではない
+                continue
+
+            # ディレクトリB以下に同名のファイルが存在しない場合、ディレクトリAのファイルを削除
+            if not os.path.exists(file_path_det):
+                try:
+                    os.remove(file_path_face)
+                    os.remove(file_path_mask)
+                    print(f"削除されたファイル: {file_path_face}")
+                except OSError as e:
+                    print(f"削除エラー: {file_path_face}, エラー: {e}")
+
+    for root, dirs, files in os.walk(detection_dir):
+        for file in files:
+            file = file.split(".")[0]
+            file_path_face = os.path.join(face_dir, file + ".png")
+            file_path_mask = os.path.join(mask_dir, file + ".png")
+            file_path_det = os.path.join(detection_dir, file + ".txt")
+
+            if not os.path.exists(file_path_det):
+                # 直下ではない
+                continue
+
+            # ディレクトリA以下に同名のファイルが存在しない場合、ディレクトリBのファイルを削除
+            if not os.path.exists(file_path_face):
+                try:
+                    os.remove(file_path_det)
+                    print(f"削除されたファイル: {file_path_det}")
+                except OSError as e:
+                    print(f"削除エラー: {file_path_det}, エラー: {e}")
+
+
 def main():
     input_path = "datasets/casia/test/"
     output_path = "datasets/casia/test_face_moving/"
 
     with torch.no_grad():
         # step1_rotate(input_path, output_path)
-        step2_detection(output_path)
+        # step2_detection(output_path)
+        step3_rm_non_det_image(output_path)
 
 
 if __name__ == "__main__":
