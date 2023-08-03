@@ -68,7 +68,7 @@ def format_detections(detections: DetectionsBase):
     return det_str
 
 
-def parse_detections(path):
+def parse_detections(path, delimiter=None):
     with open(path, "r") as f:
         det_str_list = f.readlines()
 
@@ -79,7 +79,10 @@ def parse_detections(path):
     xyxy_list = list()
 
     for det_str in det_str_list:
-        det_info = det_str.split()
+        if delimiter is None:
+            det_info = det_str.split()
+        else:
+            det_info = det_str.split(delimiter)
 
         conf = float(det_info[0])
         x1 = float(det_info[1])
@@ -121,7 +124,6 @@ def format_yolo(detections: ObjectDetectionBase, image_hw):
 
 
 def parse_yolo(path, image_hw):
-
     with open(path, "r") as f:
         det_str_list = f.readlines()
 
