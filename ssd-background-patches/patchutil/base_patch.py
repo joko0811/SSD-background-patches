@@ -50,12 +50,14 @@ class BaseBackgroundManager:
         )
 
     def transform_patch(self, patch, image_size):
-        """
+        """パッチを適用するために必要な変形を行う
+        同時にパッチを適用する領域を指定するマスク画像も生成する
         Args:
             patch:
             image_size: (H,W)
         """
-        return patch
+        mask = torch.ones((1,) + tuple(image_size)).to(device=patch.device)
+        return patch, mask.clone()
 
     def save_best_image(self, patch, path, ground_trhuth, tp, fp, fn):
         logging.info(
