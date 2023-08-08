@@ -275,7 +275,7 @@ def main(cfg: DictConfig):
     adv_patch = torch.load(adv_bg_image_path)
 
     with torch.no_grad():
-        save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
+        # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
         # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
         evaluate_background(
             adv_patch, background_manager, trainer, cfg.evaluate_background
