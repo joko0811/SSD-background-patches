@@ -46,9 +46,6 @@ def train_adversarial_image(
 
     max_epoch = config.max_epoch  # default 250
 
-    patch_coordinate = (0, 0)
-    patch_size = (40, 40)
-
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
@@ -63,6 +60,9 @@ def train_adversarial_image(
     # retina_dataset_image_format = (3, 840, 840)
 
     adv_patch = background_manager.generate_patch().to(device)
+    patch_size = adv_patch.shape[1:]
+    patch_coordinate = (0, 0)
+
     patch_dir = os.path.join(config.output_dir, "patch")
     if not os.path.exists(patch_dir):
         os.makedirs(patch_dir)
@@ -255,7 +255,3 @@ def main(cfg: DictConfig):
 
 if __name__ == "__main__":
     main()
-
-
-if __name__ == "__main__":
-    pass
