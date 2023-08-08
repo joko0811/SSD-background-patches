@@ -95,8 +95,8 @@ def train_adversarial_image(
             resized_image_size = image_list[0].shape[1:]  # (H,W)
             # パッチのランダムな座標変動
             patch_coordinate = (
-                random.random() * (resized_image_size[0] - patch_size[0]),
-                random.random() * (resized_image_size[1] - patch_size[1]),
+                int(random.random() * (resized_image_size[0] - patch_size[0])),
+                int(random.random() * (resized_image_size[1] - patch_size[1])),
             )
             (
                 adv_background_image,
@@ -118,13 +118,20 @@ def train_adversarial_image(
             for i in range(image_loader.batch_size):
                 # shape: [batch_size,num_objs,5]
                 # 5: [x1,y1,x2,y2,score]
-                target = torch.cat(
-                    [
-                        image_info["xyxy"][i],
-                        torch.tensor([1]).tile(image_info["xyxy"][i].shape[0], 1),
-                    ],
-                    dim=1,
-                ).to(device=device, dtype=torch.float)
+                if image_info["xyxy"][i].nelement() == 0:
+                    l_loss_list[i] += 0
+                    c_loss_list[i] += 0
+                    continue
+
+                target = [
+                    torch.cat(
+                        [
+                            image_info["xyxy"][i],
+                            torch.tensor([1]).tile(image_info["xyxy"][i].shape[0], 1),
+                        ],
+                        dim=1,
+                    ).to(device=device, dtype=torch.float)
+                ]
                 loss_l, loss_c = multibox_loss(adv_output, target)
 
                 l_loss_list[i] += loss_l
