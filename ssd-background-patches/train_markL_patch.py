@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import random
 
 import hydra
 from omegaconf import OmegaConf
@@ -44,8 +45,6 @@ def train_adversarial_image(
 
     max_epoch = config.max_epoch  # default 250
 
-    patch_coordinate = (0, 0)
-    patch_size = (40, 40)
     lr = 0.1
     momentum = 0.9
 
@@ -63,6 +62,9 @@ def train_adversarial_image(
     # retina_dataset_image_format = (3, 840, 840)
 
     adv_patch = background_manager.generate_patch().to(device)
+    patch_size = adv_patch.shape[1:]
+    patch_coordinate = (0, 0)
+
     patch_dir = os.path.join(config.output_dir, "patch")
     if not os.path.exists(patch_dir):
         os.makedirs(patch_dir)
@@ -91,10 +93,17 @@ def train_adversarial_image(
             adv_patch.requires_grad = True
 
             resized_image_size = image_list[0].shape[1:]  # (H,W)
+            # パッチのランダムな座標変動
+            patch_coordinate = (
+                random.random() * (resized_image_size[0] - patch_size[0]),
+                random.random() * (resized_image_size[1] - patch_size[1]),
+            )
             (
                 adv_background_image,
                 adv_background_mask,
-            ) = background_manager.transform_patch(adv_patch, resized_image_size)
+            ) = background_manager.transform_patch(
+                adv_patch, resized_image_size, patch_coordinate
+            )
 
             adv_image_list = background_manager.apply(
                 adv_background_image, adv_background_mask, image_list, mask_list
@@ -109,25 +118,13 @@ def train_adversarial_image(
             for i in range(image_loader.batch_size):
                 # shape: [batch_size,num_objs,5]
                 # 5: [x1,y1,x2,y2,score]
-                target = (
-                    torch.tensor(
-                        [
-                            (patch_coordinate[0] / adv_image_list.shape[3]),
-                            (patch_coordinate[1] / adv_image_list.shape[2]),
-                            (
-                                (patch_coordinate[0] + patch_size[0])
-                                / adv_image_list.shape[3]
-                            ),
-                            (
-                                (patch_coordinate[1] + patch_size[1])
-                                / adv_image_list.shape[2]
-                            ),
-                            1,
-                        ]
-                    )
-                    .to(device=device, dtype=torch.float)
-                    .tile(image_loader.batch_size, 1, 1)
-                )
+                target = torch.cat(
+                    [
+                        image_info["xyxy"][i],
+                        torch.tensor([1]).tile(image_info["xyxy"][i].shape[0], 1),
+                    ],
+                    dim=1,
+                ).to(device=device, dtype=torch.float)
                 loss_l, loss_c = multibox_loss(adv_output, target)
 
                 l_loss_list[i] += loss_l
@@ -256,7 +253,3 @@ def main(cfg: DictConfig):
 
 if __name__ == "__main__":
     main()
-
-
-if __name__ == "__main__":
-    pass
