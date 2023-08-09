@@ -171,6 +171,8 @@ def train_adversarial_image(
             grad_linf = adv_patch.grad.detach().abs().max()
             if grad_linf > 0:
                 norm_grad = adv_patch.grad / grad_linf
+            else:
+                norm_grad = adv_patch.grad
             """
             optimizer.step()
             optimizer.zero_grad()
@@ -181,7 +183,7 @@ def train_adversarial_image(
             adv_patch = adv_patch + lr * norm_grad
 
             adv_patch = adv_patch.clamp(0.0, 255.0)
-            adv_patch.grad.zero_()
+            # adv_patch.grad.zero_()
 
         with torch.no_grad():
             logging.info("epoch: " + str(epoch))
