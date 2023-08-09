@@ -78,11 +78,13 @@ def train_adversarial_image(
     multibox_conf = OmegaConf.create(multibox_conf)
     multibox_loss = MultiBoxLoss(multibox_conf, dataset="face", use_gpu=True)
 
+    """
     optimizer = torch.optim.SGD(
         [adv_patch],
         lr=lr,
         momentum=momentum,
     )
+    """
 
     for epoch in tqdm(range(max_epoch)):
         epoch_loss_list = list()
@@ -96,6 +98,8 @@ def train_adversarial_image(
                 image_list = image_list.to(device=device, dtype=torch.float)
                 mask_list = mask_list.to(device=device)
 
+            if adv_patch.grad is not None:
+                adv_patch.grad.zero_()
             adv_patch.requires_grad = True
 
             resized_image_size = image_list[0].shape[1:]  # (H,W)
@@ -167,23 +171,25 @@ def train_adversarial_image(
             # update the patch
             loss.backward()
 
-            # normalize gradients by dividing l_infinity norm
-            grad_linf = adv_patch.grad.detach().abs().max()
-            if grad_linf > 0:
-                norm_grad = adv_patch.grad / grad_linf
-            else:
-                norm_grad = adv_patch.grad
-            """
-            optimizer.step()
-            optimizer.zero_grad()
-            """
+            with torch.no_grad():
+                grad = adv_patch.grad
+                # normalize gradients by dividing l_infinity norm
+                grad_linf = grad.detach().abs().max()
+                if grad_linf > 0:
+                    norm_grad = grad / grad_linf
+                else:
+                    norm_grad = grad
+                """
+                optimizer.step()
+                optimizer.zero_grad()
+                """
 
-            # grad_sign = norm_grad.detach().sign()
-            # adv_patch += lr * grad_sign
-            adv_patch = adv_patch + lr * norm_grad
+                # grad_sign = norm_grad.detach().sign()
+                # adv_patch += lr * grad_sign
+                adv_patch = adv_patch + lr * norm_grad
 
-            adv_patch = adv_patch.clamp(0.0, 255.0)
-            # adv_patch.grad.zero_()
+                adv_patch = adv_patch.clamp(0.0, 255.0)
+                # adv_patch.grad.zero_()
 
         with torch.no_grad():
             logging.info("epoch: " + str(epoch))
