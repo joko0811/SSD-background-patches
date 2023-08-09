@@ -78,6 +78,12 @@ def train_adversarial_image(
     multibox_conf = OmegaConf.create(multibox_conf)
     multibox_loss = MultiBoxLoss(multibox_conf, dataset="face", use_gpu=True)
 
+    optimizer = torch.optim.SGD(
+        [adv_patch],
+        lr=lr,
+        momentum=momentum,
+    )
+
     for epoch in tqdm(range(max_epoch)):
         epoch_loss_list = list()
         epoch_l_list = list()
@@ -159,12 +165,23 @@ def train_adversarial_image(
                 continue
 
             # update the patch
-            loss.backward()  # retain_graph=True
+            loss.backward()
 
-            with torch.no_grad():
-                grad_sign = adv_patch.grad.detach().sign()
-                adv_patch += lr * grad_sign
-                adv_patch = adv_patch.clamp(0.0, 255.0)
+            # normalize gradients by dividing l_infinity norm
+            grad_linf = adv_patch.grad.detach().abs().max()
+            if grad_linf > 0:
+                norm_grad = adv_patch.grad / grad_linf
+            """
+            optimizer.step()
+            optimizer.zero_grad()
+            """
+
+            # grad_sign = norm_grad.detach().sign()
+            # adv_patch += lr * grad_sign
+            adv_patch = adv_patch + lr * norm_grad
+
+            adv_patch = adv_patch.clamp(0.0, 255.0)
+            adv_patch.grad.zero_()
 
         with torch.no_grad():
             logging.info("epoch: " + str(epoch))
