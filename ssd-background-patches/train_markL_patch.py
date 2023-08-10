@@ -46,6 +46,7 @@ def train_adversarial_image(
     max_epoch = config.max_epoch  # default 250
 
     lr = 0.1
+    lr_decay = 0.95
     momentum = 0.9
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -63,6 +64,8 @@ def train_adversarial_image(
 
     adv_patch = background_manager.generate_patch().to(device)
     patch_size = adv_patch.shape[1:]
+    torch.manual_seed(0)
+    adv_patch = torch.rand(adv_patch.shape, device=device) * 255
     patch_coordinate = (0, 0)
 
     patch_dir = os.path.join(config.output_dir, "patch")
@@ -98,8 +101,7 @@ def train_adversarial_image(
                 image_list = image_list.to(device=device, dtype=torch.float)
                 mask_list = mask_list.to(device=device)
 
-            if adv_patch.grad is not None:
-                adv_patch.grad.zero_()
+            # if adv_patch.grad is not None: adv_patch.grad.zero_()
             adv_patch.requires_grad = True
 
             resized_image_size = image_list[0].shape[1:]  # (H,W)
@@ -170,13 +172,13 @@ def train_adversarial_image(
 
             # update the patch
             loss.backward()
+            grad = adv_patch.grad
 
             with torch.no_grad():
-                grad = adv_patch.grad
                 # normalize gradients by dividing l_infinity norm
                 grad_linf = grad.detach().abs().max()
                 if grad_linf > 0:
-                    norm_grad = grad / grad_linf
+                    norm_grad = (grad / grad_linf) * 255
                 else:
                     norm_grad = grad
                 """
@@ -192,6 +194,8 @@ def train_adversarial_image(
                 # adv_patch.grad.zero_()
 
         with torch.no_grad():
+            lr = lr * lr_decay
+
             logging.info("epoch: " + str(epoch))
             # tensorboard
             epoch_mean_loss = np.array(epoch_loss_list).mean()
@@ -200,11 +204,10 @@ def train_adversarial_image(
 
             logging.info("epoch_mean_loss: " + str(epoch_mean_loss))
 
-            if epoch_mean_loss < min_loss:
-                torch.save(
-                    adv_patch,
-                    os.path.join(patch_dir, "epoch" + str(epoch) + "_patch.pt"),
-                )
+            torch.save(
+                adv_patch,
+                os.path.join(patch_dir, "epoch" + str(epoch) + "_patch.pt"),
+            )
 
             if tbx_writer is not None:
                 tbx_writer.add_scalar("total_loss", epoch_mean_loss, epoch)
