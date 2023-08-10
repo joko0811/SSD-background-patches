@@ -47,6 +47,7 @@ def train_adversarial_image(
 
     lr = 0.1
     lr_decay = 0.95
+    lr_decay_epoch = 5
     momentum = 0.9
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -194,7 +195,8 @@ def train_adversarial_image(
                 # adv_patch.grad.zero_()
 
         with torch.no_grad():
-            lr = lr * lr_decay
+            if epoch % lr_decay_epoch == 0:
+                lr = lr * lr_decay
 
             logging.info("epoch: " + str(epoch))
             # tensorboard
