@@ -2,7 +2,7 @@ from evaluation.detection import list_iou
 import torch
 
 
-def total_loss(detections, ground_truthes, background_patch_boxes, image_hw, config):
+def total_loss(detections, ground_truthes, config):
     iou_score = _iou(detections=detections, ground_truthes=ground_truthes)
     return iou_score.mean()
 
