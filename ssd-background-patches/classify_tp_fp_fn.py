@@ -13,7 +13,8 @@ def classify(det_path, gt_path):
     fp_det = np.empty((0, 5))
     fn_det = np.empty((0, 5))
 
-    tpfp_manager = TpFpManager()
+    device = "cpu"
+    tpfp_manager = TpFpManager(device=device)
 
     for root, dir, files in os.walk(det_path):
         for file in tqdm(files):

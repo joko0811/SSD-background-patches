@@ -69,7 +69,7 @@ def train_adversarial_image(
         # epoch_tps_list = list()
         epoch_fpc_list = list()
         # epoch_tv_list = list()
-        tp_fp_manager = TpFpManager()
+        tp_fp_manager = TpFpManager(device=device)
 
         for (image_list, mask_list), image_info in image_loader:
             # Preprocessing

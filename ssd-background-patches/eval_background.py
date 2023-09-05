@@ -182,7 +182,7 @@ def evaluate_background(
     model = trainer.load_model()
     model.eval()
 
-    tp_fp_manager = TpFpManager()
+    tp_fp_manager = TpFpManager(device=device)
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
         image_list = image_list.to(device=device, dtype=torch.float)

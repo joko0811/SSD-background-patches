@@ -6,7 +6,7 @@ from evaluation.detection import list_iou
 
 
 class TpFpManager:
-    def __init__(self):
+    def __init__(self, device):
         """
         Args:
             ground_truth: 真の顔領域を示す検出。初期化段階で全ての真の顔領域が既知である時に指定する
@@ -17,6 +17,7 @@ class TpFpManager:
         self.gt = 0
         self.det_tp_binary_array = np.array([])
         self.det_conf_array = np.array([])
+        self.device = device
 
     def add_detection(
         self,
@@ -55,10 +56,10 @@ class TpFpManager:
         ground_truth: DetectionsBase,
         iou_thresh=0.5,
     ):
-        gt_det = torch.tensor([]).to(device=detection.conf.device)
-        tp_det = torch.tensor([]).to(device=detection.conf.device)
-        fp_det = torch.tensor([]).to(device=detection.conf.device)
-        fn_det = torch.tensor([]).to(device=detection.conf.device)
+        gt_det = torch.tensor([]).to(device=self.device)
+        tp_det = torch.tensor([]).to(device=self.device)
+        fp_det = torch.tensor([]).to(device=self.device)
+        fn_det = torch.tensor([]).to(device=self.device)
 
         if (ground_truth is None) and (detection is not None):
             fp_det = torch.cat((detection.conf.unsqueeze(1), detection.xyxy), dim=1)
