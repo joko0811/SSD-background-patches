@@ -68,7 +68,9 @@ class TpFpManager:
             gt_det = torch.cat(
                 (ground_truth.conf.unsqueeze(1), ground_truth.xyxy), dim=1
             )
-            fn_det = torch.cat((detection.conf.unsqueeze(1), detection.xyxy), dim=1)
+            fn_det = torch.cat(
+                (ground_truth.conf.unsqueeze(1), ground_truth.xyxy), dim=1
+            )
 
         elif (ground_truth is not None) and (detection is not None):
             gt_det = torch.cat(
