@@ -4,9 +4,12 @@ from torch.utils.data import Dataset
 
 
 class DirectoryImageDataset(Dataset):
-    def __init__(self, image_path, transform=None):
+    def __init__(self, image_path, max_iter=None, transform=None):
         self.image_path = image_path
         self.files = sorted(glob.glob("%s/*.*" % self.image_path))
+        if max_iter is not None:
+            self.max_iter = min(max_iter, len(self.files))
+            self.files = self.files[: self.max_iter]
         self.transform = transform
 
     def __getitem__(self, index):

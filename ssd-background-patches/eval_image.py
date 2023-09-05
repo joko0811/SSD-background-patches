@@ -97,6 +97,7 @@ def calculate_face_area(model, image_set):
                 )
                 area_df.loc[image_path_list[image_idx]] = area
 
+    print("mean: " + str(area_df.mean()["area"]))
     area_df.to_csv("./all_face_area.csv")
 
 
@@ -123,7 +124,10 @@ def main():
         ]
     )
 
-    image_set = DirectoryImageDataset(image_dir_path, transform=S3FD_TRANSFORMS)
+    max_iter = 3000
+    image_set = DirectoryImageDataset(
+        image_dir_path, transform=S3FD_TRANSFORMS, max_iter=max_iter
+    )
 
     model = _load_model("weights/s3fd.pth")
     model.eval()
