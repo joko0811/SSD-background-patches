@@ -13,6 +13,6 @@ def _iou(detections, ground_truthes):
 
     z = (gt_dt_iou != 0).to(dtype=torch.float).sum(axis=0)
 
-    normalize_dt_iou_sum = torch.where((dt_iou_sum / z) == 0, 0, dt_iou_sum / z)
+    normalize_dt_iou_sum = torch.where(z == 0, 0, dt_iou_sum / z)
 
     return normalize_dt_iou_sum
