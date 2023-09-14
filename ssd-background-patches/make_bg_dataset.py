@@ -4,6 +4,7 @@ video only dataset
 → dataset.train_background.TrainBackgroundDataset
 """
 import os
+import sys
 import glob
 import argparse
 import logging
@@ -293,30 +294,38 @@ def main():
     rm_non_det_path = args.input
     rm_non_det_path = os.path.join(output_path, "rm_non_det")
 
-    # os.makedirs(rm_non_det_path)
-    # for dpn in data_split_name:
-    #     dpn_path = os.path.join(output_path, dpn)
-    #     os.mkdir(dpn_path)
-    #     for ft in file_type:
-    #         os.mkdir(os.path.join(dpn_path, ft))
+    os.makedirs(rm_non_det_path)
+    for dpn in data_split_name:
+        dpn_path = os.path.join(output_path, dpn)
+        os.mkdir(dpn_path)
+        for ft in file_type:
+            os.mkdir(os.path.join(dpn_path, ft))
 
     # {output_path}/rm_non_det
-    # step1_face(input_path, rm_non_det_path)
-    # logging.info("end of video2image[1/5]")
-    # step2_rm_non_detection(rm_non_det_path)
-    # logging.info("end of rm_non_det generation[2/5]")
+    step1_face(input_path, rm_non_det_path)
+    logging.info("end of video2image[1/5]")
+    sys.stdout.flush()
+
+    step2_rm_non_detection(rm_non_det_path)
+    logging.info("end of rm_non_det generation[2/5]")
+    sys.stdout.flush()
 
     # {output_path}/[data_split_name]/file_type[0]
-    # step3_split_train_test_val(
-    #     rm_non_det_path, output_path, data_split_name, data_split_rate, file_type[0]
-    # )
-    # logging.info("end of " + file_type[0] + " generation[3/5]")
-    # {output_path}/[data_split_name]/file_type[1]
+    step3_split_train_test_val(
+        rm_non_det_path, output_path, data_split_name, data_split_rate, file_type[0]
+    )
+    logging.info("end of " + file_type[0] + " generation[3/5]")
+    sys.stdout.flush()
+
+    # {output_path} / [data_split_name] / file_type[1]
     step4_mask(output_path, data_split_name, file_type[0], file_type[1])
     logging.info("end of " + file_type[1] + " generation[4/5]")
+    sys.stdout.flush()
+
     # {output_path}/[data_split_name]/file_type[2]
     step5_detection(output_path, data_split_name, file_type[0], file_type[2])
     logging.info("end of " + file_type[2] + " generation[5/5]")
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
