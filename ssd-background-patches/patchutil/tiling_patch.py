@@ -24,24 +24,24 @@ class TilingBackgroundManager(BaseBackgroundManager):
         patch = torch.zeros(tuple((3,) + self.patch_size))
         return patch
 
-    def calc_tiling_number(self, image_size):
+    def calc_tiling_number(self, image_size, patch_size):
         """
         タイルを並べる数をH,Wそれぞれ求める
         画像のサイズに依存することに注意
         """
         tiling_number = (
-            ceil(image_size[0] / self.patch_size[0]),  # H
-            ceil(image_size[1] / self.patch_size[1]),  # W
+            ceil(image_size[0] / patch_size[0]),  # H
+            ceil(image_size[1] / patch_size[1]),  # W
         )
         return tiling_number
 
-    def transform_patch(self, patch, image_size):
+    def transform_patch(self, patch, image_size, **kwargs):
         """
         Args:
             patch:
             image_size: (H,W)
         """
-        tiling_number = self.calc_tiling_number(image_size)
+        tiling_number = self.calc_tiling_number(image_size, patch.shape[1:])
         tiling_patch = transforms.functional.crop(
             patch.tile(tiling_number), 0, 0, image_size[0], image_size[1]
         )
@@ -60,7 +60,7 @@ class RandomPutTilingManager(TilingBackgroundManager):
 
         super().__init__(patch_size)
 
-    def transform_patch(self, patch, image_size, seed=None):
+    def transform_patch(self, patch, image_size, **kwargs):
         """パッチをランダムに配置する
 
         パッチを隙間なく配置した時の格子上に区切られた区画を元に配置
@@ -68,8 +68,11 @@ class RandomPutTilingManager(TilingBackgroundManager):
         NOTE: 選択可能な領域がput_num以下である時は選択可能な領域分だけパッチを配置する
 
         Args:
-            seed: 乱数を用いるので再現性が必要なときに指定する。学習時はepoch数*画像インデックスをseedとするのが良い？
+            kwargs:
+                seed: 乱数を用いるので再現性が必要なときに指定する。学習時はepoch数*画像インデックスをseedとするのが良い？
         """
+        seed = kwargs["seed"] if "seed" in kwargs else None
+
         tiling_patch = torch.zeros((3,) + image_size).to(
             device=patch.device, dtype=patch.dtype
         )
@@ -78,7 +81,7 @@ class RandomPutTilingManager(TilingBackgroundManager):
         )
 
         # タイルが縦何枚、横何枚配置できるか
-        tiling_number = self.calc_tiling_number(image_size)
+        tiling_number = self.calc_tiling_number(image_size, patch.shape[1:])
 
         # パッチが縦Y枚目、横X枚目であるかを示すインデックスをランダムにput_num個分取得
         put_patch_idx = self._random_select_patch_idx(tiling_number, seed)
@@ -166,3 +169,45 @@ class RandomPutTilingManager(TilingBackgroundManager):
                 :, at_range[1] : at_range[3], at_range[0] : at_range[2]
             ] = assignmented_source
         return assignmented_target
+
+
+class ScalableTilingManager(TilingBackgroundManager):
+    """
+    基本はTilingBackgroundManagerと同様
+    ただし、画像毎に一つの検出に合わせてパッチサイズが変動する
+    """
+
+    def __init__(self, patch_size=(100, 200), patch_det_area_ratio=6.66):
+        """
+        Args:
+            patch_size: tuple(H,W)タイル一枚のサイズを指定する
+        """
+        self.patch_det_size_ratio = patch_det_area_ratio
+        super().__init__(patch_size)
+
+    def transform_patch(self, patch, image_size, **kwargs):
+        """
+        Args:
+            patch:
+            image_size: (H,W)
+            kwargs:
+                det_size: [N,2] N個の検出の幅と高さ(H,W)
+        """
+        if "det_size" not in kwargs:
+            raise ValueError('argument "det_size" is must required')
+        det_height = kwargs["det_size"][:, :, 0] * image_size[0]
+        det_width = kwargs["det_size"][:, :, 1] * image_size[1]
+
+        det_area = det_width * det_height
+        patch_size_magnification = torch.sqrt(
+            (6.66 * det_area[0, 0]) / (self.patch_size[0] * self.patch_size[1])
+        )
+        rescale_patch_size = (
+            (torch.tensor(self.patch_size) * patch_size_magnification)
+            .to(dtype=torch.int)
+            .tolist()
+        )
+
+        rescaled_patch = transforms.functional.resize(patch, rescale_patch_size)
+
+        return super().transform_patch(rescaled_patch, image_size)

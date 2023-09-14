@@ -1,5 +1,6 @@
 import os
 import shutil
+import random
 
 import hydra
 from omegaconf import DictConfig
@@ -20,6 +21,7 @@ from patchutil.base_patch import BaseBackgroundManager
 from detection.detection_base import DetectionsBase
 from detection.tp_fp_manager import TpFpManager
 from evaluation.detection import data_utility_quority, f1, precision, recall, list_iou
+from box.boxconv import xyxy2xywh
 
 
 def save_detection(
@@ -36,6 +38,8 @@ def save_detection(
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     adv_patch = adv_patch.to(device)
 
+    patch_size = adv_patch.shape[1:]
+
     det_output_path = os.path.join(config.output_dir, "detections")
     if not os.path.exists(det_output_path):
         os.mkdir(det_output_path)
@@ -44,13 +48,17 @@ def save_detection(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
-        resized_image_size = image_list[0].shape[1:]  # (H,W)
-
-        adv_background, adv_background_mask = background_manager.transform_patch(
-            adv_patch, resized_image_size
+        image_size = image_list[0].shape[1:]  # (H,W)
+        args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
+            image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
         )
+        (
+            adv_background_image,
+            adv_background_mask,
+        ) = background_manager.transform_patch(adv_patch, image_size, **args_of_tpatch)
+
         adv_image_list = background_manager.apply(
-            adv_background, adv_background_mask, image_list, mask_image_list
+            adv_background_image, adv_background_mask, image_list, mask_image_list
         ).to(dtype=torch.float)
 
         adv_output = model(adv_image_list)
@@ -103,13 +111,22 @@ def tbx_monitor(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
-        resized_image_size = image_list[0].shape[1:]  # (H,W)
+        image_size = image_list[0].shape[1:]  # (H,W)
 
-        adv_background, adv_background_mask = background_manager.transform_patch(
-            adv_patch, resized_image_size
+        patch_size = adv_patch.shape[1:]
+
+        # パッチ変形用のy引数用意
+        # パッチのランダムな座標変動
+        args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
+            image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
         )
+        (
+            adv_background_image,
+            adv_background_mask,
+        ) = background_manager.transform_patch(adv_patch, image_size, **args_of_tpatch)
+
         adv_image_list = background_manager.apply(
-            adv_background, adv_background_mask, image_list, mask_image_list
+            adv_background_image, adv_background_mask, image_list, mask_image_list
         ).to(dtype=torch.float)
 
         adv_output = model(adv_image_list)
@@ -188,13 +205,19 @@ def evaluate_background(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
-        resized_image_size = image_list[0].shape[1:]  # (H,W)
+        image_size = image_list[0].shape[1:]  # (H,W)
 
-        adv_background, adv_background_mask = background_manager.transform_patch(
-            adv_patch, resized_image_size
+        patch_size = adv_patch.shape[1:]
+        args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
+            image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
         )
+        (
+            adv_background_image,
+            adv_background_mask,
+        ) = background_manager.transform_patch(adv_patch, image_size, **args_of_tpatch)
+
         adv_image_list = background_manager.apply(
-            adv_background, adv_background_mask, image_list, mask_image_list
+            adv_background_image, adv_background_mask, image_list, mask_image_list
         )
 
         adv_output = model(adv_image_list)
@@ -276,10 +299,10 @@ def main(cfg: DictConfig):
 
     with torch.no_grad():
         # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
-        # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
-        evaluate_background(
-            adv_patch, background_manager, trainer, cfg.evaluate_background
-        )
+        tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
+        # evaluate_background(
+        #     adv_patch, background_manager, trainer, cfg.evaluate_background
+        # )
 
 
 if __name__ == "__main__":

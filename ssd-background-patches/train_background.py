@@ -15,6 +15,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from box import boxio
+from box.boxconv import xyxy2xywh
 from loss import tile_weighted, simple, proposed, iou
 from imageutil import imgdraw
 
@@ -57,6 +58,8 @@ def train_adversarial_image(
     # retina_dataset_image_format = (3, 840, 840)
 
     adv_patch = background_manager.generate_patch().to(device)
+    patch_size = adv_patch.shape[1:]
+
     patch_dir = os.path.join(config.output_dir, "patch")
     if not os.path.exists(patch_dir):
         os.makedirs(patch_dir)
@@ -91,11 +94,17 @@ def train_adversarial_image(
 
             adv_patch.requires_grad = True
 
-            resized_image_size = image_list[0].shape[1:]  # (H,W)
+            image_size = image_list[0].shape[1:]  # (H,W)
+
+            args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
+                image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
+            )
             (
                 adv_background_image,
                 adv_background_mask,
-            ) = background_manager.transform_patch(adv_patch, resized_image_size)
+            ) = background_manager.transform_patch(
+                adv_patch, image_size, **args_of_tpatch
+            )
 
             adv_image_list = background_manager.apply(
                 adv_background_image, adv_background_mask, image_list, mask_list

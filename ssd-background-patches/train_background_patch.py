@@ -85,6 +85,7 @@ def train_adversarial_image(image, mask_image, config: DictConfig, tbx_writer=No
         detections = s3fd_util.make_detections_list(output, 0.6)[0]
 
         if detections is None:
+            # TODO: 検出がない時も0値で逆伝播できるようにする
             # 検出がない場合は終了
             pil_adv_image = s3fd_util.image_decode(s3fd_adv_image[0], scale[0])
             tbx_writer.add_image(

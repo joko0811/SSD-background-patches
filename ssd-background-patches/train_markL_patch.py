@@ -1,7 +1,6 @@
 import os
 import sys
 import logging
-import random
 
 import hydra
 from omegaconf import OmegaConf
@@ -17,6 +16,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from box import boxio
+from box.boxconv import xyxy2xywh
 from model.S3FD.layers.modules.multibox_loss import MultiBoxLoss
 
 from detection.detection_base import DetectionsBase
@@ -105,17 +105,16 @@ def train_adversarial_image(
             # if adv_patch.grad is not None: adv_patch.grad.zero_()
             adv_patch.requires_grad = True
 
-            resized_image_size = image_list[0].shape[1:]  # (H,W)
-            # パッチのランダムな座標変動
-            patch_coordinate = (
-                int(random.random() * (resized_image_size[0] - patch_size[0])),
-                int(random.random() * (resized_image_size[1] - patch_size[1])),
+            image_size = image_list[0].shape[1:]  # (H,W)
+
+            args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
+                image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
             )
             (
                 adv_background_image,
                 adv_background_mask,
             ) = background_manager.transform_patch(
-                adv_patch, resized_image_size, patch_coordinate
+                adv_patch, image_size, **args_of_tpatch
             )
 
             adv_image_list = background_manager.apply(

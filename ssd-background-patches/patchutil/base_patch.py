@@ -1,5 +1,6 @@
 import sys
 import logging
+import random
 
 import torch
 
@@ -49,7 +50,7 @@ class BaseBackgroundManager:
             image_list, mask_list, patch, patch_mask
         )
 
-    def transform_patch(self, patch, image_size):
+    def transform_patch(self, patch, image_size, **kwargs):
         """パッチを適用するために必要な変形を行う
         同時にパッチを適用する領域を指定するマスク画像も生成する
         Args:
@@ -58,6 +59,35 @@ class BaseBackgroundManager:
         """
         mask = torch.ones((1,) + tuple(image_size)).to(device=patch.device)
         return patch, mask.clone()
+
+    def generate_kwargs_of_transform_patch(
+        self, image_size, patch_size, det_size, seed=None
+    ):
+        """transform_patchに渡すkwargsを生成する
+        Args:
+            image_size: (H,W)
+            patch_size: (H,W)
+            det_size: [N,2] N個の検出について、高さ、幅の組(H,W)をそれぞれ保持するテンソル
+            seed: シードを利用しない場合はNoneを指定する
+        """
+
+        args_of_tpatch = {}
+
+        # パッチのランダムな座標変動
+        # RandomPutTilingManagerなどのパッチをランダム配置する場合に使用する
+        args_of_tpatch["patch_coordinate"] = (
+            int(random.random() * (image_size[0] - patch_size[0])),
+            int(random.random() * (image_size[1] - patch_size[1])),
+        )
+        # 検出の高さと幅
+        # ScalableTilingManagerなどのパッチサイズが検出サイズに依存する場合に使用する
+        args_of_tpatch["det_size"] = det_size
+
+        # ランダム生成する際のシード値
+        # RandomPutTilingManagerなどの変形時にランダム性が必要である場合に使用する
+        args_of_tpatch["seed"] = seed
+
+        return args_of_tpatch
 
     def save_best_image(self, patch, path, ground_trhuth, tp, fp, fn):
         logging.info(

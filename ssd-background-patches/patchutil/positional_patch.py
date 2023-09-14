@@ -9,11 +9,16 @@ class PositionalBackgroundManager(BaseBackgroundManager):
         patch = torch.zeros((3,) + tuple(patch_size))
         return patch.clone()
 
-    def transform_patch(self, patch, image_size, patch_coordinate=(0, 0)):
+    def transform_patch(self, patch, image_size, **kwargs):
         """
         Args:
-            patch_coorinate: (y,x)
+            kwargs:
+            patch_coorinate: (y,x)パッチを配置する座標を指定する。デフォルトは(0,0)
         """
+        patch_coordinate = (
+            kwargs["patch_coordinate"] if "patch_coordinate" in kwargs else (0, 0)
+        )
+
         mask = torch.zeros((1,) + image_size).to(device=patch.device)
 
         compose_patch = torch.zeros((3,) + image_size).to(

@@ -13,7 +13,7 @@ class BackgroundManager(BaseBackgroundManager):
         patch = torch.zeros((3,) + tuple(patch_size))
         return patch.clone()
 
-    def transform_patch(self, patch, image_size):
+    def transform_patch(self, patch, image_size, **kwargs):
         """
         Args:
             patch:
