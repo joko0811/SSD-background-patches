@@ -89,15 +89,13 @@ def train_adversarial_image(
                         image_info["height"],
                     ]
                 ).T.to(device=device, dtype=torch.float)
-                # 正しい顔領域
-                # ground_truthesは全ての画像における正しい顔領域を示しているのに対して、ここで取り出しているのは検出を行う画像のみの正しい顔領域
 
             adv_patch.requires_grad = True
 
             image_size = image_list[0].shape[1:]  # (H,W)
 
             args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
-                image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
+                image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
             )
             (
                 adv_background_image,

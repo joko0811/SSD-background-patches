@@ -50,7 +50,7 @@ def save_detection(
 
         image_size = image_list[0].shape[1:]  # (H,W)
         args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
-            image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
+            image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
         )
         (
             adv_background_image,
@@ -209,7 +209,7 @@ def evaluate_background(
 
         patch_size = adv_patch.shape[1:]
         args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
-            image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
+            image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
         )
         (
             adv_background_image,

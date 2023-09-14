@@ -95,7 +95,7 @@ def train_adversarial_image(
 
             image_size = image_list[0].shape[1:]  # (H,W)
             args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
-                image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, 2:]
+                image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
             )
             (
                 adv_background_image,
