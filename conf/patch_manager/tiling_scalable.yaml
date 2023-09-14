@@ -1,0 +1,4 @@
+
+_target_: patchutil.tiling_patch.ScalableTilingManager
+patch_size: [100, 200]
+patch_det_area_ratio: 6.66
