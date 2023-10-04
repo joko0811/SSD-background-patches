@@ -1,3 +1,7 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+
 defaults:
   - model: s3fd # 使用モデルの設定
   - dataset: casia_test # 使用データセットの設定
