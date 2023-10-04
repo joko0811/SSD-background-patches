@@ -241,10 +241,14 @@ def evaluate_background(
     duq_score = data_utility_quority(gt, tp, fp)
 
     adv_tp_binary_array, adv_conf_array = tp_fp_manager.get_sklearn_y_true_score()
-    ap_score = average_precision_score(adv_tp_binary_array, adv_conf_array)
+    if adv_tp_binary_array.size != 0 and adv_conf_array.size != 0:
+        ap_score = average_precision_score(adv_tp_binary_array, adv_conf_array)
 
-    np.save(os.path.join(config.output_dir, "y_true.npy"), adv_tp_binary_array)
-    np.save(os.path.join(config.output_dir, "y_score.npy"), adv_conf_array)
+        np.save(os.path.join(config.output_dir, "y_true.npy"), adv_tp_binary_array)
+        np.save(os.path.join(config.output_dir, "y_score.npy"), adv_conf_array)
+    else:
+        print("tp is not found")
+        ap_score = 0
 
     precision_score = precision(tp, fp)
     recall_score = recall(tp, fn)
@@ -299,10 +303,10 @@ def main(cfg: DictConfig):
 
     with torch.no_grad():
         # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
-        tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
-        # evaluate_background(
-        #     adv_patch, background_manager, trainer, cfg.evaluate_background
-        # )
+        # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
+        evaluate_background(
+            adv_patch, background_manager, trainer, cfg.evaluate_background
+        )
 
 
 if __name__ == "__main__":
