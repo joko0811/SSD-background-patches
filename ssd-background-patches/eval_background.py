@@ -3,7 +3,7 @@ import shutil
 import random
 
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, open_dict
 
 import torch
 from torchvision import transforms
@@ -294,12 +294,16 @@ def evaluate_background(
 @hydra.main(version_base=None, config_path="../conf/", config_name="eval_background")
 def main(cfg: DictConfig):
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(cfg.trainer)
-    background_manager: BaseBackgroundManager = hydra.utils.instantiate(
-        cfg.patch_manager
-    )
 
     adv_bg_image_path = cfg.adv_bg_image_path
     adv_patch = torch.load(adv_bg_image_path)
+
+    with open_dict(cfg):
+        cfg.patch_manager._partial_ = True
+
+    background_manager: BaseBackgroundManager = hydra.utils.instantiate(
+        cfg.patch_manager
+    )(patch_size=adv_patch.shape[1:])
 
     with torch.no_grad():
         # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
