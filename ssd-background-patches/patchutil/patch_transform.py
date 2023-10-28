@@ -35,16 +35,19 @@ def shielding_patch_with_rectangle(
     """パッチ領域に収まるランダムな矩形を遮蔽する
     パッチ領域が画像全域であるときしか処理できない
     """
+    if shielding_rate == 0.0:
+        return patch
+
     shielding_area_pixel_num = torch.tensor(
         patch.shape[1] * patch.shape[2] * shielding_rate
     ).to(dtype=torch.int64)
 
     height = round(
         random.uniform(
-            (shielding_area_pixel_num / patch.shape[2]).item(), patch.shape[1]
+            (shielding_area_pixel_num / (patch.shape[2] + 1e-9)).item(), patch.shape[1]
         )
     )
-    width = round(shielding_area_pixel_num.item() / height)
+    width = round(shielding_area_pixel_num.item() / (height + 1e-9))
 
     y = int(random.uniform(0, patch.shape[1] - height))
     x = int(random.uniform(0, patch.shape[2] - width))
