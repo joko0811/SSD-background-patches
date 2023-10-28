@@ -6,6 +6,7 @@ defaults:
   - model: s3fd # 使用モデルの設定
   - dataset: casia_test # 使用データセットの設定
   - patch_manager: tiling_background
+  - patch_postprocesser: !!null
   - _self_
 
 # command line arguments
@@ -27,6 +28,9 @@ trainer:
   model_conf: ${model}
 
 adv_bg_image_path: ${path}
+
+patch_postprocesser:
+  _partial_: True
 
 # mode setting
 save_detection:

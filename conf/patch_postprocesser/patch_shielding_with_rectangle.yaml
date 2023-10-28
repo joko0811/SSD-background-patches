@@ -1,0 +1,2 @@
+_target_: patchutil.patch_transform.shielding_patch_with_rectangle
+shielding_rate: 0.5

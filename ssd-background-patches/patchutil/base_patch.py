@@ -44,10 +44,18 @@ class BaseBackgroundManager:
     def generate_patch(self):
         return
 
+    def set_patch_postprosesser(self, patch_postprosesser):
+        self.patch_postprosesser = patch_postprosesser
+
     def apply(self, patch, patch_mask, image_list, mask_list):
         """パッチ適用関数。複数毎に同時に適用できる"""
+        if self.patch_postprosesser is not None:
+            middle_image = self.patch_postprosesser(patch, patch_mask)
+        else:
+            middle_image = patch
+
         return imgseg.composite_image_with_3_layer(
-            image_list, mask_list, patch, patch_mask
+            image_list, mask_list, middle_image, patch_mask
         )
 
     def transform_patch(self, patch, image_size, **kwargs):
