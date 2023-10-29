@@ -32,14 +32,15 @@ class BasePatchManager:
 class BaseBackgroundManager:
     """マスク画像をもとに背景画像合成を行う"""
 
-    def __init__(self):
+    def __init__(self, patch_size=(100, 200)):
         """
         Args:
-          image_size: パッチを適用するデータセットの画像サイズのタプルまたはリスト(H,W)
-          mode: test or train
+            patch_size: tuple(H,W)タイル一枚のサイズを指定する
+            mode: test or train
         """
         # lower is better
         self.best_score = sys.maxsize
+        self.patch_size = patch_size
 
     def generate_patch(self):
         return

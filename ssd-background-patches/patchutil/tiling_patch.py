@@ -12,14 +12,6 @@ class TilingBackgroundManager(BaseBackgroundManager):
     ただし背景領域適用前にパッチの敷き詰め処理を行う
     """
 
-    def __init__(self, patch_size=(100, 200)):
-        """
-        Args:
-            patch_size: tuple(H,W)タイル一枚のサイズを指定する
-        """
-        self.patch_size = patch_size
-        super().__init__()
-
     def generate_patch(self):
         patch = torch.zeros(tuple((3,) + self.patch_size))
         return patch

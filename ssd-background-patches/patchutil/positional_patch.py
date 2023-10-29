@@ -5,8 +5,8 @@ from .base_patch import BaseBackgroundManager
 
 class PositionalBackgroundManager(BaseBackgroundManager):
     # def generate_patch(self, patch_size=(40, 40)):
-    def generate_patch(self, patch_size=(200, 200)):
-        patch = torch.zeros((3,) + tuple(patch_size))
+    def generate_patch(self):
+        patch = torch.zeros((3,) + tuple(self.patch_size))
         return patch.clone()
 
     def transform_patch(self, patch, image_size, **kwargs):
