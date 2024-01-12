@@ -41,6 +41,7 @@ class BaseBackgroundManager:
         # lower is better
         self.best_score = sys.maxsize
         self.patch_size = patch_size
+        self.patch_postprosesser = None
 
     def generate_patch(self):
         return
