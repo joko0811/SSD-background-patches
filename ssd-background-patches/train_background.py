@@ -143,7 +143,7 @@ def train_adversarial_image(
                     fpc_loss_list[i] += 0
                     # tps_loss_list[i] += 0
                     # iou_loss_list[i] += 0
-                    # tv_loss_list[i] += 0
+                    tv_loss_list[i] += 0
                     continue
 
                 # tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
