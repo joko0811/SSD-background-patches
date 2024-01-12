@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from box import boxio
 from box.boxconv import xyxy2xywh
-from loss import tile_weighted, simple, proposed, iou
+from loss import tile_weighted, simple, proposed, iou, sharif2016
 from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
@@ -72,7 +72,7 @@ def train_adversarial_image(
         epoch_tpc_list = list()
         epoch_fpc_list = list()
         # epoch_tps_list = list()
-        # epoch_tv_list = list()
+        epoch_tv_list = list()
         tp_fp_manager = TpFpManager(device=device)
 
         for (image_list, mask_list), image_info in image_loader:
@@ -117,7 +117,7 @@ def train_adversarial_image(
             fpc_loss_list = torch.zeros(image_loader.batch_size, device=device)
             # tps_loss_list = torch.zeros(image_loader.batch_size, device=device)
             # iou_loss_list = torch.zeros(image_loader.batch_size, device=device)
-            # tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
+            tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
 
             for i in range(image_loader.batch_size):
                 with torch.no_grad():
@@ -148,26 +148,27 @@ def train_adversarial_image(
 
                 # tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
                 # iou_loss = iou.total_loss(
-                tpc_loss, fpc_loss = tile_weighted.total_loss(
+                tpc_loss, fpc_loss = simple.total_loss(
                     adv_detections_list[i],
                     ground_truthes,
                     config.loss,
                 )
+                tv_loss = sharif2016.total_variation_loss(adv_patch)
 
                 tpc_loss_list[i] += tpc_loss
                 fpc_loss_list[i] += fpc_loss
                 # tps_loss_list[i] += tps_loss
                 # iou_loss_list[i] += iou_loss
-                # tv_loss_list[i] += tv_loss
+                tv_loss_list[i] += tv_loss
 
             mean_tpc = torch.mean(tpc_loss_list)
             mean_fpc = torch.mean(fpc_loss_list)
             # mean_tps = torch.mean(tps_loss_list)
             # mean_iou = torch.mean(iou_loss_list)
-            # mean_tv = torch.mean(tv_loss_list)
+            mean_tv = torch.mean(tv_loss_list)
 
             # loss = mean_tpc + mean_tps + mean_fpc  # +mean_tv
-            loss = mean_tpc + mean_fpc
+            loss = mean_tpc + mean_fpc + mean_tv
             # loss = mean_iou
 
             with torch.no_grad():
@@ -187,7 +188,9 @@ def train_adversarial_image(
                 # epoch_iou_list.append(
                 #     mean_iou.detach().cpu().resolve_conj().resolve_neg().numpy()
                 # )
-                # epoch_tv_list.append(mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy())
+                epoch_tv_list.append(
+                    mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy()
+                )
 
             if loss == 0:
                 continue
@@ -215,7 +218,7 @@ def train_adversarial_image(
             epoch_mean_fpc = np.array(epoch_fpc_list).mean()
             # epoch_mean_tps = np.array(epoch_tps_list).mean()
             # epoch_iou_loss = np.array(epoch_iou_list).mean()
-            # epoch_mean_tv = np.array(epoch_tv_list).mean()
+            epoch_mean_tv = np.array(epoch_tv_list).mean()
 
             if tbx_writer is not None:
                 tbx_writer.add_scalar("total_loss", epoch_mean_loss, epoch)
