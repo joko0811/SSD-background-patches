@@ -293,6 +293,7 @@ def train_adversarial_image(cfg: DictConfig):
     )
     pil_image.save(output_adv_path)
     logging.info("finished!")
+    return loss
 
 
 def main():
