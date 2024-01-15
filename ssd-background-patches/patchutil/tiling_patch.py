@@ -14,7 +14,7 @@ class TilingBackgroundManager(BaseBackgroundManager):
 
     def generate_patch(self):
         torch.manual_seed(0)
-        patch = torch.rand(tuple((3,) + self.patch_size))
+        patch = torch.rand(tuple((3,) + self.patch_size)) * 255
         return patch
 
     def calc_tiling_number(self, image_size, patch_size):
