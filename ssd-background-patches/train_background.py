@@ -187,7 +187,7 @@ def train_adversarial_image(cfg: DictConfig):
                 mean_tv = torch.mean(tv_loss_list)
 
                 # loss = mean_tpc + mean_tps + mean_fpc  # +mean_tv
-                loss = mean_tpc + mean_fpc  # + mean_tv
+                loss = mean_tpc + mean_fpc + mean_tv
                 # loss = mean_iou
 
                 with torch.no_grad():
@@ -245,7 +245,7 @@ def train_adversarial_image(cfg: DictConfig):
                     tbx_writer.add_scalar("fpc_loss", epoch_mean_fpc, epoch)
                     # tbx_writer.add_scalar("tps_loss", epoch_mean_tps, epoch)
                     # tbx_writer.add_scalar("iou_loss", epoch_iou_loss, epoch)
-                    # tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
+                    tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
 
                     tbx_writer.add_image(
                         "adversarial_background_image",
