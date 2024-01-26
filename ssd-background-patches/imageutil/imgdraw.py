@@ -86,7 +86,6 @@ def draw_boxes(image, boxes, color=(255, 255, 255)):
     draw = ImageDraw.Draw(image, mode="RGBA")
 
     for i in range(len(boxes)):
-
         # 矩形を描画する
         draw.rectangle(boxes[i].tolist(), width=2, outline=color)
 
