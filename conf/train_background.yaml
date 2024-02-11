@@ -8,6 +8,7 @@ defaults:
   - dataset@monitor_dataset: casia_mini # 使用データセットの設定
   - dataset@evaluate_dataset: casia_train # 使用データセットの設定
   - patch_manager: tiling_background
+  - optim: ni_fgsm
   - _self_
   - override hydra/sweeper: optuna
 
@@ -39,9 +40,6 @@ evaluate_trainer:
   dataset_factory: ${evaluate_dataset}
   model_conf: ${model}
 
-optim:
-  lr: 0.03
-  weight_decay: 0.0005
 # 敵対的画像生成時の設定
 train_parameters:
   max_epoch: 50 # 一枚の画像ごとに摂動を加える最大回数

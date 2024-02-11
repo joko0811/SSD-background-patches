@@ -80,9 +80,8 @@ def train_adversarial_image(cfg: DictConfig):
     if not os.path.exists(patch_dir):
         os.makedirs(patch_dir)
 
-    optimizer = torch.optim.Adam(
-        [adv_patch], lr=cfg.optim.lr, weight_decay=cfg.optim.weight_decay
-    )
+    optimizer_factory = hydra.utils.instantiate(cfg.optim.optimizer)
+    optimizer = optimizer_factory(params=[adv_patch])
 
     with SummaryWriter(cfg.train_parameters.output_dir) as tbx_writer:
         for epoch in tqdm(range(max_epoch)):
@@ -214,6 +213,9 @@ def train_adversarial_image(cfg: DictConfig):
                 if loss == 0:
                     continue
 
+                if hasattr(optimizer, "pre_backward"):
+                    optimizer.pre_backward([adv_patch])
+
                 optimizer.zero_grad()
                 loss.backward()
                 # The Adversarial background image is updated here
@@ -249,7 +251,7 @@ def train_adversarial_image(cfg: DictConfig):
 
                     tbx_writer.add_image(
                         "adversarial_background_image",
-                        transforms.functional.to_tensor(
+                        transforms.functional.pil_to_tensor(
                             trainer.transformed2pil(
                                 adv_background_image, trainer.get_image_size()
                             )
@@ -259,7 +261,7 @@ def train_adversarial_image(cfg: DictConfig):
 
                     if epoch % 10 == 0:
                         if adv_detections_list[0] is not None:
-                            tbx_anno_adv_image = transforms.functional.to_tensor(
+                            tbx_anno_adv_image = transforms.functional.pil_to_tensor(
                                 imgdraw.draw_boxes(
                                     trainer.transformed2pil(
                                         adv_image_list[0],
@@ -275,7 +277,7 @@ def train_adversarial_image(cfg: DictConfig):
                                 "adversarial_image", tbx_anno_adv_image, epoch
                             )
                         else:
-                            tbx_anno_adv_image = transforms.functional.to_tensor(
+                            tbx_anno_adv_image = transforms.functional.pil_to_tensor(
                                 trainer.transformed2pil(
                                     adv_image_list[0],
                                     (image_info["height"][0], image_info["width"][0]),
@@ -289,7 +291,7 @@ def train_adversarial_image(cfg: DictConfig):
 
     output_adv_path = os.path.join(cfg.output_dir, "adv_background_image.png")
     pil_image = transforms.functional.to_pil_image(
-        torch.clamp(adv_patch, min=0, max=255).clone().cpu()
+        torch.clamp(adv_patch, min=0, max=255).trunc().clone().cpu()
     )
     pil_image.save(output_adv_path)
     logging.info("finished!")

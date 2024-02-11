@@ -1,0 +1,6 @@
+optimizer:
+  _target_: optimizer.mi_fgsm.MI_FGSM
+  _partial_: true
+  lr: 0.16
+  momentum: 0.1
+  use_pre_backward: true
