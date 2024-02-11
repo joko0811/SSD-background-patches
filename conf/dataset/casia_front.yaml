@@ -1,0 +1,4 @@
+_target_: dataset.train_background.TrainBackGroundDataset
+face_path: "datasets/casia_front/train/face/"
+mask_path: "datasets/casia_front/train/mask/"
+detection_path: "datasets/casia_front/train/detection/"
