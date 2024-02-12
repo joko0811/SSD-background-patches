@@ -42,7 +42,7 @@ evaluate_trainer:
 
 # 敵対的画像生成時の設定
 train_parameters:
-  max_epoch: 50 # 一枚の画像ごとに摂動を加える最大回数
+  max_epoch: 150 # 一枚の画像ごとに摂動を加える最大回数
   loss: ${loss}
   model_thresh: 0.6
   output_dir: ${output_dir}
