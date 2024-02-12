@@ -132,10 +132,10 @@ def train_adversarial_image(cfg: DictConfig):
                     adv_output, cfg.train_parameters.model_thresh
                 )
                 tpc_loss_list = torch.zeros(image_loader.batch_size, device=device)
-                fpc_loss_list = torch.zeros(image_loader.batch_size, device=device)
+                # fpc_loss_list = torch.zeros(image_loader.batch_size, device=device)
                 # tps_loss_list = torch.zeros(image_loader.batch_size, device=device)
                 # iou_loss_list = torch.zeros(image_loader.batch_size, device=device)
-                tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
+                # tv_loss_list = torch.zeros(image_loader.batch_size, device=device)
 
                 for i in range(image_loader.batch_size):
                     with torch.no_grad():
@@ -158,10 +158,10 @@ def train_adversarial_image(cfg: DictConfig):
 
                     if adv_detections_list[i] is None:
                         tpc_loss_list[i] += 0
-                        fpc_loss_list[i] += 0
+                        # fpc_loss_list[i] += 0
                         # tps_loss_list[i] += 0
                         # iou_loss_list[i] += 0
-                        tv_loss_list[i] += 0
+                        # tv_loss_list[i] += 0
                         continue
 
                     # tpc_loss, tps_loss, fpc_loss = proposed.total_loss(
@@ -171,23 +171,22 @@ def train_adversarial_image(cfg: DictConfig):
                         ground_truthes,
                         cfg.loss,
                     )
-                    tv_loss = sharif2016.tv_loss(adv_patch.unsqueeze(0))
+                    # tv_loss = sharif2016.tv_loss(adv_patch.unsqueeze(0))
 
                     tpc_loss_list[i] += tpc_loss
-                    fpc_loss_list[i] += fpc_loss
+                    # fpc_loss_list[i] += fpc_loss
                     # tps_loss_list[i] += tps_loss
                     # iou_loss_list[i] += iou_loss
-                    tv_loss_list[i] += tv_loss
+                    # tv_loss_list[i] += tv_loss
 
                 mean_tpc = torch.mean(tpc_loss_list)
-                mean_fpc = torch.mean(fpc_loss_list)
+                # mean_fpc = torch.mean(fpc_loss_list)
                 # mean_tps = torch.mean(tps_loss_list)
                 # mean_iou = torch.mean(iou_loss_list)
-                mean_tv = torch.mean(tv_loss_list)
+                # mean_tv = torch.mean(tv_loss_list)
 
-                # loss = mean_tpc + mean_tps + mean_fpc  # +mean_tv
-                loss = mean_tpc + mean_fpc + mean_tv
-                # loss = mean_iou
+                # loss = mean_tpc + mean_fpc + mean_tv
+                loss = mean_tpc
 
                 with torch.no_grad():
                     # tensorboard
@@ -197,18 +196,18 @@ def train_adversarial_image(cfg: DictConfig):
                     epoch_tpc_list.append(
                         mean_tpc.detach().cpu().resolve_conj().resolve_neg().numpy()
                     )
-                    epoch_fpc_list.append(
-                        mean_fpc.detach().cpu().resolve_conj().resolve_neg().numpy()
-                    )
+                    # epoch_fpc_list.append(
+                    #     mean_fpc.detach().cpu().resolve_conj().resolve_neg().numpy()
+                    # )
                     # epoch_tps_list.append(
                     #     mean_tps.detach().cpu().resolve_conj().resolve_neg().numpy()
                     # )
                     # epoch_iou_list.append(
                     #     mean_iou.detach().cpu().resolve_conj().resolve_neg().numpy()
                     # )
-                    epoch_tv_list.append(
-                        mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy()
-                    )
+                    # epoch_tv_list.append(
+                    #     mean_tv.detach().cpu().resolve_conj().resolve_neg().numpy()
+                    # )
 
                 if loss == 0:
                     continue
@@ -236,25 +235,23 @@ def train_adversarial_image(cfg: DictConfig):
                 # tensorboard
                 epoch_mean_loss = np.array(epoch_loss_list).mean()
                 epoch_mean_tpc = np.array(epoch_tpc_list).mean()
-                epoch_mean_fpc = np.array(epoch_fpc_list).mean()
+                # epoch_mean_fpc = np.array(epoch_fpc_list).mean()
                 # epoch_mean_tps = np.array(epoch_tps_list).mean()
                 # epoch_iou_loss = np.array(epoch_iou_list).mean()
-                epoch_mean_tv = np.array(epoch_tv_list).mean()
+                # epoch_mean_tv = np.array(epoch_tv_list).mean()
 
                 if tbx_writer is not None:
                     tbx_writer.add_scalar("total_loss", epoch_mean_loss, epoch)
                     tbx_writer.add_scalar("tpc_loss", epoch_mean_tpc, epoch)
-                    tbx_writer.add_scalar("fpc_loss", epoch_mean_fpc, epoch)
+                    # tbx_writer.add_scalar("fpc_loss", epoch_mean_fpc, epoch)
                     # tbx_writer.add_scalar("tps_loss", epoch_mean_tps, epoch)
                     # tbx_writer.add_scalar("iou_loss", epoch_iou_loss, epoch)
-                    tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
+                    # tbx_writer.add_scalar("tv_loss", epoch_mean_tv, epoch)
 
                     tbx_writer.add_image(
                         "adversarial_background_image",
                         transforms.functional.pil_to_tensor(
-                            trainer.transformed2pil(
-                                adv_background_image, trainer.get_image_size()
-                            )
+                            trainer.transformed2pil(adv_background_image)
                         ),
                         epoch,
                     )
@@ -291,7 +288,7 @@ def train_adversarial_image(cfg: DictConfig):
 
     output_adv_path = os.path.join(cfg.output_dir, "adv_background_image.png")
     pil_image = transforms.functional.to_pil_image(
-        torch.clamp(adv_patch, min=0, max=255).trunc().clone().cpu()
+        torch.clamp(adv_patch, min=0, max=255).trunc().clone().cpu() / 255
     )
     pil_image.save(output_adv_path)
     logging.info("finished!")

@@ -190,9 +190,7 @@ def train_adversarial_image(
                 tbx_writer.add_image(
                     "adversarial_background_image",
                     transforms.functional.to_tensor(
-                        trainer.transformed2pil(
-                            adv_background_image, trainer.get_image_size()
-                        )
+                        trainer.transformed2pil(adv_background_image)
                     ),
                     epoch,
                 )
