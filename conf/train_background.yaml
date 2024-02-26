@@ -7,7 +7,7 @@ defaults:
   - model: s3fd # 使用モデルの設定
   - dataset@monitor_dataset: casia_mini # 使用データセットの設定
   - dataset@evaluate_dataset: casia_train # 使用データセットの設定
-  - patch_manager: tiling_background
+  - ptmanager: tiling_background
   - optim: ni_fgsm
   - _self_
   - override hydra/sweeper: optuna

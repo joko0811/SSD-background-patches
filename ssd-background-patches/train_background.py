@@ -21,7 +21,7 @@ from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
 from model.base_util import BackgroundBaseTrainer
-from patchutil.base_patch import BaseBackgroundManager
+from ptmanager.base_patch import BaseBackgroundManager
 from detection.tp_fp_manager import TpFpManager
 from util.infoutil import get_git_sha
 

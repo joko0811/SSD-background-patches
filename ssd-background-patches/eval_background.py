@@ -17,7 +17,7 @@ from sklearn.metrics import average_precision_score
 from box.boxio import format_detections
 from imageutil import imgdraw
 from model.base_util import BackgroundBaseTrainer
-from patchutil.base_patch import BaseBackgroundManager
+from ptmanager.base_patch import BaseBackgroundManager
 from detection.detection_base import DetectionsBase
 from detection.tp_fp_manager import TpFpManager
 from evaluation.detection import data_utility_quority, f1, precision, recall, list_iou

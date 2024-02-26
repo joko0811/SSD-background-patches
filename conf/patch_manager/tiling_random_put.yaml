@@ -1,7 +1,0 @@
-
-_target_: patchutil.tiling_patch.RandomPutTilingManager
-# H,W
-patch_size: [100,200]
-put_num: 10
-
-

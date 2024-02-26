@@ -1,0 +1,3 @@
+_target_: ptmanager.tiling_patch.TilingBackgroundManager
+# H,W
+patch_size: [100,200]

@@ -22,7 +22,7 @@ from imageutil import imgdraw
 
 from detection.detection_base import DetectionsBase
 from model.base_util import BackgroundBaseTrainer
-from patchutil.positional_patch import PositionalBackgroundManager
+from ptmanager.positional_patch import PositionalBackgroundManager
 from detection.tp_fp_manager import TpFpManager
 from util.infoutil import get_git_sha
 

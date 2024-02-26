@@ -5,8 +5,8 @@ hydra:
 defaults:
   - model: s3fd # 使用モデルの設定
   - dataset: casia_test # 使用データセットの設定
-  - patch_manager: tiling_background
-  - patch_postprocesser: !!null
+  - ptmanager: tiling_background
+  - pttransforms: !!null
   - _self_
 
 # command line arguments
@@ -29,7 +29,7 @@ trainer:
 
 adv_bg_image_path: ${path}
 
-patch_postprocesser:
+pttransforms:
   _partial_: True
 
 # mode setting
