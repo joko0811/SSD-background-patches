@@ -40,7 +40,7 @@ class TilingBackgroundManager(BaseBackgroundManager):
         )
         mask = torch.ones((1,) + image_size).to(device=patch.device)
 
-        transformed_patch, _ = self.super().transform_patch(
+        transformed_patch, _ = super().transform_patch(
             tiling_patch, image_size, **kwargs
         )
         return transformed_patch, mask

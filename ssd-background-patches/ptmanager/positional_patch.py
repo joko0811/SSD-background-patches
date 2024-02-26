@@ -35,7 +35,7 @@ class PositionalBackgroundManager(BaseBackgroundManager):
             patch_coordinate[1] : patch_coordinate[1] + patch.shape[2],
         ] = 1
 
-        transformed_patch, _ = self.super().transform_patch(
+        transformed_patch, _ = super().transform_patch(
             compose_patch, image_size, **kwargs
         )
 
