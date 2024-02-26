@@ -39,7 +39,11 @@ class TilingBackgroundManager(BaseBackgroundManager):
             patch.tile(tiling_number), 0, 0, image_size[0], image_size[1]
         )
         mask = torch.ones((1,) + image_size).to(device=patch.device)
-        return tiling_patch, mask
+
+        transformed_patch, _ = self.super().transform_patch(
+            tiling_patch, image_size, **kwargs
+        )
+        return transformed_patch, mask
 
 
 class RandomPutTilingManager(TilingBackgroundManager):

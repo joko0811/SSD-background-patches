@@ -3,6 +3,7 @@ import logging
 import random
 
 import torch
+from torchvision import transforms
 
 from imageutil import imgseg
 from evaluation.detection import f1, precision, recall
@@ -67,8 +68,14 @@ class BaseBackgroundManager:
             patch:
             image_size: (H,W)
         """
-        mask = torch.ones((1,) + tuple(image_size)).to(device=patch.device)
-        return patch, mask.clone()
+        transform = transforms.Compose(
+            [
+                transforms.ColorJitter(
+                    brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5
+                )
+            ]
+        )
+        return transform(patch), torch.ones((1,) + image_size).to(device=patch.device)
 
     def generate_kwargs_of_transform_patch(
         self, image_size, patch_size, det_size, seed=None
