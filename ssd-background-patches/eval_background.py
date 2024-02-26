@@ -299,11 +299,11 @@ def main(cfg: DictConfig):
     adv_patch = torch.load(adv_bg_image_path)
 
     with open_dict(cfg):
-        cfg.patch_manager._partial_ = True
+        cfg.ptmanager._partial_ = True
 
-    background_manager: BaseBackgroundManager = hydra.utils.instantiate(
-        cfg.patch_manager
-    )(patch_size=adv_patch.shape[1:])
+    background_manager: BaseBackgroundManager = hydra.utils.instantiate(cfg.ptmanager)(
+        patch_size=adv_patch.shape[1:]
+    )
 
     patch_postprocesser = (
         hydra.utils.call(cfg.patch_postprocesser)

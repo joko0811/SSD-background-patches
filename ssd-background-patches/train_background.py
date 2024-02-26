@@ -47,9 +47,7 @@ def train_adversarial_image(cfg: DictConfig):
             raise Exception("modeが想定されていない値です")
 
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(mode_trainer)
-    background_manager: BaseBackgroundManager = hydra.utils.instantiate(
-        cfg.patch_manager
-    )
+    background_manager: BaseBackgroundManager = hydra.utils.instantiate(cfg.ptmanager)
 
     # 全ての正しい検出の読み取り・生成
     gt_conf_list, gt_box_list = boxio.generate_integrated_xyxy_list(
