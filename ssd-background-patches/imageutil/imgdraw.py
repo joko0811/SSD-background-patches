@@ -70,7 +70,7 @@ def draw_annotations(
     return image
 
 
-def draw_boxes(image, boxes, color=(255, 255, 255)):
+def draw_boxes(image, boxes, score=None, color=(255, 255, 255)):
     """
     Args:
         img:
@@ -83,10 +83,24 @@ def draw_boxes(image, boxes, color=(255, 255, 255)):
             アノテーションを追加した画像
     """
 
+    # フォントを作成する。
+    fontsize = max(10, int(0.03 * min(image.size)))
+    fontname = "DejaVuSerif-Bold"
+    font = ImageFont.truetype(fontname, size=fontsize)
+
     draw = ImageDraw.Draw(image, mode="RGBA")
 
     for i in range(len(boxes)):
         # 矩形を描画する
-        draw.rectangle(boxes[i].tolist(), width=2, outline=color)
+        draw.rectangle(boxes[i].tolist(), width=5, outline=color)
+
+        if score is not None:
+            # ラベルを描画する。
+            caption = str(round(score[i].item() * 100)) + "%"
+            text_w, text_h = draw.textsize(caption, font=font)
+            text_x2 = boxes[i][0] + text_w - 1
+            text_y2 = boxes[i][1] + text_h - 1
+            draw.rectangle((boxes[i][0], boxes[i][1], text_x2, text_y2), fill=color)
+            draw.text((boxes[i][0], boxes[i][1]), caption, fill="black", font=font)
 
     return image
