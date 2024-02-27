@@ -306,9 +306,7 @@ def main(cfg: DictConfig):
     )
 
     patch_postprocesser = (
-        hydra.utils.call(cfg.patch_postprocesser)
-        if "_target_" in cfg.patch_postprocesser
-        else None
+        hydra.utils.call(cfg.pttransforms) if "_target_" in cfg.pttransforms else None
     )
 
     # default is None

@@ -1,0 +1,4 @@
+simple_tpc:
+  _target_: "loss.simple.tpc_loss"
+
+weight: 1

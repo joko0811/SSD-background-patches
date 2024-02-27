@@ -1,0 +1,4 @@
+simple_fpc:
+  _target_: "loss.simple.fpc_loss"
+
+weight: 1
