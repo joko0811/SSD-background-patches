@@ -114,13 +114,14 @@ def train_adversarial_image(cfg: DictConfig):
                     image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
                 )
                 (
-                    adv_background_image,
+                    tmp_adv_background_image,
                     adv_background_mask,
                 ) = background_manager.transform_patch(
                     torch.clamp(adv_patch, min=0, max=255) / 255,
                     image_size,
                     **args_of_tpatch,
                 )
+                adv_background_image = tmp_adv_background_image * 255
 
                 adv_image_list = background_manager.apply(
                     adv_background_image * 255,

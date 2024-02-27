@@ -53,9 +53,12 @@ def save_detection(
             image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
         )
         (
-            adv_background_image,
+            tmp_adv_background_image,
             adv_background_mask,
-        ) = background_manager.transform_patch(adv_patch, image_size, **args_of_tpatch)
+        ) = background_manager.transform_patch(
+            adv_patch / 255, image_size, **args_of_tpatch
+        )
+        adv_background_image = tmp_adv_background_image * 255
 
         adv_image_list = background_manager.apply(
             adv_background_image, adv_background_mask, image_list, mask_image_list
@@ -121,9 +124,10 @@ def tbx_monitor(
             image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
         )
         (
-            adv_background_image,
+            tmp_adv_background_image,
             adv_background_mask,
         ) = background_manager.transform_patch(adv_patch, image_size, **args_of_tpatch)
+        adv_background_image = tmp_adv_background_image * 255
 
         adv_image_list = background_manager.apply(
             adv_background_image, adv_background_mask, image_list, mask_image_list
@@ -201,6 +205,10 @@ def evaluate_background(
 
     tp_fp_manager = TpFpManager(device=device)
 
+    transform = transforms.Compose(
+        [transforms.ColorJitter(brightness=0.1, saturation=0.1)]
+    )
+
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
@@ -212,9 +220,12 @@ def evaluate_background(
             image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
         )
         (
-            adv_background_image,
+            tmp_adv_background_image,
             adv_background_mask,
-        ) = background_manager.transform_patch(adv_patch, image_size, **args_of_tpatch)
+        ) = background_manager.transform_patch(
+            adv_patch / 255, image_size, **args_of_tpatch
+        )
+        adv_background_image = tmp_adv_background_image * 255
 
         adv_image_list = background_manager.apply(
             adv_background_image, adv_background_mask, image_list, mask_image_list
