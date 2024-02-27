@@ -124,7 +124,7 @@ def train_adversarial_image(cfg: DictConfig):
                 adv_background_image = tmp_adv_background_image * 255
 
                 adv_image_list = background_manager.apply(
-                    adv_background_image * 255,
+                    adv_background_image,
                     adv_background_mask,
                     image_list,
                     mask_list,
