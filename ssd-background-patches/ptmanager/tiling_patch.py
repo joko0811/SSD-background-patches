@@ -174,12 +174,12 @@ class ScalableTilingManager(TilingBackgroundManager):
     ただし、画像毎に一つの検出に合わせてパッチサイズが変動する
     """
 
-    def __init__(self, patch_size=(100, 200), patch_det_area_ratio=6.66):
+    def __init__(self, patch_size=(100, 200), patch_det_size_ratio=6.66):
         """
         Args:
             patch_size: tuple(H,W)タイル一枚のサイズを指定する
         """
-        self.patch_det_size_ratio = patch_det_area_ratio
+        self.patch_det_size_ratio = patch_det_size_ratio
         super().__init__(patch_size)
 
     def transform_patch(self, patch, image_size, **kwargs):
@@ -197,7 +197,8 @@ class ScalableTilingManager(TilingBackgroundManager):
 
         det_area = det_width * det_height
         patch_size_magnification = torch.sqrt(
-            (6.66 * det_area[0, 0]) / (self.patch_size[0] * self.patch_size[1])
+            (self.patch_det_size_ratio * det_area[0, 0])
+            / (self.patch_size[0] * self.patch_size[1])
         )
         rescale_patch_size = (
             (torch.tensor(self.patch_size) * patch_size_magnification)
