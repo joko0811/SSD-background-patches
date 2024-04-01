@@ -1,4 +1,4 @@
 
 _target_: ptmanager.tiling_patch.ScalableTilingManager
 patch_size: [100, 200]
-patch_det_size_ratio: 6.66
+patch_det_size_ratio: 5.953865668920431
