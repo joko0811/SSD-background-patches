@@ -8,6 +8,7 @@ from omegaconf import DictConfig, open_dict
 import torch
 from torchvision import transforms
 import numpy as np
+import pandas as pd
 
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
@@ -126,7 +127,9 @@ def tbx_monitor(
         (
             tmp_adv_background_image,
             adv_background_mask,
-        ) = background_manager.transform_patch(adv_patch, image_size, **args_of_tpatch)
+        ) = background_manager.transform_patch(
+            adv_patch / 255, image_size, **args_of_tpatch
+        )
         adv_background_image = tmp_adv_background_image * 255
 
         adv_image_list = background_manager.apply(
@@ -155,19 +158,19 @@ def tbx_monitor(
             if adv_detections_list[i] is not None and gt_det is not None:
                 det_gt_iou = list_iou(adv_detections_list[i].xyxy, gt_det.xyxy)
 
-                tp_det = adv_detections_list[i].xyxy[(det_gt_iou >= 0.5).any(dim=1)]
+                tp_det = adv_detections_list[i].xyxy[(det_gt_iou >= 0.6).any(dim=1)]
                 anno_adv_image = imgdraw.draw_boxes(
                     anno_adv_image,
                     # adv_detections_list[i].xyxy * scale_list[i],
                     tp_det * scale_list[i],
-                    color=(255, 255, 255),
+                    color=(25, 139, 95),  # green
                 )
                 fp_det = adv_detections_list[i].xyxy[(det_gt_iou < 0.5).all(dim=1)]
                 anno_adv_image = imgdraw.draw_boxes(
                     anno_adv_image,
                     # adv_detections_list[i].xyxy * scale_list[i],
                     fp_det * scale_list[i],
-                    color=(255, 0, 0),
+                    color=(255, 0, 0),  # red
                 )
             elif adv_detections_list[i] is not None and gt_det is None:
                 fp_det = adv_detections_list[i].xyxy
@@ -180,7 +183,10 @@ def tbx_monitor(
 
             if gt_det is not None:
                 anno_adv_image = imgdraw.draw_boxes(
-                    anno_adv_image, gt_det.xyxy * scale_list[i], color=(25, 139, 95)
+                    anno_adv_image,
+                    gt_det.xyxy * scale_list[i],
+                    score=gt_det.conf,
+                    color=(255, 255, 255),
                 )
 
             tbx_writer.add_image(
@@ -208,6 +214,9 @@ def evaluate_background(
     transform = transforms.Compose(
         [transforms.ColorJitter(brightness=0.1, saturation=0.1)]
     )
+
+    columns = ["image_path", "tp_conf", "gt", "tp", "fp", "fn"]
+    eval_result = pd.DataFrame(columns=columns).set_index("image_path")
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
         image_list = image_list.to(device=device, dtype=torch.float)
@@ -246,7 +255,14 @@ def evaluate_background(
                 )
             else:
                 gt_det = None
-            tp_fp_manager.add_detection(adv_det, gt_det)
+            tp_conf, tp, fp, fn, gt = tp_fp_manager.add_detection(adv_det, gt_det)
+            row = pd.DataFrame(
+                [[os.path.abspath(image_info["path"][0]), tp_conf, gt, tp, fp, fn]],
+                columns=columns,
+            ).set_index("image_path")
+            eval_result = pd.concat([eval_result, row])
+
+    eval_result.to_csv(os.path.join(config.output_dir, "eval_result.csv"))
 
     tp, fp, fn, gt = tp_fp_manager.get_value()
     duq_score = data_utility_quority(gt, tp, fp)
