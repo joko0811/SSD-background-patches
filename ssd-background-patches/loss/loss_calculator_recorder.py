@@ -95,8 +95,8 @@ class LossCalculatorRecorder:
             return
 
         total_loss = 0
-        for loss_key, loss_vales in self.loss_recorder_per_epoch.items():
-            loss = np.stack(loss_vales).mean()
+        for loss_key, loss_values in self.loss_recorder_per_epoch.items():
+            loss = np.stack(loss_values).mean()
             total_loss += loss
 
             self.tbx_writer.add_scalar(
