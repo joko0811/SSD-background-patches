@@ -1,4 +1,4 @@
 simple_tpc:
-  _target_: "loss.simple.tpc_loss"
-
-weight: 1
+  func:
+    _target_: "loss.simple.SimpleTPCLoss"
+  weight: 1

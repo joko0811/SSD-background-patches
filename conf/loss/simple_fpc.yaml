@@ -1,4 +1,4 @@
 simple_fpc:
-  _target_: "loss.simple.fpc_loss"
-
-weight: 1
+  func:
+    _target_: "loss.simple.SimpleFPCLoss"
+  weight: 1
