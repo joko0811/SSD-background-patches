@@ -8,6 +8,8 @@ from omegaconf import DictConfig
 import torch
 from torchvision import transforms
 
+import numpy as np
+
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
