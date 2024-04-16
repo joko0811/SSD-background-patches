@@ -49,6 +49,11 @@ class TpFpManager:
         self.det_tp_binary_array = np.append(
             self.det_tp_binary_array, det_tp_binary_array
         )
+        if tp_det.nelement() > 0:
+            tp_conf = tp_det[:, 0].detach().cpu().resolve_conj().resolve_neg().numpy()
+        else:
+            tp_conf = np.array([])
+        return tp_conf, len(tp_det), len(fp_det), len(fn_det), len(gt_det)
 
     def judge_detection(
         self,

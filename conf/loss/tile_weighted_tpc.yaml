@@ -1,0 +1,4 @@
+tile_weighted_tpc:
+  func:
+    _target_: "loss.tile_weighted.TileWeightedTPCLoss"
+  weight: 1

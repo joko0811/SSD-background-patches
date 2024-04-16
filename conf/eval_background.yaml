@@ -4,8 +4,8 @@ hydra:
 
 defaults:
   - model: s3fd # 使用モデルの設定
-  - dataset: casia_front_test # 使用データセットの設定
-  - ptmanager: tiling_background
+  - dataset: faceforensics_pp_test # 使用データセットの設定
+  - ptmanager: tiling_scalable
   - pttransforms: !!null
   - _self_
 

@@ -1,4 +1,0 @@
-defaults:
-  - loss:
-    - simple_tpc
-    - simple_fpc

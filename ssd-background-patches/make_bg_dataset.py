@@ -170,15 +170,18 @@ def step4_mask(base_path, data_split_name, input_file_dir, output_file_dir):
             mask_image.save(save_path)
 
 
-def step5_detection(base_path, data_split_name, input_file_dir, output_file_dir):
+def step5_detection(
+    base_path, data_split_name, image_file_dir, mask_file_dir, detection_file_dir
+):
     """
     ```
     {base_path}/
         {data_split_name[0]}/
-            {input_file_dir}/
-            {output_file_dir}/
+            {image_file_dir}/
+            {mask_file_dir}/
+            {detection_file_dir}/
         {data_split_name[1]}/
-            {input_file_dir}/
+            {image_file_dir}/
             ...
     ```
     """
@@ -210,19 +213,29 @@ def step5_detection(base_path, data_split_name, input_file_dir, output_file_dir)
 
     with torch.no_grad():
         for dsn in data_split_name:
-            dsn_path = os.path.join(base_path, os.path.join(dsn, input_file_dir))
-            image_set = DirectoryImageDataset(dsn_path, transform=transform)
+            image_path = os.path.join(base_path, os.path.join(dsn, image_file_dir))
+            image_set = DirectoryImageDataset(image_path, transform=transform)
             image_loader = DataLoader(image_set, batch_size=1)
 
-            output_path = os.path.join(base_path, os.path.join(dsn, output_file_dir))
+            mask_path = os.path.join(base_path, os.path.join(dsn, mask_file_dir))
+            mask_set = DirectoryImageDataset(mask_path, transform=transform)
+            mask_loader = DataLoader(mask_set, batch_size=1)
 
-            for image, image_size, image_path in tqdm(image_loader):
+            output_path = os.path.join(base_path, os.path.join(dsn, detection_file_dir))
+
+            for (image, _, image_path), (mask, _, _) in tqdm(
+                zip(image_loader, mask_loader)
+            ):
                 image = image.to(device=device, dtype=torch.float)
+                mask = mask.to(device=device)
 
-                output = model(image).squeeze()
+                target_image = torch.where(mask, image, 0)
+
+                output = model(target_image).squeeze()
 
                 extract_output = output[output[..., 0] >= thresh]
 
+                det_str = ""
                 for det in extract_output:
                     if det.nelement() == 0:
                         continue
@@ -230,7 +243,6 @@ def step5_detection(base_path, data_split_name, input_file_dir, output_file_dir)
                     conf = det[0]
                     box = det[1:]
 
-                    det_str = ""
                     det_str += (
                         str(conf.item())
                         + " "
@@ -244,12 +256,12 @@ def step5_detection(base_path, data_split_name, input_file_dir, output_file_dir)
                         + "\n"
                     )
 
-                    # ファイルまでのパス、拡張子を除いたファイル名を取得
-                    image_name = os.path.basename(image_path[0]).split(".")[0]
-                    det_file_path = os.path.join(output_path, image_name + ".txt")
+                # ファイルまでのパス、拡張子を除いたファイル名を取得
+                image_name = os.path.basename(image_path[0]).split(".")[0]
+                det_file_path = os.path.join(output_path, image_name + ".txt")
 
-                    with open(det_file_path, "w") as f:
-                        f.write(det_str)
+                with open(det_file_path, "w") as f:
+                    f.write(det_str)
 
 
 def main():
@@ -307,7 +319,7 @@ def main():
     logging.info("end of video2image[1/5]")
     sys.stdout.flush()
 
-    step2_rm_non_detection(rm_non_det_path)
+    # step2_rm_non_detection(rm_non_det_path)
     logging.info("end of rm_non_det generation[2/5]")
     sys.stdout.flush()
 
@@ -324,7 +336,9 @@ def main():
     sys.stdout.flush()
 
     # {output_path}/[data_split_name]/file_type[2]
-    step5_detection(output_path, data_split_name, file_type[0], file_type[2])
+    step5_detection(
+        output_path, data_split_name, file_type[0], file_type[1], file_type[2]
+    )
     logging.info("end of " + file_type[2] + " generation[5/5]")
     sys.stdout.flush()
 

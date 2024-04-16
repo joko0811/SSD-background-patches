@@ -43,8 +43,8 @@ def classify(det_path, gt_path):
 
 
 def main():
-    det_path = "outputs/2023-08-02/01-25-27/detections/"
-    gt_path = "datasets/casia/test_face_moving/detection/"
+    det_path = "outputs/eval_background/2024-03-13_10-12-53/detections"
+    gt_path = "datasets/faceforensics_pp/test/detection/"
 
     if not os.path.exists(det_path):
         print(det_path, "is not found.")
