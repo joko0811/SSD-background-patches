@@ -106,10 +106,8 @@ class BaseBackgroundManager:
 
         return args_of_tpatch
 
-    def save_best_image(self, patch, path, ground_trhuth, tp, fp, fn):
-        logging.info(
-            "tp: " + str(tp) + ", fp: " + str(fp) + ", gt: " + str(len(ground_trhuth))
-        )
+    def save_best_image(self, patch, path, gt, tp, fp, fn):
+        logging.info("tp: " + str(tp) + ", fp: " + str(fp) + ", gt: " + str(gt))
         precision_score = precision(tp, fp)
         recall_score = recall(tp, fn)
 
