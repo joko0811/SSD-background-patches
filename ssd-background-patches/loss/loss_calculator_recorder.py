@@ -15,16 +15,19 @@ class LossCalculatorRecorder:
 
         func_dict = dict()
         weight_dict = dict()
+        use_all_targets_dict = dict()
 
         each_loss_list_dict = dict()
 
         for key, value in config.items():
             weight_dict[key] = value.weight
+            use_all_targets_dict[key] = value.use_all_targets
             func_dict[key] = hydra.utils.instantiate(value.func, _convert_="partial")
 
             each_loss_list_dict[key] = list()
 
         self.weight_dict = weight_dict
+        self.use_all_targets_dict = use_all_targets_dict
         self.func_dict = func_dict
 
         self.loss_recorder_per_epoch = each_loss_list_dict
@@ -36,15 +39,15 @@ class LossCalculatorRecorder:
 
         self.loss_recorder_per_iter = loss_recorder_per_iter
 
-    def step_per_img(self, predictions, targets):
+    def step_per_img(self, predictions, targets, all_targets):
         """calculate the loss and record the loss to the loss recorder list"""
 
-        loss_dict = self._apply_all_loss_func(predictions, targets)
+        loss_dict = self._apply_all_loss_func(predictions, targets, all_targets)
         self._record_per_img(loss_dict)
 
         return loss_dict
 
-    def _apply_all_loss_func(self, predictions, targets):
+    def _apply_all_loss_func(self, predictions, targets, all_targets):
         loss_dict = dict()
 
         if predictions is None:
@@ -53,7 +56,11 @@ class LossCalculatorRecorder:
             return loss_dict
 
         for loss_key, loss_func in self.func_dict.items():
-            loss_dict[loss_key] = loss_func(predictions, targets)
+
+            if self.use_all_targets_dict[loss_key]:
+                loss_dict[loss_key] = loss_func(predictions, all_targets)
+            else:
+                loss_dict[loss_key] = loss_func(predictions, targets)
 
         return loss_dict
 
