@@ -15,7 +15,7 @@ class TileWeightedTPCLoss(ObjectDetectionBaseLoss):
         )
 
         score = -1 * (
-            (w * torch.log((1 - detections.conf) + 1e-9)).sum()
+            (w * torch.log((1 - detections.conf) - 1e-9)).sum()
             # / len(detections)
         )
 
