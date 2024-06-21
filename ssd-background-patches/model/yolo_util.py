@@ -39,7 +39,7 @@ class YoloTrainer(BaseTrainer):
             weights_path=self.model_conf.weights_path,
         )
 
-    def make_detections_list(self, data_list):
+    def make_detections_list(self, data_list, thresh=0.6, scale=None, img_size=None):
         detections_list = list()
         for data in data_list:
             if data.nelement() != 0:

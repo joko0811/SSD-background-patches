@@ -20,17 +20,26 @@ class RetinaResize:
     def __call__(self, pic):
         width, height = transforms.functional.get_image_size(pic)
         ref_area = self.scale_reference_size[0] * self.scale_reference_size[1]
-        if width * height < ref_area:
-            return transforms.functional.resize(img=pic, size=self.scale_reference_size)
+
+        if pic.shape[0] == 3:
+            conv_pic = pic - torch.tensor([104, 117, 123]).view(3, 1, 1)
         else:
-            return pic
+            conv_pic = pic.clone()
+
+        if width * height < ref_area:
+            return transforms.functional.resize(
+                img=conv_pic, size=self.scale_reference_size
+            )
+        else:
+            return conv_pic
 
 
 class RetinaTrainer(BackgroundBaseTrainer):
+    RETINA_SCALE_REFERENCE = (840, 840)
     RETINA_TRANSFORMS = transforms.Compose(
         [
-            RetinaResize(),
             transforms.PILToTensor(),
+            RetinaResize(scale_reference_size=RETINA_SCALE_REFERENCE),
         ]
     )
 
@@ -42,28 +51,24 @@ class RetinaTrainer(BackgroundBaseTrainer):
     def get_dataloader(self):
         return self.dataloader
 
-    def load_model(self):
+    def load_model(self, mode="test"):
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        net = RetinaFace(cfg=cfg_re50, phase="test")
+        net = RetinaFace(cfg=cfg_re50, phase=mode)
         model = detect.load_model(net, self.model_conf.weight_path, False)
 
         return model.to(device)
 
-    def make_detections_list(self, data_list, thresh=0.6):
+    def make_detections_list(self, data_list, thresh=0.6, scale=None, img_size=None):
         loc_list, conf_list, _ = data_list
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         detections_list = list()
 
-        priorbox = PriorBox(
-            cfg_re50, image_size=(self.image_size[0], self.image_size[1])
-        )
-        priors = priorbox.forward().to(device)
-
         for i in range(len(loc_list)):
-
+            priorbox = PriorBox(cfg_re50, image_size=img_size[i])
+            priors = priorbox.forward().to(device)
             boxes = decode(loc_list[i], priors, cfg_re50["variance"])
             conf = conf_list[i, :, 1]
 
@@ -85,7 +90,10 @@ class RetinaTrainer(BackgroundBaseTrainer):
         return detections_list
 
     def transformed2pil(self, pic, scale=None):
+        conv_pic = pic + torch.tensor([104, 117, 123]).view(3, 1, 1).to(
+            dtype=pic.dtype, device=pic.device
+        )
         if scale is None:
-            return transforms.functional.to_pil_image(pic / 255)
-        rs_pic = transforms.functional.resize(pic, scale)
+            return transforms.functional.to_pil_image(conv_pic / 255)
+        rs_pic = transforms.functional.resize(conv_pic, scale)
         return transforms.functional.to_pil_image(rs_pic / 255)

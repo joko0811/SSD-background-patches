@@ -64,7 +64,7 @@ class S3fdTrainer(BackgroundBaseTrainer):
 
         return model.to(device)
 
-    def make_detections_list(self, data_list, thresh=0.6):
+    def make_detections_list(self, data_list, thresh=0.6, scale=None, img_size=None):
         detections_list = list()
         for data in data_list:
             extract_data = data[data[..., 0] >= thresh]

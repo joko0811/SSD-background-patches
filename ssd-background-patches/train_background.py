@@ -139,7 +139,10 @@ def train_adversarial_image(cfg: DictConfig):
                 # Detection from adversarial images
                 adv_output = model(adv_image_list)
                 adv_detections_list = trainer.make_detections_list(
-                    adv_output, cfg.train_parameters.model_thresh
+                    adv_output,
+                    cfg.train_parameters.model_thresh,
+                    scale_list,
+                    [list(image_size)],
                 )
 
                 for i in range(image_loader.batch_size):

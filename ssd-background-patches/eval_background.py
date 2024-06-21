@@ -1,6 +1,4 @@
 import os
-import shutil
-import random
 
 import hydra
 from omegaconf import DictConfig, open_dict
@@ -49,6 +47,15 @@ def save_detection(
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
+        scale_list = torch.cat(
+            [
+                image_info["width"],
+                image_info["height"],
+                image_info["width"],
+                image_info["height"],
+            ]
+        ).T.to(device=device, dtype=torch.float)
+
         image_size = image_list[0].shape[1:]  # (H,W)
         args_of_tpatch = background_manager.generate_kwargs_of_transform_patch(
             image_size, patch_size, xyxy2xywh(image_info["xyxy"])[:, :, 2:]
@@ -67,14 +74,14 @@ def save_detection(
 
         adv_output = model(adv_image_list)
         adv_detections_list = trainer.make_detections_list(
-            adv_output, config.model_thresh
+            adv_output, config.model_thresh, scale_list, [list(image_size)]
         )
 
         for image_idx, det in enumerate(adv_detections_list):
-            if det is None:
-                continue
+            det_str = ""
 
-            det_str = format_detections(det)
+            if det is not None:
+                det_str = format_detections(det)
 
             # ファイルまでのパス、拡張子を除いたファイル名を取得
             image_name = os.path.basename(image_info["path"][image_idx]).split(".")[0]
@@ -138,7 +145,7 @@ def tbx_monitor(
 
         adv_output = model(adv_image_list)
         adv_detections_list = trainer.make_detections_list(
-            adv_output, config.model_thresh
+            adv_output, config.model_thresh, scale_list, [list(image_size)]
         )
 
         for i, adv_image in enumerate(adv_image_list):
@@ -146,7 +153,13 @@ def tbx_monitor(
                 image_info["xyxy"][i].nelement() != 0
             ):
                 gt_det = DetectionsBase(
-                    image_info["conf"][i], image_info["xyxy"][i], is_xywh=False
+                    conf_list=image_info["conf"]
+                    .squeeze(0)
+                    .to(device=device, dtype=torch.float),
+                    box_list=image_info["xyxy"]
+                    .squeeze(0)
+                    .to(device=device, dtype=torch.float),
+                    is_xywh=False,
                 )
             else:
                 gt_det = None
@@ -219,6 +232,15 @@ def evaluate_background(
     eval_result = pd.DataFrame(columns=columns).set_index("image_path")
 
     for (image_list, mask_image_list), image_info in tqdm(image_loader):
+        scale_list = torch.cat(
+            [
+                image_info["width"],
+                image_info["height"],
+                image_info["width"],
+                image_info["height"],
+            ]
+        ).T.to(device=device, dtype=torch.float)
+
         image_list = image_list.to(device=device, dtype=torch.float)
         mask_image_list = mask_image_list.to(device=device)
 
@@ -242,7 +264,7 @@ def evaluate_background(
 
         adv_output = model(adv_image_list)
         adv_detections_list = trainer.make_detections_list(
-            adv_output, config.model_thresh
+            adv_output, config.model_thresh, scale_list, [list(image_size)]
         )
 
         for i, adv_det in enumerate(adv_detections_list):
@@ -251,7 +273,13 @@ def evaluate_background(
                 image_info["xyxy"][i].nelement() != 0
             ):
                 gt_det = DetectionsBase(
-                    image_info["conf"][i], image_info["xyxy"][i], is_xywh=False
+                    conf_list=image_info["conf"]
+                    .squeeze(0)
+                    .to(device=device, dtype=torch.float),
+                    box_list=image_info["xyxy"]
+                    .squeeze(0)
+                    .to(device=device, dtype=torch.float),
+                    is_xywh=False,
                 )
             else:
                 gt_det = None
@@ -340,14 +368,14 @@ def main(cfg: DictConfig):
     background_manager.set_patch_postprosesser(patch_postprosesser=patch_postprocesser)
 
     with torch.no_grad():
-        # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
+        save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
         # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
-        evaluate_background(
-            adv_patch,
-            background_manager,
-            trainer,
-            cfg.evaluate_background,
-        )
+        # evaluate_background(
+        #     adv_patch,
+        #     background_manager,
+        #     trainer,
+        #     cfg.evaluate_background,
+        # )
 
 
 if __name__ == "__main__":

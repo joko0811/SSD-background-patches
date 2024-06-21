@@ -1,0 +1,2 @@
+trainer: model.mtcnn_util.MTCNNTrainer
+weight_path: !!null
