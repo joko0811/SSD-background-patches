@@ -97,10 +97,9 @@ def draw_boxes(image, boxes, score=None, color=(255, 255, 255)):
         if score is not None:
             # ラベルを描画する。
             caption = str(round(score[i].item() * 100)) + "%"
-            text_w, text_h = draw.textsize(caption, font=font)
-            text_x2 = boxes[i][0] + text_w - 1
-            text_y2 = boxes[i][1] + text_h - 1
-            draw.rectangle((boxes[i][0], boxes[i][1], text_x2, text_y2), fill=color)
-            draw.text((boxes[i][0], boxes[i][1]), caption, fill="black", font=font)
+            tl = (boxes[i][0], boxes[i][1])
+            bbox = draw.textbbox(tl, caption, font=font)
+            draw.rectangle(bbox, fill=color)
+            draw.text(tl, caption, font=font, fill="black")
 
     return image
