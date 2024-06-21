@@ -19,7 +19,7 @@ class ConfidenceGradiationTPCLoss(ObjectDetectionBaseLoss):
         w = (class_label == class_label.max()).to(dtype=torch.int)
 
         score = -1 * (
-            (w * torch.log((1 - detections.conf) - 1e-9)).sum()
+            (w * torch.log((1 - detections.conf) + 1e-9)).sum()
             # / len(detections)
         )
 

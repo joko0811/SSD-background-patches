@@ -15,7 +15,7 @@ class SimpleTPCLoss(ObjectDetectionBaseLoss):
         )
 
         score = -1 * (
-            ((z * torch.log((1 - detections.conf) - 1e-9)).sum()) / (z.sum() + 1e-9)
+            ((z * torch.log((1 - detections.conf) + 1e-9)).sum()) / (z.sum() + 1e-9)
         )
         return score
 
