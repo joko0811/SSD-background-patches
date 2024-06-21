@@ -2,3 +2,4 @@ simple_fpc:
   func:
     _target_: "loss.simple.SimpleFPCLoss"
   weight: 1
+  use_all_targets: True

@@ -2,3 +2,4 @@ simple_tpc:
   func:
     _target_: "loss.simple.SimpleTPCLoss"
   weight: 1
+  use_all_targets: True

@@ -47,12 +47,12 @@ def train_adversarial_image(cfg: DictConfig):
     background_manager: BaseBackgroundManager = hydra.utils.instantiate(cfg.ptmanager)
 
     # 全ての正しい検出の読み取り・生成
-    gt_conf_list, gt_box_list = boxio.generate_integrated_xyxy_list(
+    all_gt_conf_list, all_gt_box_list = boxio.generate_integrated_xyxy_list(
         mode_trainer.dataset_factory.detection_path,
         max_iter=mode_trainer.dataset_factory.max_iter,
     )
-    ground_truthes = DetectionsBase(
-        gt_conf_list.to(device), gt_box_list.to(device), is_xywh=False
+    all_ground_truthes = DetectionsBase(
+        all_gt_conf_list.to(device), all_gt_box_list.to(device), is_xywh=False
     )
 
     max_epoch = cfg.train_parameters.max_epoch  # default 250
@@ -60,7 +60,7 @@ def train_adversarial_image(cfg: DictConfig):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model()
+    model = trainer.load_model(mode="test")
     model.eval()
 
     # 敵対的背景
@@ -99,6 +99,17 @@ def train_adversarial_image(cfg: DictConfig):
                             image_info["height"],
                         ]
                     ).T.to(device=device, dtype=torch.float)
+
+                    ground_truthes = DetectionsBase(
+                        conf_list=image_info["conf"]
+                        .squeeze(0)
+                        .to(device=device, dtype=torch.float),
+                        box_list=image_info["xyxy"]
+                        .squeeze(0)
+                        .to(device=device, dtype=torch.float),
+                        is_xywh=False,
+                    )
+
                 loss_calculator_recorder.init_per_iter()
 
                 adv_patch.requires_grad = True
@@ -151,7 +162,7 @@ def train_adversarial_image(cfg: DictConfig):
                         )
 
                     loss_calculator_recorder.step_per_img(
-                        adv_detections_list[i], ground_truthes
+                        adv_detections_list[i], ground_truthes, all_ground_truthes
                     )
 
                 loss = loss_calculator_recorder.step_per_iter()
@@ -175,7 +186,7 @@ def train_adversarial_image(cfg: DictConfig):
                 background_manager.save_best_image(
                     adv_patch,
                     os.path.join(patch_dir, "epoch" + str(epoch) + "_patch.pt"),
-                    ground_truthes,
+                    len(all_ground_truthes),
                     tp,
                     fp,
                     fn,

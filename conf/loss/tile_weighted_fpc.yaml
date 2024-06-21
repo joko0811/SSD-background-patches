@@ -2,3 +2,4 @@ tile_weighted_fpc:
   func:
     _target_: "loss.tile_weighted.TileWeightedFPCLoss"
   weight: 1
+  use_all_targets: True
