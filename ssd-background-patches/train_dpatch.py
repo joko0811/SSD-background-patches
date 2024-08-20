@@ -45,7 +45,7 @@ def train_adversarial_image(
 
     """
 
-    max_epoch = config.max_epoch  # default 250
+    max_epoch = config.train_parameters.max_epoch  # default 250
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -245,7 +245,7 @@ def main(cfg: DictConfig):
         trainer,
         background_manager,
         ground_truthes,
-        cfg.train_adversarial_image,
+        cfg,
         tbx_writer=tbx_writer,
     )
 
