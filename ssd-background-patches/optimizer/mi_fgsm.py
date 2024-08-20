@@ -50,7 +50,9 @@ class MI_FGSM(Optimizer):
                 learning_rate = group["lr"]
                 momentum = group["momentum"]
 
-                g = momentum * self.state[p]["g"] + (p.grad / torch.norm(p.grad, p=1))
+                g = momentum * self.state[p]["g"] + (
+                    p.grad / (torch.norm(p.grad, p=1) + 1e-9)
+                )
 
                 p.data = torch.clip(p + learning_rate * torch.sign(g), min=0, max=255)
 
