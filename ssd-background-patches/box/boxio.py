@@ -26,45 +26,73 @@ def generate_integrated_xyxy_list(path, max_iter=None):
 def format_boxes(boxes, **kargs):
     box_str = ""
 
-    for box_idx in range(boxes):
-        x = boxes[box_idx, 0]
-        y = boxes[box_idx, 0]
-        w = boxes[box_idx, 0]
-        h = boxes[box_idx, 0]
+    for box_idx in range(len(boxes)):
+        x1 = boxes[box_idx, 0]
+        y1 = boxes[box_idx, 1]
+        x2 = boxes[box_idx, 2]
+        y2 = boxes[box_idx, 3]
         box_str += (
-            str(x.item())
+            str(x1.item())
             + " "
-            + str(y.item())
+            + str(y1.item())
             + " "
-            + str(w.item())
+            + str(x2.item())
             + " "
-            + str(h.item())
+            + str(y2.item())
             + "\n"
         )
 
     return box_str
 
 
+def format_pred(preds: torch.Tensor):
+    pred_str = ""
+    for pred in preds:
+        conf = pred[0]
+        x1 = pred[1]
+        y1 = pred[2]
+        x2 = pred[3]
+        y2 = pred[4]
+        pred_str += (
+            str(conf.item())
+            + " "
+            + str(x1.item())
+            + " "
+            + str(y1.item())
+            + " "
+            + str(x2.item())
+            + " "
+            + str(y2.item())
+            + "\n"
+        )
+    return pred_str
+
+
 def format_detections(detections: DetectionsBase):
     det_str = ""
 
+    preds = torch.zeros([len(detections), 5])
     for det_idx in range(len(detections)):
-        conf = detections.conf[det_idx]
+        conf = detections.conf[det_idx].unsqueeze(0)
         box = detections.xyxy[det_idx]
+        pred = torch.cat([conf, box])
 
-        det_str += (
-            str(conf.item())
-            + " "
-            + str(box[0].item())
-            + " "
-            + str(box[1].item())
-            + " "
-            + str(box[2].item())
-            + " "
-            + str(box[3].item())
-            + "\n"
-        )
+        preds[det_idx] = pred
 
+        # det_str += (
+        #     str(conf.item())
+        #     + " "
+        #     + str(box[0].item())
+        #     + " "
+        #     + str(box[1].item())
+        #     + " "
+        #     + str(box[2].item())
+        #     + " "
+        #     + str(box[3].item())
+        #     + "\n"
+        # )
+
+    det_str = format_pred(preds)
     return det_str
 
 
