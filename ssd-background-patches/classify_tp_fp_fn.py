@@ -26,16 +26,25 @@ def classify(det_path, gt_path):
             ):
                 continue
 
-            det_conf, det_box = parse_detections(det_file_path)
-            gt_conf, gt_box = parse_detections(gt_file_path)
+            det = parse_detections(det_file_path)
 
-            det = DetectionsBase(det_conf, det_box, is_xywh=False)
-            gt = DetectionsBase(gt_conf, gt_box, is_xywh=False)
+            gt = parse_detections(gt_file_path)
+
+            if det is not None:
+                det_conf, det_box = det
+                det = DetectionsBase(det_conf, det_box, is_xywh=False)
+
+            if gt is not None:
+                gt_conf, gt_box = gt
+                gt = DetectionsBase(gt_conf, gt_box, is_xywh=False)
 
             _, tp, fp, fn = tpfp_manager.judge_detection(det, gt)
-            tp_det = np.concatenate((tp_det, tp.numpy(force=True)))
-            fp_det = np.concatenate((fp_det, fp.numpy(force=True)))
-            fn_det = np.concatenate((fn_det, fn.numpy(force=True)))
+            if tp.nelement() > 0:
+                tp_det = np.concatenate((tp_det, tp.numpy(force=True)))
+            if fp.nelement() > 0:
+                fp_det = np.concatenate((fp_det, fp.numpy(force=True)))
+            if fn.nelement() > 0:
+                fn_det = np.concatenate((fn_det, fn.numpy(force=True)))
 
     np.savetxt("tp_det.csv", tp_det, delimiter=",")
     np.savetxt("fp_det.csv", fp_det, delimiter=",")
@@ -43,8 +52,10 @@ def classify(det_path, gt_path):
 
 
 def main():
-    det_path = "outputs/eval_background/2024-03-13_10-12-53/detections"
-    gt_path = "datasets/faceforensics_pp/test/detection/"
+    det_path = (
+        "outputs/eval_background/2024-07-25_16-29-36_cgb_lee_moving_det/detections"
+    )
+    gt_path = "datasets/casia/test_face_moving/detection/"
 
     if not os.path.exists(det_path):
         print(det_path, "is not found.")
