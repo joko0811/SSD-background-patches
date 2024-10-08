@@ -5,12 +5,11 @@ hydra:
 # プロジェクト全体で用いる設定
 defaults:
   - loss:
-    - tile_weighted_fpc
-    - tile_weighted_tpc
+    - confidence_gradiation_fpc
   - model: s3fd # 使用モデルの設定
   - dataset@monitor_dataset: casia_mini # 使用データセットの設定
   - dataset@evaluate_dataset: faceforensics_pp_train # 使用データセットの設定
-  - ptmanager: tiling_background
+  - ptmanager: tiling_scalable
   - optim: ni_fgsm
   - _self_
   - override hydra/sweeper: optuna
