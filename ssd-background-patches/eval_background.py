@@ -368,14 +368,14 @@ def main(cfg: DictConfig):
     background_manager.set_patch_postprosesser(patch_postprosesser=patch_postprocesser)
 
     with torch.no_grad():
-        save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
+        # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
         # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
-        # evaluate_background(
-        #     adv_patch,
-        #     background_manager,
-        #     trainer,
-        #     cfg.evaluate_background,
-        # )
+        evaluate_background(
+            adv_patch,
+            background_manager,
+            trainer,
+            cfg.evaluate_background,
+        )
 
 
 if __name__ == "__main__":
