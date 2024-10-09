@@ -21,6 +21,8 @@ iou_threshold: 0.5
 # 実行モード指定
 mode: "monitor"
 
+gpu_idx: 0
+
 # _partial_ be dataset factory
 monitor_dataset:
   max_iter: 30

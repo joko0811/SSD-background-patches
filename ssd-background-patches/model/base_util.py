@@ -8,7 +8,7 @@ class BaseTrainer(metaclass=ABCMeta):
         pass
 
     @abstractclassmethod
-    def load_model(self):
+    def load_model(self, device=None):
         pass
 
     @abstractclassmethod

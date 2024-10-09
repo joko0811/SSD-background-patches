@@ -51,9 +51,10 @@ class RetinaTrainer(BackgroundBaseTrainer):
     def get_dataloader(self):
         return self.dataloader
 
-    def load_model(self, mode="test"):
+    def load_model(self, device=None, mode="test"):
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         net = RetinaFace(cfg=cfg_re50, phase=mode)
         model = detect.load_model(net, self.model_conf.weight_path, False)

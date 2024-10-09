@@ -25,7 +25,7 @@ from util.infoutil import get_git_sha
 
 @hydra.main(version_base=None, config_path="../conf/", config_name="train_background")
 def train_adversarial_image(cfg: DictConfig):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{cfg.gpu_idx}" if torch.cuda.is_available() else "cpu")
 
     mode = cfg.mode
 
@@ -57,10 +57,9 @@ def train_adversarial_image(cfg: DictConfig):
 
     max_epoch = cfg.train_parameters.max_epoch  # default 250
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model(mode="test")
+    model = trainer.load_model(device=device,mode="test")
+    model.to(device=device)
     model.eval()
 
     # 敵対的背景

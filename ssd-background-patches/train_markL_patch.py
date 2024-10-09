@@ -50,10 +50,11 @@ def train_adversarial_image(
     lr_decay_epoch = 5
     momentum = 0.9
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{config.gpu_idx}" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model(mode="train")
+    model = trainer.load_model(device=device,mode="train")
+    model.to(device=device)
     model.eval()
 
     min_loss = sys.maxsize
@@ -239,7 +240,7 @@ def train_adversarial_image(
 
 @hydra.main(version_base=None, config_path="../conf/", config_name="train_background")
 def main(cfg: DictConfig):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{cfg.gpu_idx}" if torch.cuda.is_available() else "cpu")
     tbx_writer = SummaryWriter(cfg.output_dir)
     mode = cfg.mode
 

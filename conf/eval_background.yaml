@@ -12,6 +12,8 @@ defaults:
 # command line arguments
 path: ""
 
+gpu_idx: 0
+
 # output file on this directory
 output_dir: ${hydra:runtime.output_dir}
 

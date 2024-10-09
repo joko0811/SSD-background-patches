@@ -20,8 +20,10 @@ class MTCNNTrainer(BackgroundBaseTrainer):
     def get_dataloader(self) -> torch.utils.data.DataLoader:
         return self.dataloader
 
-    def load_model(self, mode="test"):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def load_model(self, device=None, mode="test"):
+
+        if device is None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         model = MTCNN(keep_all=True, device=device)
 
