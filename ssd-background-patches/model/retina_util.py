@@ -63,13 +63,12 @@ class RetinaTrainer(BackgroundBaseTrainer):
 
     def make_detections_list(self, data_list, thresh=0.6, scale=None, img_size=None):
         loc_list, conf_list, _ = data_list
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         detections_list = list()
 
         for i in range(len(loc_list)):
             priorbox = PriorBox(cfg_re50, image_size=img_size[i])
-            priors = priorbox.forward().to(device)
+            priors = priorbox.forward().to(loc_list.device)
             boxes = decode(loc_list[i], priors, cfg_re50["variance"])
             conf = conf_list[i, :, 1]
 

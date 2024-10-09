@@ -54,12 +54,11 @@ class S3fdTrainer(BackgroundBaseTrainer):
         return self.dataloader
 
     def load_model(self, device=None, mode="test"):
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
-
-        # Select device for inference
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        torch.set_default_tensor_type("torch.cuda.FloatTensor")
+        torch.set_default_device(device)
 
         model = s3fd.build_s3fd(mode, 2)
         model.load_state_dict(torch.load(self.model_conf.weight_path))
