@@ -29,12 +29,12 @@ def save_detection(
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
 ):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{config.gpu_idx}" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model()
+    model = trainer.load_model(device=device,mode='test')
+    model.to(device=device)
     model.eval()
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
     adv_patch = adv_patch.to(device)
 
     patch_size = adv_patch.shape[1:]
@@ -97,12 +97,12 @@ def tbx_monitor(
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
 ):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{config.gpu_idx}" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model()
+    model = trainer.load_model(device=device,mode='test')
+    model.to(device=device)
     model.eval()
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
     adv_patch = adv_patch.to(device)
 
     tbx_writer = SummaryWriter(config.output_dir)
@@ -215,11 +215,12 @@ def evaluate_background(
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
 ):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{config.gpu_idx}" if torch.cuda.is_available() else "cpu")
     adv_patch = adv_patch.to(device)
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model()
+    model = trainer.load_model(device=device,mode='test')
+    model.to(device=device)
     model.eval()
 
     tp_fp_manager = TpFpManager(device=device)
