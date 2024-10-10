@@ -352,7 +352,7 @@ def main(cfg: DictConfig):
     trainer: BackgroundBaseTrainer = hydra.utils.instantiate(cfg.trainer)
 
     adv_bg_image_path = cfg.adv_bg_image_path
-    adv_patch = torch.load(adv_bg_image_path)
+    adv_patch = torch.load(adv_bg_image_path, map_location=torch.device("cpu"))
 
     with open_dict(cfg):
         cfg.ptmanager._partial_ = True

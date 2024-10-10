@@ -113,7 +113,7 @@ class BaseBackgroundManager:
 
         f1_score = f1(precision_score, recall_score)
         # duq = data_utility_quority(len(ground_trhuth), tp, fp)
-        torch.save(patch, path)
+        torch.save(patch.requires_grad_(False).cpu(), path)
         out_str = "f1: " + str(f1_score)
         if f1_score < self.best_score:
             self.best_score = f1_score
