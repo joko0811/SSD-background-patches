@@ -28,11 +28,12 @@ def save_detection(
     background_manager: BaseBackgroundManager,
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
+    device: torch.device,
 ):
     device = torch.device(f"cuda:{config.gpu_idx}" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model(device=device,mode='test')
+    model = trainer.load_model(device=device, mode="test")
     model.to(device=device)
     model.eval()
     adv_patch = adv_patch.to(device)
@@ -96,11 +97,11 @@ def tbx_monitor(
     background_manager: BaseBackgroundManager,
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
+    device: torch.device,
 ):
-    device = torch.device(f"cuda:{config.gpu_idx}" if torch.cuda.is_available() else "cpu")
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model(device=device,mode='test')
+    model = trainer.load_model(device=device, mode="test")
     model.to(device=device)
     model.eval()
     adv_patch = adv_patch.to(device)
@@ -214,12 +215,12 @@ def evaluate_background(
     background_manager: BaseBackgroundManager,
     trainer: BackgroundBaseTrainer,
     config: DictConfig,
+    device: torch.device,
 ):
-    device = torch.device(f"cuda:{config.gpu_idx}" if torch.cuda.is_available() else "cpu")
     adv_patch = adv_patch.to(device)
 
     image_loader = trainer.get_dataloader()
-    model = trainer.load_model(device=device,mode='test')
+    model = trainer.load_model(device=device, mode="test")
     model.to(device=device)
     model.eval()
 
@@ -368,14 +369,17 @@ def main(cfg: DictConfig):
     # default is None
     background_manager.set_patch_postprosesser(patch_postprosesser=patch_postprocesser)
 
+    device = torch.device(f"cuda:{cfg.gpu_idx}" if torch.cuda.is_available() else "cpu")
+
     with torch.no_grad():
-        # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background)
-        # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background)
+        # save_detection(adv_patch, background_manager, trainer, cfg.evaluate_background, device)
+        # tbx_monitor(adv_patch, background_manager, trainer, cfg.evaluate_background, device)
         evaluate_background(
             adv_patch,
             background_manager,
             trainer,
             cfg.evaluate_background,
+            device,
         )
 
 
