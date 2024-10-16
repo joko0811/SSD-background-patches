@@ -16,7 +16,7 @@ class ConfidenceGradiationTPCLoss(ObjectDetectionBaseLoss):
             ground_truthes,
             iou_threshold_gradiation=self.iou_threshold_gradiation,
         )
-        w = (class_label == class_label.max()).to(dtype=torch.int)
+        w = (class_label == len(self.iou_threshold_gradiation)).to(dtype=torch.int)
 
         score = -1 * (
             (w * torch.log((1 - detections.conf) + 1e-9)).sum()
@@ -37,7 +37,10 @@ class ConfidenceGradiationFPCLoss(ObjectDetectionBaseLoss):
             ground_truthes,
             iou_threshold_gradiation=self.iou_threshold_gradiation,
         )
-        w = (class_label == (class_label.sort()[-2])).to(dtype=torch.int)
+        # w = (class_label == (class_label.sort()[-2])).to(dtype=torch.int)
+        w = (class_label == (len(self.iou_threshold_gradiation) - 1)).to(
+            dtype=torch.int
+        )
 
         score = -1 * (
             (w * torch.log(detections.conf + 1e-9)).sum()
