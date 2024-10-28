@@ -1,4 +1,4 @@
-confidence_gradiation_fpc:
+confidence_gradiation_tpc:
   func:
     _target_: "loss.confidence_gradiation.ConfidenceGradiationTPCLoss"
   weight: 1
