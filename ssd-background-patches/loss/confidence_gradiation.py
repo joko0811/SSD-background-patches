@@ -1,3 +1,5 @@
+from enum import IntEnum
+
 import torch
 
 from evaluation.detection import list_iou
@@ -64,3 +66,57 @@ def gradient_classification(
     )
 
     return class_label
+
+
+class BorderlineMode(IntEnum):
+    INSIDE = 0
+    ON_LINE = 1
+    OUTSIDE = 2
+
+
+class BorderlineLossBase(ObjectDetectionBaseLoss):
+    def __init__(
+        self,
+        theta_F: float = 0.3,
+        theta_T: float = 0.6,
+        mode: BorderlineMode = BorderlineMode.ON_LINE,
+    ):
+        self.iou_threshold_gradiation = [theta_F, theta_T]
+        self.mode = mode
+
+    def _calc_borderline_judgement_var(
+        self, detections: DetectionsBase, ground_truthes: DetectionsBase
+    ):
+        class_label = gradient_classification(
+            detections,
+            ground_truthes,
+            iou_threshold_gradiation=self.iou_threshold_gradiation,
+        )
+        b = (class_label == int(self.mode)).to(dtype=torch.int)
+        return b
+
+
+class BorderlineTPCLoss(BorderlineLossBase):
+
+    def __call__(self, detections: DetectionsBase, ground_truthes: DetectionsBase):
+        b = self._calc_borderline_judgement_var(detections, ground_truthes)
+
+        score = -1 * (
+            (b * torch.log((1 - detections.conf) + 1e-9)).sum()
+            # / len(detections)
+        )
+
+        return score
+
+
+class BorderlineFPCLoss(BorderlineLossBase):
+
+    def __call__(self, detections: DetectionsBase, ground_truthes: DetectionsBase):
+        b = self._calc_borderline_judgement_var(detections, ground_truthes)
+
+        score = -1 * (
+            (b * torch.log(detections.conf + 1e-9)).sum()
+            # / len(detections)
+        )
+
+        return score
