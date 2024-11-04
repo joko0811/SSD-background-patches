@@ -80,7 +80,7 @@ class BorderlineLossBase(ObjectDetectionBaseLoss):
         theta_F: float = 0.3,
         theta_T: float = 0.6,
         mode: BorderlineMode = BorderlineMode.ON_LINE,
-        normalize: bool = True,
+        normalize: bool = False,
     ):
         self.iou_threshold_gradiation = [theta_F, theta_T]
         self.mode = mode
