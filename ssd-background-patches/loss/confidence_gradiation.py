@@ -120,3 +120,17 @@ class BorderlineFPCLoss(BorderlineLossBase):
         if self.normalize and len(b.nonzero()) > 0:
             score = score / len(b.nonzero())
         return score
+
+
+class BorderlineNumberLoss(BorderlineLossBase):
+    """
+    The intention of the design is to increase the number of inference results for which the borderline judgment is true. For this reason, the loss value decreases as the number of inference results for which the borderline judgment is true increases.
+    The "normalize" argument is not used.
+    """
+
+    def __call__(self, detections: DetectionsBase, ground_truthes: DetectionsBase):
+        b = self._calc_borderline_judgement_var(detections, ground_truthes)
+
+        score = torch.exp(-b.sum())
+
+        return score

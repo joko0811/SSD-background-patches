@@ -1,0 +1,8 @@
+
+borderline_num:
+  func:
+    _target_: "loss.confidence_gradiation.BorderlineNumberLoss"
+    theta_F: 0.3
+    theta_T: 0.6
+  weight: 1
+  use_all_targets: False
