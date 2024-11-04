@@ -80,9 +80,11 @@ class BorderlineLossBase(ObjectDetectionBaseLoss):
         theta_F: float = 0.3,
         theta_T: float = 0.6,
         mode: BorderlineMode = BorderlineMode.ON_LINE,
+        normalize: bool = True,
     ):
         self.iou_threshold_gradiation = [theta_F, theta_T]
         self.mode = mode
+        self.normalize = normalize
 
     def _calc_borderline_judgement_var(
         self, detections: DetectionsBase, ground_truthes: DetectionsBase
@@ -101,11 +103,10 @@ class BorderlineTPCLoss(BorderlineLossBase):
     def __call__(self, detections: DetectionsBase, ground_truthes: DetectionsBase):
         b = self._calc_borderline_judgement_var(detections, ground_truthes)
 
-        score = -1 * (
-            (b * torch.log((1 - detections.conf) + 1e-9)).sum()
-            # / len(detections)
-        )
+        score = -1 * ((b * torch.log((1 - detections.conf) + 1e-9)).sum())
 
+        if self.normalize and len(b.nonzero()) > 0:
+            score = score / len(b.nonzero())
         return score
 
 
@@ -114,9 +115,8 @@ class BorderlineFPCLoss(BorderlineLossBase):
     def __call__(self, detections: DetectionsBase, ground_truthes: DetectionsBase):
         b = self._calc_borderline_judgement_var(detections, ground_truthes)
 
-        score = -1 * (
-            (b * torch.log(detections.conf + 1e-9)).sum()
-            # / len(detections)
-        )
+        score = -1 * ((b * torch.log(detections.conf + 1e-9)).sum())
 
+        if self.normalize and len(b.nonzero()) > 0:
+            score = score / len(b.nonzero())
         return score
