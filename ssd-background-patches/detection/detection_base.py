@@ -16,6 +16,9 @@ class DetectionsBase:
 
 
 class ObjectDetectionBase(DetectionsBase):
-    def __init__(self, conf_list, box_list, class_score_list, is_xywh=True):
-        super.__init__(conf_list, box_list, is_xywh)
-        self.class_score = class_score_list
+    def __init__(
+        self, conf_list, box_list, best_class_idx, class_score_list, is_xywh=True
+    ):
+        super().__init__(conf_list, box_list, is_xywh)
+        self.class_labels = best_class_idx
+        self.class_scores = class_score_list
