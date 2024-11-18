@@ -5,7 +5,8 @@ hydra:
 # プロジェクト全体で用いる設定
 defaults:
   - loss:
-    - confidence_gradiation_fpc
+    - borderline_fpc
+    - borderline_num
   - model: s3fd # 使用モデルの設定
   - dataset@monitor_dataset: casia_mini # 使用データセットの設定
   - dataset@evaluate_dataset: faceforensics_pp_train # 使用データセットの設定
@@ -14,12 +15,19 @@ defaults:
   - _self_
   - override hydra/sweeper: optuna
 
+loss:
+  borderline_num:
+    weight: 0.1
+  borderline_fpc:
+    func:
+      normalize: True
+
 # output file on this directory
 output_dir: ${hydra:runtime.output_dir}
 iou_threshold: 0.5
 
 # 実行モード指定
-mode: "monitor"
+mode: "evaluate"
 
 gpu_idx: 0
 
@@ -46,7 +54,7 @@ evaluate_trainer:
 
 # 敵対的画像生成時の設定
 train_parameters:
-  max_epoch: 150 # 一枚の画像ごとに摂動を加える最大回数
+  max_epoch: 100 # 一枚の画像ごとに摂動を加える最大回数
   # loss: ${loss}
   model_thresh: 0.6
   output_dir: ${output_dir}

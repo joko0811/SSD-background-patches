@@ -3,6 +3,6 @@ borderline_tpc:
   func:
     _target_: "loss.confidence_gradiation.BorderlineTPCLoss"
     theta_F: 0.3
-    theta_T: 0.6
+    theta_T: 0.9
   weight: 1
   use_all_targets: False
