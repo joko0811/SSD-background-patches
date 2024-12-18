@@ -5,8 +5,7 @@ hydra:
 # プロジェクト全体で用いる設定
 defaults:
   - loss:
-    - borderline_fpc
-    - borderline_num
+    - borderline_sbra
   - model: s3fd # 使用モデルの設定
   - dataset@monitor_dataset: casia_mini # 使用データセットの設定
   - dataset@evaluate_dataset: faceforensics_pp_train # 使用データセットの設定
@@ -14,13 +13,6 @@ defaults:
   - optim: ni_fgsm
   - _self_
   - override hydra/sweeper: optuna
-
-loss:
-  borderline_num:
-    weight: 0.1
-  borderline_fpc:
-    func:
-      normalize: True
 
 # output file on this directory
 output_dir: ${hydra:runtime.output_dir}
