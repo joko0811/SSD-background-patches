@@ -47,12 +47,13 @@ class TilingBackgroundManager(BaseBackgroundManager):
 
 
 class RandomPutTilingManager(TilingBackgroundManager):
-    def __init__(self, patch_size=(100, 200), put_num=10):
+    def __init__(self, patch_size=(100, 200), put_ratio=1):
         """
         Args:
             patch_size: tuple(H,W)タイル一枚のサイズを指定する
+            put_ratio: パッチを配置する割合を指定する
         """
-        self.put_num = put_num
+        self.put_ratio = put_ratio
         torch.manual_seed(0)
 
         super().__init__(patch_size)
@@ -80,7 +81,7 @@ class RandomPutTilingManager(TilingBackgroundManager):
         # タイルが縦何枚、横何枚配置できるか
         tiling_number = self.calc_tiling_number(image_size, patch.shape[1:])
 
-        # パッチが縦Y枚目、横X枚目であるかを示すインデックスをランダムにput_num個分取得
+        # パッチが縦Y枚目、横X枚目であるかを示すインデックスをランダムにput_ratio分取得
         put_patch_idx = self._random_select_patch_idx(tiling_number, seed)
 
         # パッチの縦Y枚目、横X枚目の表現をtiling_patchの座標xyxyに変換
@@ -102,15 +103,14 @@ class RandomPutTilingManager(TilingBackgroundManager):
             tiling_number: タイリング後のパッチの縦横枚数(H,W)
             patch_num: パッチを選択する枚数
         Return:
-            パッチが縦Y枚目、横X枚目であるかを示すインデックスをランダムにput_num個分取得
+            パッチが縦Y枚目、横X枚目であるかを示すインデックスをランダムにput_ratio分取得
         """
 
         if seed is not None:
             torch.manual_seed(seed)
 
         # 0から(w * h - 1)までの整数をランダムな順序で並べたテンソルを生成し、n件まで取得
-        tiling_num = torch.randperm(tiling_number[0] * tiling_number[1])[: self.put_num]
-        # NOTE: 選択可能な領域がnum以下である時は選択可能な領域分だけパッチを配置する
+        tiling_num = torch.randperm(tiling_number[0] * tiling_number[1])[: self.put_ratio*tiling_number[0]*tiling_number[1]]
         # 行と列のインデックスに変換
         tiling_h = (tiling_num / tiling_number[1]).to(dtype=torch.int)
         tiling_w = (tiling_num % tiling_number[1]).to(dtype=torch.int)
