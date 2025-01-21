@@ -85,7 +85,7 @@ class RandomPutTilingManager(TilingBackgroundManager):
 
         # パッチの縦Y枚目、横X枚目の表現をtiling_patchの座標xyxyに変換
         put_patch_xyxy = self._patch_idx_2_tiling_idx(
-            put_patch_idx, tiling_patch.shape[1:]
+            put_patch_idx, tiling_patch.shape[1:], patch.shape[1:]
         )
 
         # 画像上
@@ -118,13 +118,13 @@ class RandomPutTilingManager(TilingBackgroundManager):
 
         return tiling_idx
 
-    def _patch_idx_2_tiling_idx(self, patch_idx, image_size):
+    def _patch_idx_2_tiling_idx(self, patch_idx, image_size, patch_size):
         """パッチの縦Y枚目、横X枚目の表現をtiling後の座標表現xyxyに変換
         Args:
             patch_idx: k個のタイリング後のパッチに対してのインデックス。縦N枚目、横M枚目でk*M*N
             image_size: タイリング後の形状H*W
         """
-        tensor_patch_size = torch.tensor(self.patch_size)
+        tensor_patch_size = torch.tensor(patch_size)
 
         # タイルの縦Y枚目、横M枚目をput_tile_posのx,y座標に変換
         tile_yx1 = tensor_patch_size * patch_idx
@@ -133,7 +133,7 @@ class RandomPutTilingManager(TilingBackgroundManager):
         tile_yx1[:, 1] = torch.clamp(tile_yx1[:, 1], min=0, max=image_size[1])  # x
 
         # NOTE:リストの範囲指定用なので実際の座標ではない
-        # 実際の座標を求めたいときは(tile_yx1 + self.patch_size - 1)
+        # 実際の座標を求めたいときは(tile_yx1 + patch_size - 1)
         tile_yx2 = tile_yx1 + tensor_patch_size
 
         # 座標を画像のインデックス範囲内に収める
