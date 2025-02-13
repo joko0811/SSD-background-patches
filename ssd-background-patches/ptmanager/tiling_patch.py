@@ -63,7 +63,6 @@ class RandomPutTilingManager(TilingBackgroundManager):
 
         パッチを隙間なく配置した時の格子上に区切られた区画を元に配置
         格子をランダムに指定された数だけ選択する
-        NOTE: 選択可能な領域がput_num以下である時は選択可能な領域分だけパッチを配置する
 
         Args:
             kwargs:
@@ -110,7 +109,7 @@ class RandomPutTilingManager(TilingBackgroundManager):
             torch.manual_seed(seed)
 
         # 0から(w * h - 1)までの整数をランダムな順序で並べたテンソルを生成し、n件まで取得
-        tiling_num = torch.randperm(tiling_number[0] * tiling_number[1])[: self.put_ratio*tiling_number[0]*tiling_number[1]]
+        tiling_num = torch.randperm(tiling_number[0] * tiling_number[1])[:int(self.put_ratio*tiling_number[0]*tiling_number[1])]
         # 行と列のインデックスに変換
         tiling_h = (tiling_num / tiling_number[1]).to(dtype=torch.int)
         tiling_w = (tiling_num % tiling_number[1]).to(dtype=torch.int)
@@ -209,3 +208,44 @@ class ScalableTilingManager(TilingBackgroundManager):
         rescaled_patch = transforms.functional.resize(patch, rescale_patch_size)
 
         return super().transform_patch(rescaled_patch, image_size)
+
+class ScalableRandomPutTilingManager(RandomPutTilingManager):
+    """
+    基本はRandomPutTilingManagerと同様
+    ただし、画像毎に一つの検出に合わせてパッチサイズが変動する
+    """
+
+    def __init__(self, patch_size=(100, 200), put_ratio=10, patch_det_size_ratio=6.66):
+        """
+        Args:
+            patch_size: tuple(H,W)タイル一枚のサイズを指定する
+        """
+        self.patch_det_size_ratio = patch_det_size_ratio
+        super().__init__(patch_size, put_ratio)
+
+    def transform_patch(self, patch, image_size, **kwargs):
+        """
+        Args:
+            patch:
+            image_size: (H,W)
+            kwargs:
+                det_size: [N,2] N個の検出の幅と高さ(H,W)
+        """
+        if "det_size" not in kwargs:
+            raise ValueError('argument "det_size" is must required')
+        det_height = kwargs["det_size"][:, :, 0] * image_size[0]
+        det_width = kwargs["det_size"][:, :, 1] * image_size[1]
+
+        det_area = det_width * det_height
+        patch_size_magnification = torch.sqrt(
+            (self.patch_det_size_ratio * det_area[0, 0])
+            / (self.patch_size[0] * self.patch_size[1])
+        )
+        rescale_patch_size = (
+            (torch.tensor(self.patch_size) * patch_size_magnification)
+            .to(dtype=torch.int)
+            .tolist()
+        )
+
+        rescaled_patch = transforms.functional.resize(patch, rescale_patch_size)
+        return super().transform_patch(rescaled_patch, image_size, **kwargs)
