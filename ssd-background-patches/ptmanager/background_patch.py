@@ -22,3 +22,10 @@ class BackgroundManager(BaseBackgroundManager):
         patch = transforms.functional.resize(patch, image_size)
         mask = torch.ones((1,) + image_size).to(device=patch.device)
         return patch, mask
+
+
+class AllBackgroundManager(BackgroundManager):
+
+    def apply(self, patch, patch_mask, image_list, mask_list):
+        applied_patch = patch.repeat((image_list.shape[0], 1, 1, 1))
+        return applied_patch
