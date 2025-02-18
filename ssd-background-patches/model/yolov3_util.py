@@ -11,10 +11,11 @@ from detection.detection_base import ObjectDetectionBase
 
 class YoloTrainer(BaseTrainer):
 
+    YOLO_IMG_SIZE = 416
     YOLO_TRANSFORMS = transforms.Compose(
         [
             transforms.ToTensor(),
-            transforms.Resize((416, 416)),
+            transforms.Resize((YOLO_IMG_SIZE, YOLO_IMG_SIZE)),
         ]
     )
 
@@ -48,11 +49,21 @@ class YoloTrainer(BaseTrainer):
             else:
                 detections_list.append(
                     ObjectDetectionBase(
-                        det[:, 4], det[:, :4], det[:, 5], det[:, 6:], is_xywh=False
+                        det[:, 4],
+                        det[:, :4] / self.YOLO_IMG_SIZE,
+                        det[:, 5],
+                        det[:, 6:],
+                        is_xywh=False,
                     ),
                 )
 
         return detections_list
+
+    def transformed2pil(self, pic, scale=None):
+        if scale is None:
+            return transforms.functional.to_pil_image(pic)
+        rs_pic = transforms.functional.resize(pic, scale)
+        return transforms.functional.to_pil_image(rs_pic)
 
 
 def load_model(weights_path, device):

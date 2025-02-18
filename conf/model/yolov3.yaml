@@ -1,2 +1,2 @@
-trainer: model.yolo_util.YoloTrainer
+trainer: model.yolov3_util.YoloTrainer
 weights_path: "weights/yolov3-tiny.pt"
